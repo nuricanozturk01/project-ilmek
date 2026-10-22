@@ -1,8 +1,10 @@
 //! Test fixtures. Production code never depends on this crate.
 #![expect(
     clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "fixtures abort the test on failure"
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    missing_debug_implementations,
+    reason = "test fixtures abort the test on failure and are not a public API"
 )]
 
 mod clock;
@@ -16,5 +18,5 @@ pub use clock::ManualClock;
 pub use community::{Community, LOOPBACK, Member, Owner, free_port, invite};
 pub use host::{TestHost, start_host};
 pub use launcher::InProcessLauncher;
-pub use notes::{BackendHandles, NOTES_MIGRATIONS, NotesBackend, notes_launcher};
+pub use notes::{BackendHandles, NOTES_MIGRATIONS, NotesBackend, backend_launcher, notes_launcher};
 pub use packages::{PackageSpec, build_package};

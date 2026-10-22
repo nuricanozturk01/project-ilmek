@@ -50,3 +50,14 @@ A01–A24: all NOT RUN.
 
 - Leaf serial numbers are rcgen-derived (from the public key), not random; revisit with revocation.
 - No Wi-Fi, Android, or multi-host evidence of any kind.
+
+## Update — host, registry and client slices (software only, loopback)
+
+Implemented and tested over real TLS sockets on one machine (no Wi-Fi, no second device):
+registry (enrollment, names, leases, trust snapshots, revocation), host (packages, supervised
+backends, manifest/asset/call/subscribe service), client (enrollment, resumable verified download,
+operation-id preserving calls), Rust backend SDK (dedupe, event log, ack window).
+Backends in these tests run as in-process tasks; real child-process launching exists
+(`ProcessLauncher`) but is only exercised once the example binaries are tested (next).
+
+`cargo test --workspace`: 162 tests, `cargo clippy --workspace --all-targets -- -D warnings` clean.

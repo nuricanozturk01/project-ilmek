@@ -294,7 +294,7 @@ async fn fetch_file(
     ));
 
     for attempt in 0..2 {
-        let existing = fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
+        let existing = fs::metadata(&part).map_or(0, |m| m.len());
         let offset = if existing <= file.size_bytes {
             existing
         } else {

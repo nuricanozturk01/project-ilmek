@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notlar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header><h1>Notlar</h1><span id="connection" role="status" aria-live="polite"></span></header>
+  <main>
+    <aside aria-label="Not listesi">
+      <button id="new" type="button">Yeni not</button>
+      <ul id="notes"></ul>
+    </aside>
+    <form id="editor" hidden>
+      <label>Başlık <input name="title" maxlength="200" required></label>
+      <label>İçerik <textarea name="body" rows="12" maxlength="20000"></textarea></label>
+      <p id="draft-state" role="status"></p>
+      <div class="row">
+        <button type="submit">Kaydet</button>
+        <button id="delete" type="button">Sil</button>
+      </div>
+    </form>
+    <p id="notice" role="alert"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

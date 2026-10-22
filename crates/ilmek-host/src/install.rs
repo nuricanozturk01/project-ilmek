@@ -89,7 +89,7 @@ impl Installer {
             return Err(HostError::Conflict("package needs a newer runtime"));
         }
         let now = self.clock.now_ms();
-        let version_row = self.place(staged).await?;
+        let version_row = self.place(staged)?;
         let app = AppRow {
             app_id: manifest.app_id,
             namespace: manifest.namespace.clone(),
@@ -154,7 +154,7 @@ impl Installer {
                 "update must be newer than the active version",
             ));
         }
-        let version_row = self.place(staged).await?;
+        let version_row = self.place(staged)?;
         let activated = self
             .store
             .activate_new_version(
@@ -246,7 +246,7 @@ impl Installer {
     }
 
     /// Moves a verified staged package to its permanent, immutable location.
-    async fn place(&self, staged: &Staged) -> Result<VersionRow, HostError> {
+    fn place(&self, staged: &Staged) -> Result<VersionRow, HostError> {
         let manifest = &staged.package.manifest;
         let name = format!(
             "{}-{}",

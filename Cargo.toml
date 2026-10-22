@@ -11,6 +11,11 @@ members = [
     "crates/ilmek-app-sdk",
     "crates/ilmek-host",
     "crates/ilmek-testing",
+    "crates/ilmek-cli",
+    "crates/ilmek-runtime",
+    "apps/client/src-tauri",
+    "examples/forum/backend",
+    "examples/notes/backend",
 ]
 
 [workspace.package]
@@ -31,8 +36,13 @@ ilmek-package = { path = "crates/ilmek-package" }
 ilmek-app-sdk = { path = "crates/ilmek-app-sdk" }
 ilmek-host = { path = "crates/ilmek-host" }
 ilmek-testing = { path = "crates/ilmek-testing" }
+ilmek-runtime = { path = "crates/ilmek-runtime" }
+tauri = { version = "2.12.5", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
+tauri-build = { version = "2.7.4", features = [] }
+clap = { version = "4.6.7", features = ["derive"] }
 toml = "1.1.8"
 tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std", "ansi"] }
 rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
 tempfile = "3.27.0"
 base64 = "0.23.1"

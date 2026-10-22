@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ilmek-bridge"
+description = "Enables the ilmek_bridge command without any pre-configured scope."
+commands.allow = ["ilmek_bridge"]
+
+[[permission]]
+identifier = "deny-ilmek-bridge"
+description = "Denies the ilmek_bridge command without any pre-configured scope."
+commands.deny = ["ilmek_bridge"]

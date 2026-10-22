@@ -368,7 +368,6 @@ impl Inner {
                     "backend went away; repeat with the same operation id",
                 ));
             }
-            Ok(Err(_)) => return Err(Failure::new(ErrorCode::Internal, "backend protocol error")),
             Ok(Ok(IpcMessage::Result(result))) => {
                 if result.data.app_id != data.app_id
                     || result.data.operation_id != data.operation_id
@@ -384,7 +383,9 @@ impl Inner {
                 })
             }
             Ok(Ok(IpcMessage::Error(error))) => Message::Error(error),
-            Ok(Ok(_)) => return Err(Failure::new(ErrorCode::Internal, "backend protocol error")),
+            Ok(Err(_) | Ok(_)) => {
+                return Err(Failure::new(ErrorCode::Internal, "backend protocol error"));
+            }
         };
         let _ = reply.finish(&message).await;
         Ok(())

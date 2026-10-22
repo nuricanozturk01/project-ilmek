@@ -1,0 +1,11 @@
+app_id = "01a1647f-de10-7b9f-80ff-293c6f38d029"
+publisher_id = "01a1647f-de10-7e1a-8acf-c35e224c957c"
+namespace = "nuri"
+slug = "merhaba"
+name = "Merhaba"
+description = "Yerel CSS ve JavaScript ile etkileşimli statik sayfa."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
+permissions = []
+backend_required = false

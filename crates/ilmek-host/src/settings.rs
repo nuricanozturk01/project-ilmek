@@ -43,11 +43,17 @@ pub struct Settings {
     /// How often the lease is renewed at the registry.
     #[serde(default = "default_heartbeat_ms")]
     pub heartbeat_interval_ms: u64,
+    /// First delay before restarting a crashed backend; it doubles up to 30 s.
+    #[serde(default = "default_backoff_ms")]
+    pub restart_backoff_ms: u64,
     /// How often the revocation snapshot is refreshed (the protocol asks for at most 60 s).
     #[serde(default = "default_trust_ms")]
     pub trust_refresh_ms: u64,
 }
 
+fn default_backoff_ms() -> u64 {
+    1_000
+}
 fn default_heartbeat_ms() -> u64 {
     30_000
 }
@@ -95,6 +101,7 @@ impl Settings {
             && settings.backend_start_deadline_ms > 0
             && settings.reconcile_interval_ms > 0
             && settings.heartbeat_interval_ms > 0
+            && settings.restart_backoff_ms > 0
             && settings.trust_refresh_ms > 0;
         if !positive {
             return Err(SettingsError::Invalid("limits must be positive".into()));

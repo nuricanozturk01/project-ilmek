@@ -223,9 +223,8 @@ impl EventSubscription {
             subscription_id: self.subscribed.subscription_id,
         });
         match self.session.request(&request).await {
-            Ok(Message::Unsubscribed(_)) => Ok(()),
+            Ok(Message::Unsubscribed(_)) | Err(ClientError::Closed) => Ok(()),
             Ok(_) => Err(Error::UnexpectedReply("expected UNSUBSCRIBED")),
-            Err(ClientError::Closed) => Ok(()),
             Err(error) => Err(error.into()),
         }
     }

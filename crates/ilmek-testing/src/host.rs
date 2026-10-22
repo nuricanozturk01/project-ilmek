@@ -36,7 +36,7 @@ pub async fn start_host(
     let port = free_port();
     let data_dir = dir.path().join("host");
     let settings = Settings::parse(&format!(
-        "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nbackend_start_deadline_ms = 5000\ntrust_refresh_ms = 300\nheartbeat_interval_ms = 300\n",
+        "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nbackend_start_deadline_ms = 5000\ntrust_refresh_ms = 300\nheartbeat_interval_ms = 300\nrestart_backoff_ms = 20\n",
         data_dir.display(),
         member.device_dir().display(),
     ))

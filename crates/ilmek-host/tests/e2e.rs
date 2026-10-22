@@ -8,7 +8,7 @@ use ilmek_client::{AppClient, PackageCache, fetch_package};
 use ilmek_host::{AppState, Desired};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::{ErrorCode, Version};
-use support::{client_for, deploy, notes_spec, resolve, static_spec, wait_state, world};
+use support::{client_for, deploy, notes_spec, resolve, static_spec, world};
 use tokio_util::sync::CancellationToken;
 
 fn code(error: &ilmek_client::Error) -> Option<ErrorCode> {

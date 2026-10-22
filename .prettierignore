@@ -1,0 +1,7 @@
+target
+node_modules
+dist
+pnpm-lock.yaml
+docs/REQUIREMENTS.md
+tests/protocol/fixtures
+examples/**/assets

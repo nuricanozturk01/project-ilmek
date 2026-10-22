@@ -71,13 +71,13 @@ async fn reconcile_loop(env: Arc<Env>, slots: Arc<Slots>, shutdown: Cancellation
             continue;
         };
         for app in &apps {
-            if !running.contains_key(&app.app_id) {
+            running.entry(app.app_id).or_insert_with(|| {
                 let slot = slots.ensure(app.app_id);
                 let cancel = CancellationToken::new();
                 let supervisor = Supervisor::new(Arc::clone(&env), app.app_id, slot);
                 let task = tokio::spawn(supervisor.run(cancel.clone()));
-                running.insert(app.app_id, Running { cancel, task });
-            }
+                Running { cancel, task }
+            });
         }
         let finished: Vec<Uuid7> = running
             .iter()

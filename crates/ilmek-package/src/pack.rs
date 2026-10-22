@@ -72,6 +72,16 @@ pub fn pack(
     output: &Path,
 ) -> Result<PackedPackage, PackageError> {
     let spec = AppSpec::load(&source.join("app.toml"))?;
+    pack_spec(spec, source, signer, output)
+}
+
+/// Like [`pack`] but with an explicit spec, e.g. after overriding the publisher id.
+pub fn pack_spec(
+    spec: AppSpec,
+    source: &Path,
+    signer: &PublisherSigner,
+    output: &Path,
+) -> Result<PackedPackage, PackageError> {
     let assets_root = source.join(ASSETS_DIR);
     let mut found = Vec::new();
     collect(&assets_root, &assets_root, &mut found)?;

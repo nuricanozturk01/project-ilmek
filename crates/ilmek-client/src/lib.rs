@@ -7,6 +7,7 @@ mod download;
 mod enroll;
 mod error;
 mod registry_client;
+mod resolver;
 mod retry;
 
 pub use app::{AppClient, CallResult, Delivered, EventSubscription};
@@ -16,4 +17,5 @@ pub use download::{CachedPackage, PackageCache, Progress, ensure_not_revoked, fe
 pub use enroll::enroll;
 pub use error::Error;
 pub use registry_client::RegistryClient;
+pub use resolver::{Resolution, Resolver, Source};
 pub use retry::{RetryPolicy, retry_write};

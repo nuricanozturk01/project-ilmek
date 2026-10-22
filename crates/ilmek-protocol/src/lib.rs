@@ -1,5 +1,6 @@
 //! ILMEK/1 wire protocol primitives. No I/O lives here.
 
+pub mod address;
 pub mod digest;
 pub mod frame;
 pub mod ids;

@@ -1,0 +1,11 @@
+app_id = "01a1647f-de10-709a-bedd-6ba708a66717"
+publisher_id = "01a1647f-de10-7e1a-8acf-c35e224c957c"
+namespace = "nuri"
+slug = "notlar"
+name = "Notlar"
+description = "Cihaza özel notlar; eşzamanlı düzenleme korumalı."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
+permissions = ["app.call", "storage.local"]
+backend_required = true

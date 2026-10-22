@@ -73,6 +73,12 @@ impl PublisherSigner {
         Ok(Self::from_seed(&seed))
     }
 
+    /// The 32-byte secret seed, for writing the key to an owner-only file. Handle with care.
+    #[must_use]
+    pub fn seed(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
+
     #[must_use]
     pub fn from_seed(seed: &[u8; 32]) -> Self {
         Self(SigningKey::from_bytes(seed))

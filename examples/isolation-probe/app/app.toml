@@ -1,0 +1,11 @@
+app_id = "01a16490-0000-7000-8000-000000000001"
+publisher_id = "01a16490-0000-7000-8000-000000000002"
+namespace = "nuri"
+slug = "probe"
+name = "Isolation probe"
+description = "Hostile page used to verify the WebView boundary."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
+permissions = ["storage.local"]
+backend_required = false

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shell-refresh"
+description = "Enables the shell_refresh command without any pre-configured scope."
+commands.allow = ["shell_refresh"]
+
+[[permission]]
+identifier = "deny-shell-refresh"
+description = "Denies the shell_refresh command without any pre-configured scope."
+commands.deny = ["shell_refresh"]

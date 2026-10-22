@@ -3,3 +3,6 @@
 *.db-wal
 *.db-shm
 .env
+node_modules
+packages/*/dist
+apps/*/dist

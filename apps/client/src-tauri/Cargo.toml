@@ -1,0 +1,36 @@
+[package]
+name = "ilmek-client-app"
+description = "İlmek desktop client shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "ilmek-client"
+
+[lib]
+name = "ilmek_client_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ilmek-client"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+ilmek-client.workspace = true
+ilmek-core.workspace = true
+ilmek-protocol.workspace = true
+ilmek-runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

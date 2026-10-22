@@ -1,0 +1,36 @@
+[package]
+name = "ilmek-cli"
+description = "The `ilmek` command line tool"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "ilmek"
+path = "src/main.rs"
+
+[dependencies]
+base64.workspace = true
+clap.workspace = true
+ilmek-client.workspace = true
+ilmek-core.workspace = true
+ilmek-host.workspace = true
+ilmek-identity.workspace = true
+ilmek-package.workspace = true
+ilmek-protocol.workspace = true
+ilmek-registry.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "io-std", "io-util", "fs"] }
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

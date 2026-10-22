@@ -100,6 +100,8 @@ pub struct StatusRow {
     pub updated_at_ms: u64,
 }
 
+type StatusColumns = (String, Option<u32>, Unsigned, Option<String>, Unsigned);
+
 #[derive(Debug, Clone)]
 pub struct Store {
     db: Database,
@@ -442,7 +444,7 @@ impl Store {
     pub async fn status(&self, app_id: Uuid7) -> Result<Option<StatusRow>, HostError> {
         self.db
             .call(move |c| {
-                let row: Option<(String, Option<u32>, Unsigned, Option<String>, Unsigned)> = c
+                let row: Option<StatusColumns> = c
                     .query_row(
                         "SELECT state, pid, restarts, last_error, updated_at_ms FROM status WHERE app_id = ?1",
                         params![app_id.to_string()],

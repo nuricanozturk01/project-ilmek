@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shell-cached"
+description = "Enables the shell_cached command without any pre-configured scope."
+commands.allow = ["shell_cached"]
+
+[[permission]]
+identifier = "deny-shell-cached"
+description = "Denies the shell_cached command without any pre-configured scope."
+commands.deny = ["shell_cached"]

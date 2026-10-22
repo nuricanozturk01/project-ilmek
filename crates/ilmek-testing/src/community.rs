@@ -122,6 +122,28 @@ impl Community {
         self.enroll_with(&invite(&[PeerRole::Member])).await
     }
 
+    /// A member whose clock is independent of the community's, so tests can age one side only.
+    pub async fn member_with_clock(&self, clock: Arc<ManualClock>) -> Member {
+        let token = self
+            .registry
+            .create_invite(&invite(&[PeerRole::Member]))
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let device = enroll(&self.profile, &token, "test device", dir.path())
+            .await
+            .unwrap();
+        let peer_id = device.peer_id;
+        let connector = Connector::new(device, clock).unwrap();
+        let registry = RegistryClient::connect(&connector).await.unwrap();
+        registry.refresh_trust(connector.trust()).await.unwrap();
+        registry.close().await;
+        Member {
+            connector,
+            peer_id,
+            dir,
+        }
+    }
+
     pub async fn publisher(&self, namespace: &str) -> Owner {
         let member = self
             .enroll_with(&invite(&[PeerRole::Member, PeerRole::Publisher]))

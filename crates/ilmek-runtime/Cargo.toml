@@ -1,0 +1,33 @@
+[package]
+name = "ilmek-runtime"
+description = "Client runtime: sessions, the page bridge, local storage and content policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+getrandom.workspace = true
+ilmek-client.workspace = true
+ilmek-core.workspace = true
+ilmek-identity.workspace = true
+ilmek-package.workspace = true
+ilmek-protocol.workspace = true
+ilmek-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros", "fs"] }
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+ilmek-testing.workspace = true
+ilmek-host.workspace = true
+ilmek-registry.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+
+[lints]
+workspace = true

@@ -14,6 +14,7 @@ ilmek-core.workspace = true
 ilmek-identity.workspace = true
 ilmek-package.workspace = true
 tokio-util.workspace = true
+tracing.workspace = true
 ilmek-protocol.workspace = true
 serde.workspace = true
 serde_json.workspace = true

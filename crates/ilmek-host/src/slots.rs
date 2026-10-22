@@ -68,7 +68,7 @@ impl AppSlot {
 }
 
 #[derive(Debug)]
-pub struct Slots {
+pub(crate) struct Slots {
     inner: RwLock<HashMap<Uuid7, Arc<AppSlot>>>,
     max_inflight: usize,
     queue_depth: usize,
@@ -76,7 +76,7 @@ pub struct Slots {
 
 impl Slots {
     #[must_use]
-    pub fn new(max_inflight: usize, queue_depth: usize) -> Self {
+    pub(crate) fn new(max_inflight: usize, queue_depth: usize) -> Self {
         Self {
             inner: RwLock::new(HashMap::new()),
             max_inflight,
@@ -94,7 +94,7 @@ impl Slots {
     }
 
     #[must_use]
-    pub fn get(&self, app_id: Uuid7) -> Option<Arc<AppSlot>> {
+    pub(crate) fn get(&self, app_id: Uuid7) -> Option<Arc<AppSlot>> {
         self.inner
             .read()
             .unwrap_or_else(PoisonError::into_inner)

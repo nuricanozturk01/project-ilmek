@@ -1,0 +1,11 @@
+app_id = "01a1647f-de10-755f-beb4-79875d9e6368"
+publisher_id = "01a1647f-de10-7e1a-8acf-c35e224c957c"
+namespace = "nuri"
+slug = "forum"
+name = "Forum"
+description = "Konu açılan, yorum yapılan ortak forum."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
+permissions = ["app.call", "app.subscribe"]
+backend_required = true

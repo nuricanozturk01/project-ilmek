@@ -8,7 +8,7 @@ mod verify;
 
 pub use error::PackageError;
 pub use hashing::{FileDigest, hash_file};
-pub use pack::{PackedPackage, init_app, pack};
+pub use pack::{PackedPackage, init_app, pack, pack_spec};
 pub use spec::AppSpec;
 pub use verify::{Package, PackageLimits, copy_package, verify_dir, verify_manifest};
 

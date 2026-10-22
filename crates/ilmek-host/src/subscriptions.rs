@@ -64,12 +64,13 @@ impl Subscriptions {
 
     pub(crate) fn remove(&self, id: Uuid7) {
         let mut inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(entry) = inner.by_id.remove(&id) {
-            if let Some(count) = inner.per_session.get_mut(&entry.session_id) {
-                *count -= 1;
-                if *count == 0 {
-                    inner.per_session.remove(&entry.session_id);
-                }
+        let Some(entry) = inner.by_id.remove(&id) else {
+            return;
+        };
+        if let Some(count) = inner.per_session.get_mut(&entry.session_id) {
+            *count -= 1;
+            if *count == 0 {
+                inner.per_session.remove(&entry.session_id);
             }
         }
     }

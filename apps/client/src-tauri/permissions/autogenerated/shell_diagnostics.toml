@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shell-diagnostics"
+description = "Enables the shell_diagnostics command without any pre-configured scope."
+commands.allow = ["shell_diagnostics"]
+
+[[permission]]
+identifier = "deny-shell-diagnostics"
+description = "Denies the shell_diagnostics command without any pre-configured scope."
+commands.deny = ["shell_diagnostics"]

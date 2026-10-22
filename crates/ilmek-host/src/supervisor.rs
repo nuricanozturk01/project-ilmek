@@ -20,7 +20,7 @@ use crate::store::{AppRow, AppState, Desired, StatusRow, Store};
 
 const GRACEFUL_STOP: Duration = Duration::from_secs(5);
 const GIVE_UP_AFTER: u32 = 5;
-const HEALTHY_AFTER: Duration = Duration::from_secs(60);
+const HEALTHY_AFTER: Duration = Duration::from_mins(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 
 pub(crate) struct Env {
@@ -64,9 +64,8 @@ pub(crate) struct Supervisor {
     restarts: u64,
 }
 
-fn backoff(consecutive: u32) -> Duration {
-    Duration::from_secs(1)
-        .saturating_mul(2u32.saturating_pow(consecutive.saturating_sub(1)))
+fn backoff(base: Duration, consecutive: u32) -> Duration {
+    base.saturating_mul(2u32.saturating_pow(consecutive.saturating_sub(1)))
         .min(MAX_BACKOFF)
 }
 
@@ -200,7 +199,13 @@ impl Supervisor {
                 format!("{detail}; gave up after {GIVE_UP_AFTER} failures, restart it manually");
             self.set_status(AppState::Failed, None, Some(message)).await;
         } else {
-            self.failures.retry_at = Some(Instant::now() + backoff(self.failures.consecutive));
+            self.failures.retry_at = Some(
+                Instant::now()
+                    + backoff(
+                        Duration::from_millis(self.env.settings.restart_backoff_ms),
+                        self.failures.consecutive,
+                    ),
+            );
             self.set_status(AppState::Failed, None, Some(detail)).await;
         }
     }

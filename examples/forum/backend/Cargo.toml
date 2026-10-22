@@ -1,0 +1,35 @@
+[package]
+name = "ilmek-example-forum"
+description = "Forum example backend: topics and comments with SQLite persistence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ilmek-forum-backend"
+path = "src/main.rs"
+
+[dependencies]
+ilmek-app-sdk.workspace = true
+ilmek-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+ilmek-client.workspace = true
+ilmek-host.workspace = true
+ilmek-protocol.workspace = true
+ilmek-testing.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+
+[lints]
+workspace = true

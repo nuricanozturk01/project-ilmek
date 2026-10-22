@@ -1,0 +1,11 @@
+app_id = "01a1647f-de10-7f4d-a116-e8feb0d83858"
+publisher_id = "01a1647f-de10-7149-966a-9dd48364f211"
+namespace = "ece"
+slug = "duyurular"
+name = "Duyurular"
+description = "Ayrı yayıncıdan statik duyuru sayfası."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
+permissions = []
+backend_required = false

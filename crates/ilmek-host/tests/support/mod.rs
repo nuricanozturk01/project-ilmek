@@ -25,7 +25,7 @@ where
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    panic!("timed out waiting for {what}");
+    unreachable!("timed out waiting for {what}");
 }
 
 pub(crate) async fn wait_state(host: &TestHost, app_id: Uuid7, state: AppState) {
