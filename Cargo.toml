@@ -1,0 +1,74 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/ilmek-protocol",
+    "crates/ilmek-identity",
+    "crates/ilmek-core",
+    "crates/ilmek-store",
+    "crates/ilmek-registry",
+    "crates/ilmek-client",
+    "crates/ilmek-package",
+    "crates/ilmek-app-sdk",
+    "crates/ilmek-host",
+    "crates/ilmek-testing",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+ilmek-protocol = { path = "crates/ilmek-protocol" }
+ilmek-identity = { path = "crates/ilmek-identity" }
+ilmek-core = { path = "crates/ilmek-core" }
+ilmek-store = { path = "crates/ilmek-store" }
+ilmek-registry = { path = "crates/ilmek-registry" }
+ilmek-client = { path = "crates/ilmek-client" }
+ilmek-package = { path = "crates/ilmek-package" }
+ilmek-app-sdk = { path = "crates/ilmek-app-sdk" }
+ilmek-host = { path = "crates/ilmek-host" }
+ilmek-testing = { path = "crates/ilmek-testing" }
+toml = "1.1.8"
+tracing = "0.1.44"
+rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
+tempfile = "3.27.0"
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"
+getrandom = "0.4.3"
+rustls-pki-types = "1.15.1"
+rcgen = { version = "0.14.10", features = ["x509-parser"] }
+time = "0.3.55"
+tokio = "1.54.1"
+tokio-util = "0.7.20"
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }
+x509-parser = "0.18.1"
+hex = "0.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+uuid = { version = "1.28.0", features = ["v7"] }
+proptest = "1.12.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+module_name_repetitions = "allow"
+doc_markdown = "allow"
+missing_errors_doc = "allow"
