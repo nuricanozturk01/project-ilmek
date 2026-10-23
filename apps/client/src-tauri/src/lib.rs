@@ -11,13 +11,22 @@ mod windows;
 use tauri::Manager;
 
 pub fn run() {
-    tracing_subscriber::fmt().with_writer(std::io::stderr).with_ansi(false).init();
+    let level = std::env::var("ILMEK_LOG")
+        .ok()
+        .and_then(|text| text.parse::<tracing::Level>().ok())
+        .unwrap_or(tracing::Level::WARN);
+    tracing_subscriber::fmt()
+        .with_max_level(level)
+        .with_writer(std::io::stderr)
+        .with_ansi(false)
+        .init();
     let result = tauri::Builder::default()
         .register_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .setup(|app| {
             let root = state::data_root(app.handle())?;
             app.manage(state::Shell::new(root));
-            open_startup_address(app.handle().clone());
+            windows::wipe_web_data(app.handle());
+            open_startup_addresses(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -42,15 +51,20 @@ pub fn run() {
     }
 }
 
-/// `ilmek-client ilmek://publisher/app` opens that application right after start-up.
-fn open_startup_address(app: tauri::AppHandle) {
-    let Some(address) = std::env::args().nth(1).filter(|arg| arg.starts_with("ilmek://")) else {
-        return;
-    };
-    tauri::async_runtime::spawn(async move {
-        let shell = app.state::<state::Shell>();
-        if let Err(error) = commands::open_address(&app, &shell, &address, "startup").await {
-            tracing::error!(code = error.code, "could not open the start-up address");
-        }
-    });
+/// `ilmek-client ilmek://publisher/app ...` opens those applications right after start-up.
+fn open_startup_addresses(app: &tauri::AppHandle) {
+    for (index, address) in std::env::args()
+        .skip(1)
+        .filter(|arg| arg.starts_with("ilmek://"))
+        .enumerate()
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let shell = app.state::<state::Shell>();
+            let transfer = format!("startup-{index}");
+            if let Err(error) = commands::open_address(&app, &shell, &address, &transfer).await {
+                tracing::error!(code = error.code, "could not open a start-up address");
+            }
+        });
+    }
 }

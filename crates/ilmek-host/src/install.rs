@@ -1,4 +1,4 @@
-//! Package installation: stage, verify, then activate atomically (README §17.5).
+//! Package installation: stage, verify, then activate atomically (REQUIREMENTS §17.5).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

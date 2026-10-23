@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["net", "time", "sync", "rt", "macros", "
 
 [dev-dependencies]
 tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util"] }
 
 [lints]
 workspace = true

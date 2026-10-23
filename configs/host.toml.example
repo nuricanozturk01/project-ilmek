@@ -1,0 +1,11 @@
+# Application host (HOST-1 in the reference plan). `advertised` is mandatory so a multi-homed
+# machine never publishes a VPN or internet address.
+data_dir = "/var/lib/ilmek/host"
+device_dir = "/var/lib/ilmek/host-device"   # created by `ilmek identity enroll`
+listen = "10.77.10.10:47401"
+advertised = "10.77.10.10:47401"
+max_connections = 128
+app_max_inflight = 16
+app_queue_depth = 64
+call_deadline_ms = 12000
+trust_refresh_ms = 60000

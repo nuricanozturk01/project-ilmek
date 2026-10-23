@@ -1,4 +1,4 @@
-//! `ilmek://namespace/slug[/path]` application addresses (README §12).
+//! `ilmek://namespace/slug[/path]` application addresses (REQUIREMENTS §12).
 
 use std::fmt;
 use std::str::FromStr;

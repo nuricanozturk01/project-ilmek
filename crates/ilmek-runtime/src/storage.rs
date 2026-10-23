@@ -1,5 +1,5 @@
 //! Per-application key-value storage, scoped by community, device identity and application
-//! (README §18.3). Applications cannot name any other scope.
+//! (REQUIREMENTS §18.3). Applications cannot name any other scope.
 
 use std::path::Path;
 

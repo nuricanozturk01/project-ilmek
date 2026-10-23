@@ -1,63 +1,26 @@
-# Progress
+# İlmek — Progress Notes (resume file)
 
-Environment: Linux x86_64, 16 cores, rustc/cargo 1.96.0, node 24.17, pnpm 12.14, sqlite 3.50,
-adb 1.0.41, docker 29.9. Missing: `just`, `iw`. No git repository yet. This host is a dev machine,
-not one of the NODE/HOST/PHONE devices; no network configuration has been touched.
+Last update: 2026-10-23. Environment: Linux x86_64 dev box (not a NODE/HOST/PHONE). Revision 42167b8 + uncommitted changes (nothing committed).
 
-## Done
+## State
 
-- Stage 0: workspace (`Cargo.toml`, toolchain pin, lints, rustfmt/clippy config).
-- Stage 1 (partial): `crates/ilmek-protocol` — frame codec, strict JSON, UUIDv7, message catalog,
-  envelope, hash preimages. No sockets or TLS yet.
-- `crates/ilmek-identity`: community CA, CSR-based leaf issuance (CA decides SANs, validity, key
-  usage; requester fields ignored), peer-id extraction, Ed25519 publisher keys/manifest signatures
-  (fixture signature verifies and is reproduced from the test seed).
-- `crates/ilmek-core::tls`: TLS 1.3-only rustls (ring) client/server, ALPN `ilmek/1`, resumption
-  and early data off, mTLS + enrollment endpoint, post-handshake peer-id check, handshake deadlines.
-- Fixtures: supplied file carried `ADA` identifiers; regenerated for ILMEK, see
-  `docs/decisions/0001-fixture-rename.md`.
+- fmt, clippy `-D warnings` clean; `cargo test --workspace` 230 passed; JS lint/typecheck/test/build clean.
+- Smoke: `scripts/smoke/{local-processes,multi-app,backup-restore}.sh` PASS; `scripts/e2e/isolation-probe.sh` PASS (Linux only).
+- Done this session: `ilmek network plan|apply|rollback|status`; `ilmek backup registry|host|verify|restore-*`;
+  configs/, deploy/systemd/; docs (README, REQUIREMENTS move, ARCHITECTURE, NETWORK_SETUP, SECURITY,
+  APP_DEVELOPMENT, OPERATIONS, IPC, HARDWARE_INVENTORY, TEST_REPORT); P13/P23/renewal tests; test-port flake fix;
+  `.deb` built (not installed).
+- Decisions: docs/decisions 0001-0004.
 
-## Evidence
+## Next executable steps
 
-`cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
-`cargo test --workspace`: clean, 45 tests passing (2026-10-22, linux x86_64, no VCS revision).
-
-## Conformance (PROTOCOL.md §20)
-
-| ID | Status | Note |
-| --- | --- | --- |
-| P01 | PASS | fixtures round-trip byte-for-byte |
-| P02 | PASS | byte-at-a-time + proptest chunking |
-| P03 | PASS | two frames in one read |
-| P04 | PASS | lengths rejected from the 12-byte prefix, before payload buffering |
-| P05 | PASS | UUIDv7 rules, duplicate keys, BOM, bad UTF-8 (unknown-field rejection of typed `data` schemas still open) |
-| P06 | PASS (loopback) | wrong CA (both directions), wrong IP SAN, wrong peer id, expired cert, foreign ALPN, non-TLS bytes; client-side ALPN check untested |
-| P07–P24 | NOT RUN | need HELLO state machine, registry, host |
-
-A01–A24: all NOT RUN.
-
-## Next
-
-1. Revocation: trust snapshot store + serial check after handshake (P17, P18, P22, A24).
-2. Typed `data` schemas per message (strict, unknown fields rejected).
-3. `ilmek-core` connection: frame IO over TLS, HELLO/HELLO_ACK state machine (P07), deadlines
-   (30 s frame, 5 s HELLO), single writer queue.
-4. Two-process test: HELLO + GET_MANIFEST + bulk asset with hash check (stage 1 gate).
-5. CA/key persistence (`ilmek community init`), key file permissions.
-6. Replace stale spec claims about fixtures (owner of README/PROTOCOL).
+1. Android client (user will do/test it themselves). Android SDK/NDK/emulator exist on the dev box; no rustup android targets installed.
+2. Install and launch the `.deb`; build AppImage (needs network for tooling); Windows/macOS builds.
+3. Real hardware: A01 inventory (`ilmek doctor`, `iw list`) then first `ilmek network apply` with console access.
+4. Start the systemd units as services on a throwaway machine; adjust OPERATIONS.md.
+5. Commit when the user asks.
 
 ## Known gaps
 
-- Leaf serial numbers are rcgen-derived (from the public key), not random; revisit with revocation.
-- No Wi-Fi, Android, or multi-host evidence of any kind.
-
-## Update — host, registry and client slices (software only, loopback)
-
-Implemented and tested over real TLS sockets on one machine (no Wi-Fi, no second device):
-registry (enrollment, names, leases, trust snapshots, revocation), host (packages, supervised
-backends, manifest/asset/call/subscribe service), client (enrollment, resumable verified download,
-operation-id preserving calls), Rust backend SDK (dedupe, event log, ack window).
-Backends in these tests run as in-process tasks; real child-process launching exists
-(`ProcessLauncher`) but is only exercised once the example binaries are tested (next).
-
-`cargo test --workspace`: 162 tests, `cargo clippy --workspace --all-targets -- -D warnings` clean.
+Registry CA key is an owner-only file; Windows ACL gap; WebView2/WKWebView/Android isolation unverified;
+no physical hardware tested; no CI config.

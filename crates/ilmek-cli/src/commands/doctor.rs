@@ -1,4 +1,4 @@
-//! Read-only inventory of what this machine offers (README §8.3). It changes nothing.
+//! Read-only inventory of what this machine offers (REQUIREMENTS §8.3). It changes nothing.
 
 use std::process::{Command, Stdio};
 

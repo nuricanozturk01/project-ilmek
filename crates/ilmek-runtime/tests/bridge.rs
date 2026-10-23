@@ -97,3 +97,17 @@ fn the_content_security_policy_gives_pages_no_network_of_their_own() {
     }
     assert!(policy.contains("connect-src ipc: http://ipc.localhost"));
 }
+
+#[test]
+fn the_embedded_sdk_matches_the_built_package() {
+    let embedded = ilmek_runtime::SDK_SCRIPT;
+    assert!(embedded.contains("ilmek_bridge") && embedded.contains("__ilmekDeliver"));
+    let built = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../packages/sdk-js/dist/ilmek-sdk.iife.js");
+    if let Ok(fresh) = std::fs::read_to_string(&built) {
+        assert_eq!(
+            fresh, embedded,
+            "crates/ilmek-runtime/assets/ilmek-sdk.iife.js is stale; run scripts/packaging/sync-sdk.sh"
+        );
+    }
+}

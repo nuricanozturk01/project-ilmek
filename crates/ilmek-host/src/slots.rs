@@ -7,7 +7,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::link::BackendLink;
 
-/// Bounds concurrent and queued work per application (README §15.2).
+/// Bounds concurrent and queued work per application (REQUIREMENTS §15.2).
 #[derive(Debug)]
 pub struct CallGate {
     permits: Arc<Semaphore>,

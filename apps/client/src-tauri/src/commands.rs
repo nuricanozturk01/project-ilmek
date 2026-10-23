@@ -1,3 +1,8 @@
+#![expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri injects command arguments and scheme-handler parameters by value"
+)]
+
 use std::sync::Arc;
 
 use ilmek_runtime::{CachedApp, CatalogPage, Client, Response, Status};
@@ -23,8 +28,16 @@ pub(crate) struct ShellState {
 
 #[tauri::command]
 pub(crate) async fn shell_state(shell: State<'_, Shell>) -> UiResult<ShellState> {
-    let Some(client) = shell.client() else { return Ok(ShellState { joined: false, status: None }) };
-    Ok(ShellState { joined: true, status: Some(client.refresh().await) })
+    let Some(client) = shell.client() else {
+        return Ok(ShellState {
+            joined: false,
+            status: None,
+        });
+    };
+    Ok(ShellState {
+        joined: true,
+        status: Some(client.refresh().await),
+    })
 }
 
 #[tauri::command]
@@ -35,7 +48,14 @@ pub(crate) async fn shell_join(
     token: String,
     name: String,
 ) -> UiResult<()> {
-    Client::join(&shell.root, profile.as_bytes(), fingerprint.trim(), token.trim(), name.trim()).await?;
+    Client::join(
+        &shell.root,
+        profile.as_bytes(),
+        fingerprint.trim(),
+        token.trim(),
+        name.trim(),
+    )
+    .await?;
     shell.reset_client();
     Ok(())
 }
@@ -86,7 +106,10 @@ pub(crate) async fn open_address(
 ) -> UiResult<Opened> {
     let client = client(shell)?;
     let label = shell.next_label();
-    let sink = Arc::new(WindowSink { app: app.clone(), label: label.clone() });
+    let sink = Arc::new(WindowSink {
+        app: app.clone(),
+        label: label.clone(),
+    });
     let cancel = shell.begin_transfer(transfer_id);
 
     let progress_app = app.clone();
@@ -113,7 +136,10 @@ pub(crate) async fn open_address(
     let (session, source) = opened?;
     shell.add_session(&label, Arc::clone(&session));
     windows::open_app_window(app, &label, &session)?;
-    Ok(Opened { label, stale: source == ilmek_client::Source::StaleCache })
+    Ok(Opened {
+        label,
+        stale: source == ilmek_client::Source::StaleCache,
+    })
 }
 
 #[tauri::command]
@@ -140,7 +166,10 @@ pub(crate) struct HistoryView {
 #[tauri::command]
 pub(crate) fn shell_history(shell: State<'_, Shell>) -> UiResult<HistoryView> {
     let client = client(&shell)?;
-    Ok(HistoryView { visited: client.visited(), bookmarks: client.bookmarks() })
+    Ok(HistoryView {
+        visited: client.visited(),
+        bookmarks: client.bookmarks(),
+    })
 }
 
 #[tauri::command]
@@ -168,6 +197,15 @@ pub(crate) async fn ilmek_bridge(
     shell: State<'_, Shell>,
     request: serde_json::Value,
 ) -> UiResult<Response> {
-    let session = shell.session(webview.label()).ok_or(UiError::new("forbidden"))?;
-    Ok(session.handle(request).await)
+    let session = shell
+        .session(webview.label())
+        .ok_or(UiError::new("forbidden"))?;
+    let operation = request
+        .get("op")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("?")
+        .to_owned();
+    let response = session.handle(request).await;
+    tracing::debug!(operation, "bridge request handled");
+    Ok(response)
 }

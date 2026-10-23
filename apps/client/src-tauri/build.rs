@@ -1,7 +1,7 @@
 //! Every command is listed here so that capabilities decide who may call it: the main window
 //! gets the `shell_*` commands, application windows get only `ilmek_bridge`.
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let commands = &[
         "shell_state",
         "shell_join",
@@ -20,6 +20,6 @@ fn main() {
     tauri_build::try_build(
         tauri_build::Attributes::new()
             .app_manifest(tauri_build::AppManifest::new().commands(commands)),
-    )
-    .expect("failed to run the Tauri build script");
+    )?;
+    Ok(())
 }

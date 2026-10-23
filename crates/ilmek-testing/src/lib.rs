@@ -2,6 +2,7 @@
 #![expect(
     clippy::unwrap_used,
     clippy::missing_panics_doc,
+    clippy::panic,
     clippy::must_use_candidate,
     missing_debug_implementations,
     reason = "test fixtures abort the test on failure and are not a public API"

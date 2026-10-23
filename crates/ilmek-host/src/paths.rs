@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::Version;
 
-/// Directory layout of one application (README §15.1): packages, data, logs, backups.
+/// Directory layout of one application (REQUIREMENTS §15.1): packages, data, logs, backups.
 #[derive(Debug, Clone)]
 pub(crate) struct AppPaths {
     root: PathBuf,
@@ -33,7 +33,7 @@ impl AppPaths {
     }
 
     /// Copies `app.db` aside when the backend is about to start a different version, so a
-    /// migration can be undone from a backup (README §17.5).
+    /// migration can be undone from a backup (REQUIREMENTS §17.5).
     pub(crate) fn backup_before_version_change(&self, next: Version) {
         let previous = std::fs::read_to_string(self.marker()).ok();
         let database = self.data().join("app.db");

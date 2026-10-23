@@ -1,4 +1,4 @@
-//! Fetching and verifying application packages (README §17.4, PROTOCOL.md §11).
+//! Fetching and verifying application packages (REQUIREMENTS §17.4, PROTOCOL.md §11).
 //!
 //! Progress counts bytes actually received. Nothing becomes visible until every file's size and
 //! SHA-256 and the manifest signature have been verified.
@@ -419,4 +419,312 @@ pub fn ensure_not_revoked(trust: &TrustStore, record: &AppRecord) -> Result<(), 
         return Err(Error::PublisherRevoked);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    //! A hostile host that follows the handshake but misbehaves while streaming an asset
+    //! (PROTOCOL.md §11, P13). Runs over an in-memory connection with the real session code on
+    //! both ends.
+
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use ilmek_core::clock::SystemClock;
+    use ilmek_core::peer::PeerCredentials;
+    use ilmek_core::session::{
+        ClientParams, ClientSession, ConnectionParams, Handler, PeerGate, Reply,
+        ServerSessionConfig, Verdict, serve_connection,
+    };
+    use ilmek_protocol::Uuid7;
+    use ilmek_protocol::digest::sha256;
+    use ilmek_protocol::wire::{
+        AssetChunk, AssetEnd, AssetInfo, Message, Mode, Payload, ServerRole, Version,
+    };
+    use tokio::io::duplex;
+
+    use super::*;
+
+    const FILE_LEN: usize = 3000;
+    const CHUNK_LEN: usize = 1000;
+
+    #[derive(Clone, Copy, Debug)]
+    enum Behavior {
+        Honest,
+        /// Chunk sequence numbers jump from 0 to 2.
+        SkippedSequence,
+        /// The second chunk claims an offset that does not follow the first.
+        WrongChunkOffset,
+        /// More bytes than the manifest declares.
+        BeyondDeclaredSize,
+        /// `ASSET_INFO` ignores the requested resume offset.
+        InfoIgnoresOffset,
+        /// `ASSET_END` reports a different byte count.
+        WrongTotalSent,
+        /// A chunk arrives before `ASSET_INFO`.
+        ChunkBeforeInfo,
+        /// Everything is consistent, but the bytes are not the declared file.
+        WrongBytes,
+    }
+
+    struct Hostile {
+        content: Vec<u8>,
+        behavior: Behavior,
+    }
+
+    impl Handler for Hostile {
+        async fn handle(&self, request: Message, reply: Reply) {
+            let Message::GetAsset(get) = request else {
+                return;
+            };
+            let offset = usize::try_from(get.offset).unwrap();
+            let info = AssetInfo {
+                app_id: get.app_id,
+                version: get.version,
+                path: get.path.clone(),
+                asset_hash: get.asset_hash,
+                total_size: self.content.len() as u64,
+                offset: if matches!(self.behavior, Behavior::InfoIgnoresOffset) {
+                    0
+                } else {
+                    get.offset
+                },
+                chunk_size: CHUNK_LEN as u64,
+            };
+            let chunk = |sequence: u64, at: u64, body: Vec<u8>| {
+                Message::AssetChunk(Payload {
+                    data: AssetChunk {
+                        sequence,
+                        offset: at,
+                    },
+                    body,
+                })
+            };
+            let mut body = self.content[offset..].to_vec();
+            if matches!(self.behavior, Behavior::WrongBytes) {
+                body[0] ^= 0xff;
+            }
+
+            if matches!(self.behavior, Behavior::ChunkBeforeInfo) {
+                let _ = reply.send(&chunk(0, get.offset, body)).await;
+                return;
+            }
+            let _ = reply.send(&Message::AssetInfo(info)).await;
+            let mut sent = 0u64;
+            for (index, part) in body.chunks(CHUNK_LEN).enumerate() {
+                let mut sequence = index as u64;
+                let mut at = get.offset + sent;
+                match self.behavior {
+                    Behavior::SkippedSequence if index == 1 => sequence += 1,
+                    Behavior::WrongChunkOffset if index == 1 => at += 1,
+                    _ => {}
+                }
+                let _ = reply.send(&chunk(sequence, at, part.to_vec())).await;
+                sent += part.len() as u64;
+            }
+            if matches!(self.behavior, Behavior::BeyondDeclaredSize) {
+                let _ = reply
+                    .send(&chunk(
+                        u64::try_from(body.len().div_ceil(CHUNK_LEN)).unwrap(),
+                        get.offset + sent,
+                        vec![0; CHUNK_LEN],
+                    ))
+                    .await;
+            }
+            let total_sent = if matches!(self.behavior, Behavior::WrongTotalSent) {
+                sent + 1
+            } else {
+                sent
+            };
+            let _ = reply
+                .finish(&Message::AssetEnd(AssetEnd {
+                    asset_hash: get.asset_hash,
+                    total_sent,
+                }))
+                .await;
+        }
+    }
+
+    struct AllowAll;
+
+    impl PeerGate for AllowAll {
+        fn check(&self, _peer: Option<&PeerCredentials>) -> Verdict {
+            Verdict::Allow
+        }
+    }
+
+    struct Rig {
+        bulk: ClientSession,
+        record: AppRecord,
+        file: ManifestFile,
+        content: Vec<u8>,
+        dir: tempfile::TempDir,
+    }
+
+    fn content() -> Vec<u8> {
+        (0..FILE_LEN)
+            .map(|n| u8::try_from(n % 251).unwrap())
+            .collect()
+    }
+
+    async fn rig(behavior: Behavior) -> Rig {
+        let content = content();
+        let community = Uuid7::generate();
+        let server_id = Uuid7::generate();
+        let config = ServerSessionConfig::new(
+            server_id,
+            ServerRole::Host,
+            community,
+            Arc::new(SystemClock),
+        );
+        let (near, far) = duplex(256 * 1024);
+        tokio::spawn(serve_connection(
+            far,
+            ConnectionParams {
+                peer: Some(PeerCredentials {
+                    id: Uuid7::generate(),
+                    serial: "01".into(),
+                }),
+                remote_ip: None,
+                config: Arc::new(config),
+                handler: Arc::new(Hostile {
+                    content: content.clone(),
+                    behavior,
+                }),
+                gate: Arc::new(AllowAll),
+                shutdown: CancellationToken::new(),
+            },
+        ));
+        let bulk = ClientSession::open(
+            near,
+            ClientParams {
+                mode: Mode::Bulk,
+                community_id: community,
+                expected_server_id: server_id,
+                expected_role: ServerRole::Host,
+                client_name: "test".into(),
+                client_version: Version::new(1, 0, 0),
+                request_timeout: Duration::from_secs(5),
+            },
+        )
+        .await
+        .unwrap();
+
+        let app_id = Uuid7::generate();
+        let record: AppRecord = serde_json::from_value(serde_json::json!({
+            "community_id": community.to_string(),
+            "namespace": "nuri",
+            "slug": "forum",
+            "app_id": app_id.to_string(),
+            "publisher_id": Uuid7::generate().to_string(),
+            "server_id": server_id.to_string(),
+            "endpoint": { "ip": "127.0.0.1", "port": 47401 },
+            "version": "1.0.0",
+            "manifest_hash": Hash::from_bytes([7; 32]).to_string(),
+            "publisher_key_id": Hash::from_bytes([8; 32]).to_string(),
+            "publisher_public_key": "AAAA",
+            "name": "Forum",
+            "description": "test",
+            "revision": 1,
+            "lease_expires_at_ms": 0,
+            "availability": "recent_heartbeat",
+        }))
+        .unwrap();
+        let file = ManifestFile {
+            path: "assets/blob.bin".parse().unwrap(),
+            size_bytes: FILE_LEN as u64,
+            sha256: Hash::from_bytes(sha256(&content)),
+        };
+        Rig {
+            bulk,
+            record,
+            file,
+            content,
+            dir: tempfile::tempdir().unwrap(),
+        }
+    }
+
+    async fn run_stream(rig: &Rig, offset: u64) -> (Result<(), Error>, Vec<u8>) {
+        let part = rig.dir.path().join("blob.part");
+        if offset > 0 {
+            let start = usize::try_from(offset).unwrap();
+            fs::write(&part, &rig.content[..start]).unwrap();
+        }
+        let result = stream_into(
+            &rig.bulk,
+            &rig.record,
+            &rig.file,
+            &part,
+            offset,
+            &CancellationToken::new(),
+            &mut |_| {},
+        )
+        .await;
+        (result, fs::read(&part).unwrap_or_default())
+    }
+
+    #[tokio::test]
+    async fn an_honest_host_completes_fresh_and_resumed_transfers() {
+        let fresh = rig(Behavior::Honest).await;
+        let (result, bytes) = run_stream(&fresh, 0).await;
+        result.unwrap();
+        assert_eq!(bytes, fresh.content);
+
+        let resumed = rig(Behavior::Honest).await;
+        let (result, bytes) = run_stream(&resumed, 1500).await;
+        result.unwrap();
+        assert_eq!(bytes, resumed.content);
+    }
+
+    #[tokio::test]
+    async fn chunk_sequence_offset_size_and_total_deviations_are_rejected() {
+        for behavior in [
+            Behavior::SkippedSequence,
+            Behavior::WrongChunkOffset,
+            Behavior::BeyondDeclaredSize,
+            Behavior::WrongTotalSent,
+            Behavior::ChunkBeforeInfo,
+        ] {
+            let rig = rig(behavior).await;
+            let (result, _) = run_stream(&rig, 0).await;
+            assert!(
+                matches!(result, Err(Error::UnexpectedReply(_))),
+                "{behavior:?} was not rejected: {result:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_host_that_ignores_the_resume_offset_is_rejected() {
+        let rig = rig(Behavior::InfoIgnoresOffset).await;
+        let (result, _) = run_stream(&rig, 1000).await;
+        assert!(
+            matches!(result, Err(Error::UnexpectedReply(_))),
+            "{result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn bytes_that_do_not_match_the_declared_hash_are_never_accepted() {
+        let rig = rig(Behavior::WrongBytes).await;
+        let partial = rig.dir.path().join("pkg");
+        fs::create_dir_all(partial.join(ASSETS_DIR).join("assets")).unwrap();
+        let result = fetch_file(
+            &rig.bulk,
+            &rig.record,
+            &rig.file,
+            &partial,
+            &CancellationToken::new(),
+            |_| {},
+        )
+        .await;
+        assert!(matches!(result, Err(Error::Integrity(_))), "{result:?}");
+        let target = partial.join(ASSETS_DIR).join("assets/blob.bin");
+        assert!(!target.exists(), "a file with the wrong hash was activated");
+        let leftovers: Vec<_> = fs::read_dir(partial.join(ASSETS_DIR).join("assets"))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert!(leftovers.is_empty(), "a bad partial file was kept");
+    }
 }

@@ -1,5 +1,6 @@
-//! SQLite with forward-only migrations and consistent backups (README §22).
+//! SQLite with forward-only migrations and consistent backups (REQUIREMENTS §22).
 
+mod backup;
 mod migrate;
 mod unsigned;
 
@@ -11,6 +12,10 @@ use rusqlite::Connection;
 use rusqlite::backup::Backup;
 use thiserror::Error;
 
+pub use backup::{
+    BackupError, BackupReport, MANIFEST_FILE, RestoreReport, backup_tree, restore_tree,
+    verify_backup,
+};
 pub use migrate::Migration;
 pub use rusqlite;
 pub use unsigned::Unsigned;
@@ -101,7 +106,7 @@ impl Database {
             backup.run_to_completion(BACKUP_PAGES_PER_STEP, Duration::from_millis(10), None)?;
             Ok(())
         })?;
-        verify_integrity(&target)
+        finish_copy(&target)
     }
 }
 
@@ -115,7 +120,7 @@ pub fn backup_file(source: &Path, destination: &Path) -> Result<(), StoreError> 
     let copy = Backup::new(&source, &mut target)?;
     copy.run_to_completion(BACKUP_PAGES_PER_STEP, Duration::from_millis(10), None)?;
     drop(copy);
-    verify_integrity(&target)
+    finish_copy(&target)
 }
 
 /// Restores `backup` into a new database file after verifying it.
@@ -129,7 +134,15 @@ pub fn restore(backup: &Path, destination: &Path) -> Result<(), StoreError> {
     let copy = Backup::new(&source, &mut target)?;
     copy.run_to_completion(BACKUP_PAGES_PER_STEP, Duration::from_millis(10), None)?;
     drop(copy);
-    verify_integrity(&target)
+    finish_copy(&target)
+}
+
+/// Makes a copy self-contained: the source's WAL mode is carried over by the backup API, which
+/// would otherwise leave `-wal`/`-shm` side files next to the copy whenever it is opened.
+/// `Database::open` switches a database back to WAL itself.
+fn finish_copy(target: &Connection) -> Result<(), StoreError> {
+    target.pragma_update(None, "journal_mode", "DELETE")?;
+    verify_integrity(target)
 }
 
 fn verify_integrity(connection: &Connection) -> Result<(), StoreError> {

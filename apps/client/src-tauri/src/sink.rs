@@ -10,12 +10,16 @@ pub(crate) struct WindowSink {
 
 impl EventSink for WindowSink {
     fn emit(&self, event: &BridgeEvent) {
-        let Ok(json) = serde_json::to_string(event) else { return };
-        let Ok(literal) = serde_json::to_string(&json) else { return };
-        if let Some(window) = self.app.get_webview_window(&self.label) {
-            if let Err(error) = window.eval(format!("window.__ilmekDeliver({literal})")) {
-                tracing::debug!(%error, "could not deliver an event to {}", self.label);
-            }
+        let Ok(json) = serde_json::to_string(event) else {
+            return;
+        };
+        let Ok(literal) = serde_json::to_string(&json) else {
+            return;
+        };
+        if let Some(window) = self.app.get_webview_window(&self.label)
+            && let Err(error) = window.eval(format!("window.__ilmekDeliver({literal})"))
+        {
+            tracing::debug!(%error, "could not deliver an event to {}", self.label);
         }
     }
 }

@@ -1,0 +1,8 @@
+# Registry (runs on NODE-A in the reference plan; any reachable machine works).
+data_dir = "/var/lib/ilmek/registry"
+control_listen = "10.77.10.1:47401"   # mTLS
+enroll_listen = "10.77.10.1:47402"    # server-auth TLS + single-use token, enrollment only
+# Networks hosts may advertise endpoints in; empty refuses every address.
+allowed_endpoints = ["10.77.10.0/24", "10.77.20.0/24"]
+max_connections = 128
+revocation_refresh_ms = 2000

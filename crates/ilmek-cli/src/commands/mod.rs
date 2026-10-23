@@ -1,8 +1,10 @@
 mod app;
+mod backup;
 mod community;
 mod device;
 mod doctor;
 mod identity;
+mod network;
 mod publisher;
 mod serve;
 
@@ -31,6 +33,8 @@ pub(crate) async fn run(command: Command) -> CliResult {
             doctor::run();
             Ok(())
         }
+        Command::Network(c) => network::run(c),
+        Command::Backup(c) => backup::run(&c),
     }
 }
 

@@ -3,7 +3,7 @@
 **Sözleşme sürümü:** 1.0 — İlmek adlandırma ve UUIDv7 revizyonu  
 **Belge tarihi:** 22 Ekim 2026  
 **Durum:** İlk uygulama için normatif proje şartnamesi; yayımlanmış internet standardı veya denetlenmiş ürün değildir.  
-**Ürün ve kurulum:** [README.md](README.md)  
+**Ürün ve kurulum:** [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)  
 **Adlandırma:** Proje **İlmek**, İngilizce protokol adı **Ilmek Protocol**, sürüm `ILMEK/1`, ALPN `ilmek/1`, uygulama adres şeması `ilmek://`. Teknik tanımlayıcılar ASCII'dir.
 
 > Bu belge ILMEK/1 konuşan iki bağımsız uygulamanın aynı byte dizisini ve mesaj davranışını yorumlaması için yazılmıştır. MUST = zorunlu; MUST NOT = yasak; SHOULD = aksi gerekçelendirilmedikçe uygulanmalı. Uyumluluk, bu kuralları uygulamak ve test etmekle elde edilir; yalnızca bu belgeyi yazmakla kanıtlanmış olmaz.
@@ -589,7 +589,7 @@ Node'lar bu çizimde uygulama katmanı katılımcısı değildir; yukarıdaki ba
 ## 21. Belgeler arası öncelik ve açık sınırlar
 
 - Wire formatı, mesaj alanı, hata/timeout, imza preimage'i ve protokol davranışında bu dosya normatiftir.
-- Cihaz topolojisi, ürün kapsamı, kurulum ve teslimat gereksiniminde README normatiftir.
+- Cihaz topolojisi, ürün kapsamı, kurulum ve teslimat gereksiniminde docs/REQUIREMENTS.md normatiftir.
 - Bir çelişki görülürse uygulama sessizce birini seçmez; iki belge birlikte düzeltilir ve karar kaydı yazılır.
 - Burada ağ protokolü tanımlanmıştır. Donanım uyumluluğu, platform WebView izolasyonu, OS sertifika saklaması ve gerçek performans uygulama/test kapılarıdır.
 - Birim/entegrasyon testleri fiziksel iki-node kabulünün yerine geçmez.

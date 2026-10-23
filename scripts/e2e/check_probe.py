@@ -53,6 +53,7 @@ def find_databases(root: Path) -> list[Path]:
 
 def main() -> int:
     client_root, canary_log = Path(sys.argv[1]), Path(sys.argv[2])
+    expected_reports = 1 if "--single" in sys.argv else 2
     databases = find_databases(client_root)
     failures: list[str] = []
     reports = {}
@@ -60,8 +61,8 @@ def main() -> int:
         report = report_of(database)
         if report:
             reports[database.stem] = report["results"]
-    if len(reports) != 2:
-        print(f"expected two probe reports, found {len(reports)}: {list(reports)}")
+    if len(reports) != expected_reports:
+        print(f"expected {expected_reports} probe report(s), found {len(reports)}: {list(reports)}")
         return 1
 
     if os.environ.get("PROBE_VERBOSE"):

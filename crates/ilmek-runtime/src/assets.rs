@@ -1,4 +1,4 @@
-//! What an application page may load, and under which restrictions (README §18.2).
+//! What an application page may load, and under which restrictions (REQUIREMENTS §18.2).
 
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -668,3 +668,182 @@ async fn names_resolve_from_the_cache_while_the_registry_is_down_but_only_for_kn
         "after 24 hours without trust the cache is not enough"
     );
 }
+
+/// P23: a large transfer lives on its own bulk connection. While its reader is stalled (so the
+/// host's writer for that connection is backed up) the control connection of the same member
+/// still answers promptly, and the transfer then completes intact.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_stalled_bulk_transfer_does_not_delay_the_control_connection() {
+    use std::net::SocketAddr;
+    use std::time::Instant;
+
+    use ilmek_protocol::digest::sha256;
+    use ilmek_protocol::wire::{GetAsset, GetManifest, Hash, Message, Mode};
+
+    let world = world().await;
+    let mut spec = static_spec(
+        &world.owner,
+        Uuid7::generate(),
+        "agir",
+        Version::new(1, 0, 0),
+    );
+    let big: Vec<u8> = (0..24_000_000u32)
+        .map(|n| u8::try_from(n % 251).unwrap())
+        .collect();
+    spec.files.push(("data/big.bin", big.clone()));
+    let package = world.package("stall", &spec);
+    let (_, record) = deploy(&world.host, &world.owner, &package, false).await;
+    let member = world.member().await;
+    let address = SocketAddr::new(record.endpoint.ip.into(), record.endpoint.port);
+
+    let bulk = member
+        .connect_host(address, record.server_id, Mode::Bulk)
+        .await
+        .unwrap();
+    let mut stream = bulk
+        .open_stream(&Message::GetAsset(GetAsset {
+            app_id: record.app_id,
+            version: record.version,
+            manifest_hash: record.manifest_hash,
+            path: "data/big.bin".parse().unwrap(),
+            asset_hash: Hash::from_bytes(sha256(&big)),
+            offset: 0,
+        }))
+        .await
+        .unwrap();
+    assert!(matches!(
+        stream.next().await.unwrap(),
+        Some(Message::AssetInfo(_))
+    ));
+
+    // Stop reading: the host's writer for the bulk connection fills up and blocks.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    let control = member
+        .connect_host(address, record.server_id, Mode::Control)
+        .await
+        .unwrap();
+    let started = Instant::now();
+    let reply = control
+        .request(&Message::GetManifest(GetManifest {
+            app_id: record.app_id,
+            version: record.version,
+            manifest_hash: record.manifest_hash,
+        }))
+        .await
+        .unwrap();
+    let elapsed = started.elapsed();
+    assert!(matches!(reply, Message::Manifest(_)));
+    assert!(
+        elapsed < Duration::from_secs(1),
+        "the control connection waited {elapsed:?} behind a stalled transfer"
+    );
+
+    // The stalled transfer was only paused, not damaged.
+    let mut received = 0u64;
+    loop {
+        match stream.next().await.unwrap() {
+            Some(Message::AssetChunk(chunk)) => received += chunk.body.len() as u64,
+            Some(Message::AssetEnd(end)) => {
+                assert_eq!(end.total_sent, big.len() as u64);
+                break;
+            }
+            other => panic!("unexpected frame {other:?}"),
+        }
+    }
+    assert_eq!(received, big.len() as u64);
+}
+
+/// P13, server half: the host refuses asset requests that do not match the manifest it serves.
+#[tokio::test(flavor = "multi_thread")]
+async fn asset_requests_that_disagree_with_the_manifest_are_refused() {
+    use std::net::SocketAddr;
+
+    use ilmek_core::session::ClientError;
+    use ilmek_protocol::digest::sha256;
+    use ilmek_protocol::wire::{GetAsset, Hash, Message, Mode};
+
+    let world = world().await;
+    let mut spec = static_spec(
+        &world.owner,
+        Uuid7::generate(),
+        "dosya",
+        Version::new(1, 0, 0),
+    );
+    let content = vec![9u8; 5_000];
+    spec.files.push(("data/file.bin", content.clone()));
+    let package = world.package("assets", &spec);
+    let (_, record) = deploy(&world.host, &world.owner, &package, false).await;
+    let member = world.member().await;
+    let address = SocketAddr::new(record.endpoint.ip.into(), record.endpoint.port);
+
+    let good = GetAsset {
+        app_id: record.app_id,
+        version: record.version,
+        manifest_hash: record.manifest_hash,
+        path: "data/file.bin".parse().unwrap(),
+        asset_hash: Hash::from_bytes(sha256(&content)),
+        offset: 0,
+    };
+    let refused = |request: GetAsset| {
+        let member = &member;
+        let record = &record;
+        async move {
+            // A refused transfer ends the bulk connection's single transfer slot, so each case
+            // uses its own connection.
+            let bulk = member
+                .connect_host(address, record.server_id, Mode::Bulk)
+                .await
+                .unwrap();
+            let mut stream = bulk.open_stream(&Message::GetAsset(request)).await.unwrap();
+            match stream.next().await {
+                Err(ClientError::Remote(data)) => data.code,
+                other => panic!("expected a refusal, got {other:?}"),
+            }
+        }
+    };
+
+    assert_eq!(
+        refused(GetAsset {
+            offset: 5_001,
+            ..good.clone()
+        })
+        .await,
+        ErrorCode::InvalidMessage
+    );
+    assert_eq!(
+        refused(GetAsset {
+            asset_hash: Hash::from_bytes([1; 32]),
+            ..good.clone()
+        })
+        .await,
+        ErrorCode::HashMismatch
+    );
+    assert_eq!(
+        refused(GetAsset {
+            manifest_hash: Hash::from_bytes([2; 32]),
+            ..good.clone()
+        })
+        .await,
+        ErrorCode::VersionConflict
+    );
+    assert_eq!(
+        refused(GetAsset {
+            path: "data/other.bin".parse().unwrap(),
+            ..good.clone()
+        })
+        .await,
+        ErrorCode::NotFound
+    );
+
+    // The same request, unmodified, is served.
+    let bulk = member
+        .connect_host(address, record.server_id, Mode::Bulk)
+        .await
+        .unwrap();
+    let mut stream = bulk.open_stream(&Message::GetAsset(good)).await.unwrap();
+    assert!(matches!(
+        stream.next().await.unwrap(),
+        Some(Message::AssetInfo(_))
+    ));
+}

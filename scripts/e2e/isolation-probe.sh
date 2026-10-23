@@ -45,24 +45,34 @@ PY
   lib_publish_static "$work/probe-$variant" "probe-$variant" "nuri/probe-$variant"
 done
 
-run_probe() { # slug expected-total-reports
-  ILMEK_DATA_DIR="$client_root" "$client" "ilmek://nuri/$1" 2>"$work/client-$1.log" &
+if [ -n "${PROBE_PAUSE:-}" ]; then
+  printf 'work=%s client_root=%s\n' "$work" "$client_root"
+  sleep "$PROBE_PAUSE"
+fi
+
+run_clients() { # expected-reports address...
+  local expected="$1"; shift
+  ILMEK_LOG="${ILMEK_LOG:-warn}" ILMEK_DATA_DIR="$client_root" "$client" "$@" 2>"$work/client.log" &
   local pid=$!
   pids+=($pid)
-  python3 -I "$root/scripts/e2e/wait_report.py" "$client_root" "$2" 60 \
-    || { cat "$work/client-$1.log" >&2; fail "the $1 probe never reported"; }
+  python3 -I "$root/scripts/e2e/wait_report.py" "$client_root" "$expected" 60 \
+    || { tail -40 "$work/client.log" >&2; fail "the probes never reported"; }
   sleep 1
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
 }
 
-step "run probe B, then probe A, each in a fresh client process"
-run_probe probe-b 1
-run_probe probe-a 2
-
-step "verify"
+step "run both probes at once in one client process"
+run_clients 2 ilmek://nuri/probe-a ilmek://nuri/probe-b
 python3 -I "$root/scripts/e2e/check_probe.py" "$client_root" "$work/canary.log"
-if grep -qiE "panick|secret-token|BEGIN (RSA|PRIVATE)" "$work"/client-*.log; then
+cp -r "$client_root/storage" "$work/first-run-storage"
+
+step "restart the client: web storage written by the first run must be gone"
+rm -rf "$client_root/storage"
+run_clients 1 ilmek://nuri/probe-a
+step "verify"
+python3 -I "$root/scripts/e2e/check_probe.py" "$client_root" "$work/canary.log" --single
+if grep -qiE "panick|secret-token|BEGIN (RSA|PRIVATE)" "$work/client.log"; then
   fail "client logs contain a panic or a secret"
 fi
 printf '\nISOLATION PROBE PASSED (Linux/WebKitGTK, one display, loopback network)\n'

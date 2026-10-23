@@ -1820,9 +1820,11 @@ dependencies = [
  "ilmek-core",
  "ilmek-host",
  "ilmek-identity",
+ "ilmek-network",
  "ilmek-package",
  "ilmek-protocol",
  "ilmek-registry",
+ "ilmek-store",
  "serde",
  "serde_json",
  "tempfile",
@@ -1966,6 +1968,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ilmek-network"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+]
+
+[[package]]
 name = "ilmek-package"
 version = "0.1.0"
 dependencies = [
@@ -2044,7 +2057,11 @@ dependencies = [
 name = "ilmek-store"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",

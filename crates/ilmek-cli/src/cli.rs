@@ -44,6 +44,113 @@ pub(crate) enum Command {
     Call(Call),
     /// Report what this machine can and cannot do for İlmek (read-only).
     Doctor,
+    /// Plan, apply and roll back the Wi-Fi/IP setup of a Linux routing node.
+    #[command(subcommand)]
+    Network(Network),
+    /// Back up, verify and restore registry and host data.
+    #[command(subcommand)]
+    Backup(Backup),
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum Backup {
+    /// Back up the registry data directory (safe while the registry runs).
+    Registry {
+        #[command(flatten)]
+        registry: RegistryConfig,
+        /// New directory to write the backup to; must not exist.
+        #[arg(long)]
+        out: PathBuf,
+        /// Also copy the CA and registry private keys. Without them a restore cannot issue or
+        /// renew certificates. The backup directory then holds secrets: keep it on encrypted
+        /// media.
+        #[arg(long)]
+        include_keys: bool,
+    },
+    /// Back up the host data directory: host database, installed packages, application data.
+    Host {
+        #[command(flatten)]
+        host: HostConfig,
+        /// New directory to write the backup to; must not exist.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Check a backup directory without changing anything.
+    Verify {
+        /// The backup directory.
+        #[arg(long)]
+        dir: PathBuf,
+    },
+    /// Restore a registry backup into the configured (new or empty) data directory.
+    RestoreRegistry {
+        #[command(flatten)]
+        registry: RegistryConfig,
+        /// The backup directory.
+        #[arg(long)]
+        from: PathBuf,
+    },
+    /// Restore a host backup into the configured (new or empty) data directory.
+    RestoreHost {
+        #[command(flatten)]
+        host: HostConfig,
+        /// The backup directory.
+        #[arg(long)]
+        from: PathBuf,
+    },
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct NodeConfigPath {
+    /// Path to the node configuration (see configs/node-a.toml.example).
+    #[arg(long)]
+    pub(crate) config: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct SnapshotDir {
+    /// Where change snapshots are kept. Defaults to `snapshot_dir` from `--config`, else
+    /// /var/lib/ilmek/network.
+    #[arg(long)]
+    pub(crate) snapshot_dir: Option<PathBuf>,
+    /// Node configuration, only used to find its `snapshot_dir`.
+    #[arg(long)]
+    pub(crate) config: Option<PathBuf>,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum Network {
+    /// Print every change that `apply` would make. Reads the machine; changes nothing.
+    Plan {
+        #[command(flatten)]
+        node: NodeConfigPath,
+    },
+    /// Apply the plan (root). Prints the plan first and refuses without `--yes`.
+    Apply {
+        #[command(flatten)]
+        node: NodeConfigPath,
+        /// Overrides `snapshot_dir` from the configuration.
+        #[arg(long)]
+        snapshot_dir: Option<PathBuf>,
+        /// Confirm that the printed plan may be applied.
+        #[arg(long)]
+        yes: bool,
+        /// Allow reconfiguring the interface that carries the default route or this login.
+        /// Only with console access to the machine.
+        #[arg(long)]
+        allow_management_interface: bool,
+    },
+    /// Undo an applied change (root). Defaults to the newest snapshot not yet rolled back.
+    Rollback {
+        #[command(flatten)]
+        snapshots: SnapshotDir,
+        #[arg(long)]
+        snapshot: Option<String>,
+    },
+    /// List snapshots and what they did.
+    Status {
+        #[command(flatten)]
+        snapshots: SnapshotDir,
+    },
 }
 
 #[derive(Debug, Args)]

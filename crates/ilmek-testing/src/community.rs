@@ -1,5 +1,5 @@
 use std::net::Ipv4Addr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use ilmek_client::{Connector, RegistryClient, enroll};
 use ilmek_identity::{CommunityProfile, PublisherSigner};
@@ -13,10 +13,25 @@ use crate::clock::ManualClock;
 
 pub const LOOPBACK: Ipv4Addr = Ipv4Addr::LOCALHOST;
 
+/// Free ports can be taken by a parallel test process between probing and binding.
+pub(crate) const START_ATTEMPTS: usize = 8;
+
+static HANDED_OUT: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+
+/// A port nobody has bound a moment ago. Never returns the same port twice in one process, which
+/// the OS may otherwise do right after the probe socket is closed. Another process can still take
+/// the port before it is bound, so callers that bind it retry (see [`Community::start`]).
 #[must_use]
 pub fn free_port() -> u16 {
-    let socket = std::net::TcpListener::bind((LOOPBACK, 0)).unwrap();
-    socket.local_addr().unwrap().port()
+    loop {
+        let socket = std::net::TcpListener::bind((LOOPBACK, 0)).unwrap();
+        let port = socket.local_addr().unwrap().port();
+        let mut handed_out = HANDED_OUT.lock().unwrap_or_else(PoisonError::into_inner);
+        if !handed_out.contains(&port) {
+            handed_out.push(port);
+            return port;
+        }
+    }
 }
 
 /// A running registry plus helpers to enroll devices into it.
@@ -26,7 +41,7 @@ pub struct Community {
     pub registry: Arc<Registry>,
     pub running: Option<RunningRegistry>,
     pub profile: CommunityProfile,
-    settings: Settings,
+    pub settings: Settings,
 }
 
 /// An enrolled device and its connector.
@@ -64,6 +79,17 @@ pub fn invite(roles: &[PeerRole]) -> InviteRequest {
 
 impl Community {
     pub async fn start() -> Self {
+        let mut last_error = String::new();
+        for _ in 0..START_ATTEMPTS {
+            match Self::try_start().await {
+                Ok(community) => return community,
+                Err(error) => last_error = error,
+            }
+        }
+        panic!("the test registry could not bind its ports: {last_error}");
+    }
+
+    async fn try_start() -> Result<Self, String> {
         let dir = tempfile::tempdir().unwrap();
         let settings = Settings::parse(&format!(
             "data_dir = \"{}\"\ncontrol_listen = \"127.0.0.1:{}\"\nenroll_listen = \"127.0.0.1:{}\"\nallowed_endpoints = [\"127.0.0.0/8\", \"10.77.0.0/16\"]\nrevocation_refresh_ms = 50\n",
@@ -83,15 +109,15 @@ impl Community {
         .unwrap();
         let clock = Arc::new(ManualClock::starting_now());
         let registry = Registry::open(settings.clone(), clock.clone()).unwrap();
-        let running = Some(registry.serve().await.unwrap());
-        Self {
+        let running = Some(registry.serve().await.map_err(|e| e.to_string())?);
+        Ok(Self {
             _dir: dir,
             clock,
             registry,
             running,
             profile,
             settings,
-        }
+        })
     }
 
     pub async fn restart(&mut self) {

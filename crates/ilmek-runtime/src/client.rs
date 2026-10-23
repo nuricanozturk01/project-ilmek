@@ -290,7 +290,11 @@ impl Client {
                             || app.file_name().to_string_lossy().into_owned(),
                             |m| format!("ilmek://{}/{}", m.namespace, m.slug),
                         );
-                    found.push(CachedApp { address, version: name, bytes: dir_size(&version.path()) });
+                    found.push(CachedApp {
+                        address,
+                        version: name,
+                        bytes: dir_size(&version.path()),
+                    });
                 }
             }
         }

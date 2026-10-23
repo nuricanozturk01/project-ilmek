@@ -1,0 +1,30 @@
+[Unit]
+Description=İlmek application host
+Documentation=file:///usr/share/doc/ilmek/OPERATIONS.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ilmek
+Group=ilmek
+ExecStart=/usr/local/bin/ilmek host serve --config /etc/ilmek/host.toml
+Restart=on-failure
+RestartSec=3
+# Application backends run as children of this unit with the same restrictions. A separate
+# process is not a sandbox for hostile code; only publishers you trust should get backends here.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+ReadWritePaths=/var/lib/ilmek/host /var/lib/ilmek/host-device
+
+[Install]
+WantedBy=multi-user.target

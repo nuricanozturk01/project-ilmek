@@ -10,6 +10,7 @@ members = [
     "crates/ilmek-package",
     "crates/ilmek-app-sdk",
     "crates/ilmek-host",
+    "crates/ilmek-network",
     "crates/ilmek-testing",
     "crates/ilmek-cli",
     "crates/ilmek-runtime",
@@ -35,6 +36,7 @@ ilmek-client = { path = "crates/ilmek-client" }
 ilmek-package = { path = "crates/ilmek-package" }
 ilmek-app-sdk = { path = "crates/ilmek-app-sdk" }
 ilmek-host = { path = "crates/ilmek-host" }
+ilmek-network = { path = "crates/ilmek-network" }
 ilmek-testing = { path = "crates/ilmek-testing" }
 ilmek-runtime = { path = "crates/ilmek-runtime" }
 tauri = { version = "2.12.5", default-features = false, features = ["wry", "compression", "common-controls-v6"] }

@@ -54,33 +54,65 @@ impl Shell {
     }
 
     pub(crate) fn next_label(&self) -> String {
-        format!("app-{}", self.window_counter.fetch_add(1, Ordering::Relaxed))
+        format!(
+            "app-{}",
+            self.window_counter.fetch_add(1, Ordering::Relaxed)
+        )
     }
 
     pub(crate) fn add_session(&self, label: &str, session: Arc<AppSession>) {
-        self.sessions.lock().unwrap_or_else(PoisonError::into_inner).insert(label.to_owned(), session);
+        self.sessions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(label.to_owned(), session);
     }
 
     pub(crate) fn session(&self, label: &str) -> Option<Arc<AppSession>> {
-        self.sessions.lock().unwrap_or_else(PoisonError::into_inner).get(label).cloned()
+        self.sessions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(label)
+            .cloned()
+    }
+
+    pub(crate) fn has_sessions(&self) -> bool {
+        !self
+            .sessions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_empty()
     }
 
     pub(crate) fn remove_session(&self, label: &str) -> Option<Arc<AppSession>> {
-        self.sessions.lock().unwrap_or_else(PoisonError::into_inner).remove(label)
+        self.sessions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(label)
     }
 
     pub(crate) fn begin_transfer(&self, id: &str) -> CancellationToken {
         let token = CancellationToken::new();
-        self.transfers.lock().unwrap_or_else(PoisonError::into_inner).insert(id.to_owned(), token.clone());
+        self.transfers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(id.to_owned(), token.clone());
         token
     }
 
     pub(crate) fn end_transfer(&self, id: &str) {
-        self.transfers.lock().unwrap_or_else(PoisonError::into_inner).remove(id);
+        self.transfers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(id);
     }
 
     pub(crate) fn cancel_transfer(&self, id: &str) {
-        if let Some(token) = self.transfers.lock().unwrap_or_else(PoisonError::into_inner).get(id) {
+        if let Some(token) = self
+            .transfers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(id)
+        {
             token.cancel();
         }
     }

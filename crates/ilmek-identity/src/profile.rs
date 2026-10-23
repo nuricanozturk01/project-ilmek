@@ -1,4 +1,4 @@
-//! Bootstrap profile: how a new device finds and authenticates the registry (README §12).
+//! Bootstrap profile: how a new device finds and authenticates the registry (REQUIREMENTS §12).
 
 use std::net::SocketAddrV4;
 
