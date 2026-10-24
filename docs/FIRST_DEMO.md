@@ -5,7 +5,8 @@ vermeden kendiliğinden katılır.
 
 > **Durum.** Bu akış tek makinede, ayrı süreçler olarak `127.0.0.1` üzerinde çalıştı (UDP keşif ve
 > otomatik katılma dahil). **İkinci gerçek bilgisayarda, gerçek ağda UDP yayın keşfi, macOS ve
-> masaüstü pencere hiç denenmedi.** Bu belge o ilk gerçek denemenin kılavuzudur. Dalda
+> masaüstü pencerenin macOS'ta açılması ve Chrome ile `ilmek://` bağlantısı hiç denenmedi.**
+> (Linux'ta pencere ve `xdg-open` yolu denendi, bkz. [TEST_REPORT](TEST_REPORT.md).) Bu belge o ilk gerçek denemenin kılavuzudur. Dalda
 > **güvenlik yoktur**; yalnızca güvendiğin bir ağda dene ([SECURITY](SECURITY.md)).
 
 Gerekenler: iki bilgisayar **aynı Wi-Fi/ağda** (aynı alt ağ, router'da "AP isolation" kapalı),
@@ -118,11 +119,49 @@ ILMEK_HOME=~/ilmek-host2 target/debug/ilmek host start --port 47412
 Node'u bulur, katılır, kendini kaydeder. Üzerine uygulama kurmak için aynı `ILMEK_HOME` ile
 `ilmek app pack | install | start | publish`.
 
-## 6. Masaüstü pencere (sonra)
+## 6. Masaüstü istemci: İlmek'in tarayıcısı
 
-`pnpm install && pnpm --filter @ilmek/client tauri dev` (Node 24 ve pnpm gerekir). "Bul ve katıl"
-düğmesi `ilmek join` ile aynı keşfi yapar. Pencere bu çalışmada **hiç açılmadı**; ilk denemeyi CLI
-ile yapmanı öneririm.
+İstemci bir pencere açar: adres çubuğu, katalog, uygulamalar kendi penceresinde (forum dahil, SDK
+köprüsüyle). CLI denemesi çalıştıktan sonra bunu dene.
+
+**Geliştirme modunda (hızlı, bağlantı kaydı yok):**
+
+```sh
+brew install node@24 && corepack enable            # Mac; pnpm 12 için
+pnpm install
+pnpm --filter @ilmek/client tauri dev
+```
+
+Pencerede **Bul ve katıl**'a bas (veya `ilmek join` zaten yaptıysa gerek yok), adres çubuğuna
+`ilmek://nuri/forum` yaz, **Aç**.
+
+**Paket olarak (Chrome'dan `ilmek://` açmak için şart):** macOS şemayı yalnızca kurulu bir `.app`
+için kaydeder.
+
+```sh
+pnpm --filter @ilmek/client tauri build --bundles app
+# çıktı: target/release/bundle/macos/İlmek.app
+cp -R "target/release/bundle/macos/İlmek.app" /Applications/
+open "/Applications/İlmek.app"                       # imzasız: ilk sefer sağ tık > Aç
+```
+
+Uygulama bir kez açılıp **Bul ve katıl** ile topluluğa katıldıktan sonra:
+
+```sh
+open "ilmek://nuri/forum"                             # Terminal'den: kaydın çalıştığını gösterir
+```
+
+Sonra Chrome'un adres çubuğuna `ilmek://nuri/forum` yaz. Chrome "İlmek'i açmak ister misin?" diye bir
+kez sorar, **Aç**'a bas. Adres çubuğu bunu arama sanırsa `ilmek://nuri/forum` içeren bir bağlantıya
+tıkla, ya da Terminal'deki `open` komutunu kullan. İstemci zaten açıksa yeni pencere aynı
+programda açılır (ikinci program başlamaz).
+
+Linux'ta uygulama her açılışta şemayı kullanıcı için kendisi kaydeder
+(`~/.local/share/applications/ilmek-client-handler.desktop`); `xdg-open ilmek://nuri/forum` ile
+dene. Windows kaydı da programın açılışında yapılır (denenmedi).
+
+Topluluğa katılmadan gelen bir bağlantı yalnızca ana pencereyi (katılma ekranını) gösterir; önce
+katıl, sonra bağlantıyı tekrar aç.
 
 ## Hata bildirirken gönder
 

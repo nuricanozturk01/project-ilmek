@@ -1,0 +1,4 @@
+node is running: registry 0.0.0.0:47401, application host 0.0.0.0:47402
+data: /home/nuricanozturk/Desktop/project-ilmek/scripts/ilmek-demo
+other devices on this network: run `ilmek join` (finds this node by itself), or `ilmek join --registry <this machine's IP>:47401`
+publish an app: ilmek app pack <dir> --out pkg, then ilmek app install pkg, ilmek app start <ns>/<slug>, ilmek app publish <ns>/<slug>

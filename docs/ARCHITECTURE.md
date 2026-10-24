@@ -130,6 +130,22 @@ the backend over loopback IPC. Writes carry an operation ID; the backend commits
 change and its deduplication record in one SQLite transaction, so a retry after a lost reply
 returns the original result.
 
+**Opening a link from a browser.** The desktop client is İlmek's browser: address bar, catalog, one
+window per application. It registers itself as the operating system's handler of `ilmek://`
+(a packaged `.app` on macOS, a `.desktop` file written at start-up on Linux, the registry on Windows).
+A link typed or clicked in Chrome therefore starts the client, or, if it already runs, is forwarded to
+that instance by the `single-instance` plugin, which opens the application in a new window.
+Browsers cannot render `ilmek://` themselves and cannot register the scheme from a web page or
+extension; the operating system does it.
+
+```mermaid
+flowchart LR
+    C["Chrome: ilmek://nuri/forum"] --> OS["OS scheme handler"]
+    OS --> A["İlmek client (already running or started)"]
+    A --> N["find node, download, verify"]
+    N --> W["application window with the SDK bridge"]
+```
+
 ## Process boundaries
 
 1. **Network ↔ host/registry:** plain TCP. No encryption, no authentication.

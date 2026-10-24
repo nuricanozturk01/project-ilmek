@@ -69,10 +69,13 @@ target/debug/ilmek call ilmek://nuri/forum forum.topics.list
 If discovery finds nothing (a different subnet, UDP blocked), give the node's address:
 `ilmek join --registry 192.168.1.10:47401`.
 
-The desktop client opens applications in a window (`pnpm --filter @ilmek/client tauri dev`; its
-**Find and join** button does the same discovery). Its Rust shell compiles and its UI unit tests
-pass on Linux; the window itself was **not started** in this work session and nothing was run on
-macOS.
+The **desktop client is İlmek's browser**: it has an address bar, a catalog, and opens each
+application in its own window (`pnpm --filter @ilmek/client tauri dev`; its **Find and join** button
+does the same discovery). It also registers itself as the handler of `ilmek://` links, so typing
+`ilmek://nuri/forum` in Chrome (or `open ilmek://nuri/forum` in a terminal) opens the app in it
+([FIRST_DEMO](docs/FIRST_DEMO.md)). On Linux the window, a second start handing a link to the running
+instance, `xdg-open ilmek://…`, and the rendering of a static page and of the forum were verified;
+**nothing was run on macOS or Windows**, and Chrome itself was not used.
 
 **More machines** that should also host applications run `ilmek host start`: it finds the node,
 joins, and registers itself. See [NETWORK_SETUP](docs/NETWORK_SETUP.md).
