@@ -2,8 +2,7 @@
 
 **Branch:** `feat/simple-no-security`, based on `8da5f7b`, with **uncommitted** working-tree changes
 (nothing has been committed). **Date:** 2026-10-24.
-**Environment E1:** one Linux x86_64 development PC (Linux 7.0, rustc 1.96.0, Node 24.17.0, pnpm
-12.14.0), loopback networking only. **No other environment was available.** Nothing below ran on a
+**Environment E1:** one Linux x86_64 development PC (Linux 7.0, rustc 1.96.0, Node 24.17.0, Bun 1.3.14), loopback networking only. **No other environment was available.** Nothing below ran on a
 second computer, on a real LAN, on macOS, Windows or Android.
 
 Statuses: **PASS** executed, criterion met in the stated scope · **PARTIAL** the part testable in
@@ -19,7 +18,7 @@ nothing about another.
 | E1-1 | `cargo fmt --check` | clean |
 | E1-2 | `cargo clippy --workspace --all-targets` (workspace lints: `clippy::all` deny, pedantic warn) | no warnings |
 | E1-3 | `cargo test --workspace` | **172 passed, 0 failed** |
-| E1-4 | `pnpm typecheck`, `pnpm lint`, `pnpm test` in `apps/client` and `packages/sdk-js` | clean; client 13 tests, `@ilmek/sdk` 20 tests |
+| E1-4 | `bun run typecheck`, `bun run lint`, `bun run test`, `bun run build` at the repository root (both JS workspaces); `bun run tauri build --debug --no-bundle` with **no Node on PATH** (Bun only) built the client binary | clean; client 13 tests, `@ilmek/sdk` 20 tests |
 | E1-5 | `scripts/smoke/local-processes.sh` | PASS: registry + host + devices as **separate OS processes**: join by profile file, publish, resolve, download, calls, host restart keeps data, backend `kill -9` restarted, a second device cannot take over the namespace |
 | E1-6 | `scripts/smoke/multi-app.sh` (run 20 times in a row after the locking fix) | PASS every time: HOST-1 runs 3 applications, HOST-2 (own process and data) runs 2; data isolated; stopping one backend leaves others up; killing HOST-1 leaves HOST-2 reachable; HOST-1 returns with data |
 | E1-7 | `scripts/smoke/backup-restore.sh` | PASS: live registry+host backed up, data directories destroyed, restored, restarted, state equals backup point, writes work; tampered backup and non-empty target refused |

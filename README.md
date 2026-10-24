@@ -70,7 +70,7 @@ If discovery finds nothing (a different subnet, UDP blocked), give the node's ad
 `ilmek join --registry 192.168.1.10:47401`.
 
 The **desktop client is İlmek's browser**: it has an address bar, a catalog, and opens each
-application in its own window (`pnpm --filter @ilmek/client tauri dev`; its **Find and join** button
+application in its own window (`cd apps/client && bun run tauri dev`; its **Find and join** button
 does the same discovery). It also registers itself as the handler of `ilmek://` links, so typing
 `ilmek://nuri/forum` in Chrome (or `open ilmek://nuri/forum` in a terminal) opens the app in it
 ([FIRST_DEMO](docs/FIRST_DEMO.md)). On Linux the window, a second start handing a link to the running
@@ -120,13 +120,13 @@ Documentation: [FIRST_DEMO](docs/FIRST_DEMO.md) · [ARCHITECTURE](docs/ARCHITECT
 ## Build and test
 
 Toolchain versions are pinned in `rust-toolchain.toml` and `package.json`. Verified on Linux x86_64
-(Rust 1.96.0, Node 24, pnpm 12).
+(Rust 1.96.0, Bun 1.3; Node 24 is only needed for the JS unit tests, `vitest`).
 
 ```sh
 cargo build -p ilmek-cli                       # target/debug/ilmek
 cargo test --workspace                         # Rust tests (172)
 cargo clippy --workspace --all-targets         # no warnings
-pnpm install && pnpm -r lint && pnpm -r typecheck && pnpm -r test
+bun install && bun run lint && bun run typecheck && bun run test
 scripts/smoke/local-processes.sh               # real processes over loopback
 scripts/smoke/multi-app.sh                     # two hosts, several apps, kill and restart
 scripts/smoke/backup-restore.sh                # back up live data, destroy it, restore

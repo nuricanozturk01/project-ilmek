@@ -98,7 +98,7 @@ target/debug/ilmek call ilmek://nuri/forum forum.topics.list
 Node bulunamazsa (farklı alt ağ, UDP engelli) adresi verin:
 `ilmek join --registry 192.168.1.10:47401`. Adresi bulmak için Linux'ta `hostname -I`.
 
-Masaüstü penceresi için `pnpm --filter @ilmek/client tauri dev` ve "Bul ve katıl" düğmesi.
+Masaüstü penceresi için `cd apps/client && bun run tauri dev` ve "Bul ve katıl" düğmesi.
 
 ### Chrome'dan `ilmek://` açmak
 

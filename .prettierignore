@@ -1,7 +1,7 @@
 target
 node_modules
 dist
-pnpm-lock.yaml
+bun.lock
 docs/REQUIREMENTS.md
 tests/protocol/fixtures
 examples/**/assets

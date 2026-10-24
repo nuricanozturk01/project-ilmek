@@ -127,9 +127,9 @@ köprüsüyle). CLI denemesi çalıştıktan sonra bunu dene.
 **Geliştirme modunda (hızlı, bağlantı kaydı yok):**
 
 ```sh
-brew install node@24 && corepack enable            # Mac; pnpm 12 için
-pnpm install
-pnpm --filter @ilmek/client tauri dev
+brew install oven-sh/bun/bun                       # Bun (Node gerekmez)
+bun install
+cd apps/client && bun run tauri dev
 ```
 
 Pencerede **Bul ve katıl**'a bas (veya `ilmek join` zaten yaptıysa gerek yok), adres çubuğuna
@@ -139,7 +139,7 @@ Pencerede **Bul ve katıl**'a bas (veya `ilmek join` zaten yaptıysa gerek yok),
 için kaydeder.
 
 ```sh
-pnpm --filter @ilmek/client tauri build --bundles app
+cd apps/client && bun run tauri build --bundles app && cd ../..
 # çıktı: target/release/bundle/macos/İlmek.app
 cp -R "target/release/bundle/macos/İlmek.app" /Applications/
 open "/Applications/İlmek.app"                       # imzasız: ilk sefer sağ tık > Aç
