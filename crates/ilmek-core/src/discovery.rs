@@ -1,24 +1,41 @@
-//! LAN discovery, so a device can join without being handed a file.
+//! Finding a node, so a device can join without being handed a file or a community id.
 //!
-//! A node answers UDP datagrams on [`DISCOVERY_PORT`]. A device broadcasts a probe and takes the
-//! first answer: the community id, the registry's id and port. The registry's address is the
-//! source address of the answer, so neither side needs to know its own IP.
+//! Three ways, all giving the same [`CommunityProfile`]:
+//!
+//! 1. **UDP beacon.** A node answers datagrams on [`DISCOVERY_PORT`]; a device broadcasts a probe
+//!    and takes the first answer. The registry's address is the answer's source address.
+//! 2. **TCP scan.** If UDP is blocked (firewall, Wi-Fi client isolation of broadcasts), the device
+//!    tries the registry port on every address of its own /24 network.
+//! 3. **A known address.** [`probe_tcp`] asks one `ip:port` over plain TCP: the registry answers
+//!    a `HELLO` for the wrong community with an error that names its real community. Only the
+//!    registry's TCP port has to be reachable; UDP is not needed.
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ilmek_protocol::Uuid7;
+use ilmek_protocol::wire::{Mode, ServerRole, Version};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::net::UdpSocket;
-use tokio::time::{Instant, timeout_at};
+use tokio::net::{TcpStream, UdpSocket};
+use tokio::sync::Semaphore;
+use tokio::task::JoinSet;
+use tokio::time::{Instant, timeout, timeout_at};
 use tokio_util::sync::CancellationToken;
 
 use crate::community::CommunityProfile;
+use crate::session::{ClientError, ClientParams, ClientSession};
 
 /// UDP port a node listens on for probes.
 pub const DISCOVERY_PORT: u16 = 47400;
+/// The registry's usual TCP port; the one a scan tries.
+pub const DEFAULT_REGISTRY_PORT: u16 = 47401;
+/// How many addresses a scan tries at once.
+const SCAN_PARALLELISM: usize = 64;
+/// Time one scanned address gets to answer.
+const SCAN_PER_ADDRESS: Duration = Duration::from_millis(700);
 const PROBE: &[u8] = b"ILMEK-DISCOVER/1";
 const MAX_DATAGRAM: usize = 1024;
 
@@ -26,6 +43,15 @@ const MAX_DATAGRAM: usize = 1024;
 pub enum DiscoveryError {
     #[error("no İlmek node answered; is one running on this network? ({0})")]
     NoAnswer(String),
+    #[error(
+        "{0} is reachable but did not answer like an İlmek registry (another program, or an older İlmek build: restart the node with the same version as this device)"
+    )]
+    NotARegistry(SocketAddrV4),
+    #[error("cannot reach {address}: {reason}")]
+    Unreachable {
+        address: SocketAddrV4,
+        reason: String,
+    },
     #[error("discovery socket error: {0}")]
     Io(#[from] io::Error),
 }
@@ -84,15 +110,6 @@ pub async fn discover_on(port: u16, wait: Duration) -> Result<CommunityProfile, 
     .await
 }
 
-/// Asks one known machine instead of the whole network.
-pub async fn discover_at(
-    node: Ipv4Addr,
-    port: u16,
-    wait: Duration,
-) -> Result<CommunityProfile, DiscoveryError> {
-    probe(&[SocketAddr::from((node, port))], wait).await
-}
-
 async fn probe(targets: &[SocketAddr], wait: Duration) -> Result<CommunityProfile, DiscoveryError> {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await?;
     socket.set_broadcast(true)?;
@@ -129,4 +146,136 @@ async fn probe(targets: &[SocketAddr], wait: Duration) -> Result<CommunityProfil
         ));
     }
     Err(DiscoveryError::NoAnswer(last_error))
+}
+
+/// Asks the registry at `address` which community it serves, over TCP only.
+///
+/// The connection asks to join a community nobody has (a random id); the registry refuses with an
+/// error that carries its own community id, which is what is needed to join.
+pub async fn probe_tcp(
+    address: SocketAddrV4,
+    wait: Duration,
+) -> Result<CommunityProfile, DiscoveryError> {
+    let unreachable = |reason: String| DiscoveryError::Unreachable { address, reason };
+    let attempt = async {
+        let stream = TcpStream::connect(address)
+            .await
+            .map_err(|e| unreachable(e.to_string()))?;
+        let params = ClientParams {
+            mode: Mode::Control,
+            community_id: Uuid7::generate(),
+            client_id: Uuid7::generate(),
+            expected_role: ServerRole::Registry,
+            client_name: "ilmek-discover".to_owned(),
+            client_version: Version::new(1, 0, 0),
+            request_timeout: wait,
+        };
+        match ClientSession::open(stream, params).await {
+            Err(ClientError::Remote(error)) => {
+                let text = |name: &str| error.details.get(name).and_then(|v| v.as_str());
+                let (Some(community), Some(server), Some(role)) =
+                    (text("community_id"), text("server_id"), text("server_role"))
+                else {
+                    return Err(DiscoveryError::NotARegistry(address));
+                };
+                if role != "registry" {
+                    return Err(DiscoveryError::NotARegistry(address));
+                }
+                let (Ok(community), Ok(server)) = (community.parse(), server.parse()) else {
+                    return Err(DiscoveryError::NotARegistry(address));
+                };
+                Ok(CommunityProfile::new(community, server, address))
+            }
+            Ok(_) => Err(DiscoveryError::NotARegistry(address)),
+            Err(other) => Err(unreachable(other.to_string())),
+        }
+    };
+    timeout(wait, attempt)
+        .await
+        .map_err(|_| unreachable("no answer in time".to_owned()))?
+}
+
+/// The addresses of the /24 network `local` is on (including `local`, where a node on this very
+/// machine answers), plus loopback, each with `port`.
+#[must_use]
+pub fn lan_candidates(local: Ipv4Addr, port: u16) -> Vec<SocketAddrV4> {
+    let [a, b, c, _] = local.octets();
+    let mut addresses = vec![SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)];
+    addresses.extend((1..=254).map(|host| SocketAddrV4::new(Ipv4Addr::new(a, b, c, host), port)));
+    addresses
+}
+
+/// This machine's address on the network it would use to reach private addresses. No packet is
+/// sent: connecting a UDP socket only asks the routing table.
+#[must_use]
+pub fn local_ipv4() -> Option<Ipv4Addr> {
+    let socket = std::net::UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).ok()?;
+    socket.connect((Ipv4Addr::new(192, 0, 2, 1), 9)).ok()?;
+    match socket.local_addr().ok()? {
+        SocketAddr::V4(address)
+            if !address.ip().is_loopback() && !address.ip().is_unspecified() =>
+        {
+            Some(*address.ip())
+        }
+        _ => None,
+    }
+}
+
+/// Tries every candidate (many at once) and returns the first registry that answers.
+pub async fn probe_any(
+    candidates: Vec<SocketAddrV4>,
+    per_address: Duration,
+    wait: Duration,
+) -> Result<CommunityProfile, DiscoveryError> {
+    let permits = Arc::new(Semaphore::new(SCAN_PARALLELISM));
+    let mut tasks = JoinSet::new();
+    for address in candidates {
+        let permits = Arc::clone(&permits);
+        tasks.spawn(async move {
+            let _permit = permits.acquire_owned().await.ok()?;
+            probe_tcp(address, per_address).await.ok()
+        });
+    }
+    let search = async {
+        while let Some(finished) = tasks.join_next().await {
+            if let Ok(Some(profile)) = finished {
+                return Some(profile);
+            }
+        }
+        None
+    };
+    // Dropping the JoinSet aborts the probes that are still running.
+    match timeout(wait, search).await {
+        Ok(Some(profile)) => Ok(profile),
+        _ => Err(DiscoveryError::NoAnswer(
+            "no registry on the local network".to_owned(),
+        )),
+    }
+}
+
+/// Finds a node by every means at once (UDP beacon and a TCP scan of the local /24 network) and
+/// returns whichever answers first.
+pub async fn discover_any(
+    udp_port: u16,
+    registry_port: u16,
+    wait: Duration,
+) -> Result<CommunityProfile, DiscoveryError> {
+    let mut attempts = JoinSet::new();
+    attempts.spawn(async move { discover_on(udp_port, wait).await });
+    attempts.spawn(async move {
+        let candidates = match local_ipv4() {
+            Some(local) => lan_candidates(local, registry_port),
+            None => vec![SocketAddrV4::new(Ipv4Addr::LOCALHOST, registry_port)],
+        };
+        probe_any(candidates, SCAN_PER_ADDRESS, wait).await
+    });
+    let mut last = DiscoveryError::NoAnswer("nothing answered".to_owned());
+    while let Some(finished) = attempts.join_next().await {
+        match finished {
+            Ok(Ok(profile)) => return Ok(profile),
+            Ok(Err(error)) => last = error,
+            Err(_) => {}
+        }
+    }
+    Err(last)
 }

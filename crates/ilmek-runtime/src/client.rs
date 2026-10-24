@@ -7,7 +7,7 @@ use ilmek_client::{
 };
 use ilmek_core::clock::{Clock, SystemClock};
 use ilmek_core::community::CommunityProfile;
-use ilmek_core::discovery::{DISCOVERY_PORT, discover_at, discover_on};
+use ilmek_core::discovery::{DEFAULT_REGISTRY_PORT, DISCOVERY_PORT, discover_any, probe_tcp};
 use ilmek_protocol::address::Address;
 use ilmek_protocol::wire::{Availability, Cursor};
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,14 @@ fn discovery_port() -> u16 {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(DISCOVERY_PORT)
+}
+
+/// The registry's TCP port a network scan tries: 47401, or `$ILMEK_REGISTRY_PORT`.
+fn scan_port() -> u16 {
+    std::env::var("ILMEK_REGISTRY_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_REGISTRY_PORT)
 }
 
 /// Highest package runtime version this client understands.
@@ -105,16 +113,12 @@ impl Client {
         registry: Option<std::net::SocketAddrV4>,
     ) -> Result<(), RuntimeError> {
         let wait = std::time::Duration::from_secs(4);
-        let port = discovery_port();
         let profile = match registry {
-            Some(address) => {
-                let mut found = discover_at(*address.ip(), port, wait)
-                    .await
-                    .map_err(ilmek_client::Error::from)?;
-                found.registry = address;
-                found
-            }
-            None => discover_on(port, wait)
+            // A known address needs only its TCP port.
+            Some(address) => probe_tcp(address, wait)
+                .await
+                .map_err(ilmek_client::Error::from)?,
+            None => discover_any(discovery_port(), scan_port(), wait)
                 .await
                 .map_err(ilmek_client::Error::from)?,
         };

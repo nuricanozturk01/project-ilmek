@@ -41,11 +41,20 @@ fn free_udp() -> u16 {
         .port()
 }
 
+/// TCP port a network scan tries when nothing else works. Port 9 is closed on test machines, so
+/// by default a scan finds nothing (and never stumbles on a real node running on 47401).
+const NO_SCAN: u16 = 9;
+
 fn ilmek(home: &Path, discovery: u16, args: &[&str]) -> Output {
+    ilmek_scanning(home, discovery, NO_SCAN, args)
+}
+
+fn ilmek_scanning(home: &Path, discovery: u16, scan: u16, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_ilmek"))
         .args(args)
         .env("ILMEK_HOME", home)
         .env("ILMEK_DISCOVERY_PORT", discovery.to_string())
+        .env("ILMEK_REGISTRY_PORT", scan.to_string())
         .output()
         .expect("the ilmek binary starts")
 }
@@ -319,4 +328,63 @@ fn an_extra_host_finds_the_node_registers_itself_and_serves_its_own_app() {
             .is_file(),
         "{fetched}"
     );
+}
+
+#[test]
+fn a_device_joins_without_udp_by_address_and_by_scanning_the_network() {
+    let node_home = tempfile::tempdir().unwrap();
+    let (registry_port, host_port, beacon, blocked) =
+        (free_tcp(), free_tcp(), free_udp(), free_udp());
+
+    let _node = Node(
+        Command::new(env!("CARGO_BIN_EXE_ilmek"))
+            .args([
+                "node",
+                "--registry-port",
+                &registry_port.to_string(),
+                "--host-port",
+                &host_port.to_string(),
+            ])
+            .env("ILMEK_HOME", node_home.path())
+            .env("ILMEK_DISCOVERY_PORT", beacon.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("the node starts"),
+    );
+    wait_for("the registry port", || {
+        TcpStream::connect((Ipv4Addr::LOCALHOST, registry_port)).is_ok()
+    });
+
+    // `blocked` is a UDP port nobody listens on: as if a firewall dropped the beacon traffic.
+    let by_address = tempfile::tempdir().unwrap();
+    let joined = ok(
+        by_address.path(),
+        blocked,
+        &["join", "--registry", &format!("127.0.0.1:{registry_port}")],
+    );
+    assert!(joined.starts_with("device "), "{joined}");
+    let who = ok(by_address.path(), blocked, &["whoami"]);
+    assert!(who.contains(&format!("127.0.0.1:{registry_port}")), "{who}");
+
+    // No address given and no UDP: the TCP scan of the local network finds the registry port.
+    let scanning = tempfile::tempdir().unwrap();
+    let out = ilmek_scanning(scanning.path(), blocked, registry_port, &["join"]);
+    assert!(
+        out.status.success(),
+        "scan did not find the node: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let who = ok(scanning.path(), blocked, &["whoami"]);
+    assert!(who.contains(&registry_port.to_string()), "{who}");
+
+    // Both devices belong to the same community as the node.
+    let a = ok(by_address.path(), blocked, &["whoami"]);
+    let b = ok(scanning.path(), blocked, &["whoami"]);
+    let community = |text: &str| {
+        text.lines()
+            .find(|l| l.starts_with("community"))
+            .map(str::to_owned)
+    };
+    assert_eq!(community(&a), community(&b));
 }

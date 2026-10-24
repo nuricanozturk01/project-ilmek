@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use ilmek_client::{Connector, Device};
 use ilmek_core::community::CommunityProfile;
-use ilmek_core::discovery::{DISCOVERY_PORT, discover_at, discover_on};
+use ilmek_core::discovery::{DEFAULT_REGISTRY_PORT, DISCOVERY_PORT, discover_any, probe_tcp};
 use ilmek_protocol::Uuid7;
 
 use crate::cli::{Command, DeviceOpt, HostConfig, RegistryConfig};
@@ -85,25 +85,30 @@ pub(crate) fn device_dir(opt: &DeviceOpt) -> PathBuf {
         .unwrap_or_else(|| home(None).join("device"))
 }
 
-/// Finds the node: at `registry` if given, otherwise anywhere on the local network.
+/// The registry's TCP port a network scan tries: 47401, or `$ILMEK_REGISTRY_PORT`.
+pub(crate) fn scan_port() -> u16 {
+    std::env::var("ILMEK_REGISTRY_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_REGISTRY_PORT)
+}
+
+/// Finds the node: at `registry` if given (over TCP only), otherwise anywhere on the local
+/// network (UDP beacon and a TCP scan of the local /24, whichever answers first).
 pub(crate) async fn find_profile(
     registry: Option<std::net::SocketAddr>,
 ) -> CliResult<CommunityProfile> {
     match registry {
-        Some(std::net::SocketAddr::V4(address)) => {
-            let mut profile = discover_at(*address.ip(), discovery_port(None), DISCOVERY_WAIT)
-                .await
-                .context("cannot reach the node")?;
-            profile.registry = address;
-            Ok(profile)
-        }
+        Some(std::net::SocketAddr::V4(address)) => probe_tcp(address, DISCOVERY_WAIT).await.context(
+            "cannot reach the node at that address (is `ilmek node` running, and is its TCP port open in the firewall?)",
+        ),
         Some(std::net::SocketAddr::V6(_)) => Err(CliError::new("only IPv4 is supported")),
         None => {
             note("looking for an İlmek node on this network…");
-            discover_on(discovery_port(None), DISCOVERY_WAIT)
+            discover_any(discovery_port(None), scan_port(), DISCOVERY_WAIT)
                 .await
                 .context(
-                    "no node found (start `ilmek node` on one machine, or pass --registry IP:PORT)",
+                    "no node found (start `ilmek node` on one machine, open TCP 47401-47402 in its firewall, or pass --registry IP:PORT)",
                 )
         }
     }

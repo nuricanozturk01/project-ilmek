@@ -95,8 +95,10 @@ target/debug/ilmek resolve ilmek://nuri/forum
 target/debug/ilmek call ilmek://nuri/forum forum.topics.list
 ```
 
-Node bulunamazsa (farklı alt ağ, UDP engelli) adresi verin:
-`ilmek join --registry 192.168.1.10:47401`. Adresi bulmak için Linux'ta `hostname -I`.
+`join`, node'u UDP yayınıyla **ve** ağdaki TCP 47401 taramasıyla aynı anda arar; biri yeter. Bulunamazsa
+(farklı alt ağ, güvenlik duvarı) yalnızca Linux'un adresini verin, başka bir şey yazmanız gerekmez:
+`ilmek join --registry 192.168.1.10:47401`. Bu yalnızca TCP kullanır; topluluk numarasını node'un
+cevabından kendisi öğrenir. Linux'ta adres için `ip -4 route get 1.1.1.1` çıktısındaki `src`.
 
 Masaüstü penceresi için `cd apps/client && bun run tauri dev` ve "Bul ve katıl" düğmesi.
 

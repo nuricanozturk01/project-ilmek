@@ -389,6 +389,7 @@ struct Rejection {
     request_id: Option<Uuid7>,
     code: ErrorCode,
     text: &'static str,
+    details: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Rejection {
@@ -397,6 +398,7 @@ impl Rejection {
             request_id: Some(request_id),
             code,
             text,
+            details: serde_json::Map::new(),
         }
     }
 }
@@ -411,6 +413,7 @@ fn validate_hello(
             request_id,
             code: ErrorCode::InvalidMessage,
             text: "HELLO expected first",
+            details: serde_json::Map::new(),
         });
     };
     let id = hdr.request_id;
@@ -422,11 +425,25 @@ fn validate_hello(
         ));
     }
     if hdr.community_id != config.community_id {
-        return Err(Rejection::new(
-            id,
-            ErrorCode::InvalidMessage,
-            "community mismatch",
-        ));
+        // A device that knows only this server's address learns which community it serves from
+        // this answer, so it can join without any other channel (no security in this branch).
+        let mut rejection = Rejection::new(id, ErrorCode::InvalidMessage, "community mismatch");
+        rejection.details.insert(
+            "community_id".into(),
+            config.community_id.to_string().into(),
+        );
+        rejection
+            .details
+            .insert("server_id".into(), config.server_id.to_string().into());
+        rejection.details.insert(
+            "server_role".into(),
+            match config.role {
+                ServerRole::Registry => "registry",
+                ServerRole::Host => "host",
+            }
+            .into(),
+        );
+        return Err(rejection);
     }
     Ok((hdr, hello))
 }
@@ -448,7 +465,10 @@ async fn negotiate<R: AsyncRead + Unpin, H>(
         Ok(accepted) => accepted,
         Err(rejection) => {
             if let Some(request_id) = rejection.request_id {
-                let error = error_message(rejection.code, rejection.text, false);
+                let mut error = error_message(rejection.code, rejection.text, false);
+                if let Message::Error(data) = &mut error {
+                    data.details = rejection.details;
+                }
                 let _ = send_message(
                     sender,
                     header(request_id, config.community_id),

@@ -59,18 +59,23 @@ Portlar proje içi yapılandırılabilir varsayılandır; IANA tahsisi iddiası 
 
 Bir cihaz topluluğa şöyle katılır; hiçbir dosya veya kod gerekmez:
 
-1. Cihaz UDP `16 byte` probe gönderir (bölüm 3.3) ve ilk cevabı alır.
-2. Cevaptan `community_id`, `registry_id` ve registry portunu öğrenir. Registry adresi, cevap datagramının **kaynak IP**'sidir; böylece düğüm kendi IP'sini bilmek zorunda değildir.
-3. Cihaz bu bilgiyi (`profile.json`) ve kendi kimliğini (`device.id`) cihaz dizinine yazar. Sonraki açılışlarda keşif yapılmaz.
+1. Cihaz node'u üç yoldan biriyle bulur; hepsi aynı bilgiyi verir: `community_id`, `registry_id` ve registry adresi (bölüm 3.3).
+   - **UDP beacon:** UDP probe yayınlanır (`16 byte`), ilk cevap alınır. Registry adresi, cevap datagramının **kaynak IP**'sidir.
+   - **TCP taraması:** UDP engelliyse cihaz kendi /24 ağındaki her adresin registry portunu (47401) dener (aynı anda en fazla 64 adres, adres başına 700 ms).
+   - **Bilinen adres:** `ilmek join --registry IP:PORT` yalnızca o TCP portuna bağlanır (bölüm 3.3, “TCP probe”); UDP gerekmez.
+   İlk ikisi birlikte, hangisi önce cevaplarsa o kullanılır.
+2. Cihaz bu bilgiyi (`profile.json`) ve kendi kimliğini (`device.id`) cihaz dizinine yazar. Sonraki açılışlarda keşif yapılmaz.
 
-Keşif kullanılamıyorsa (farklı alt ağ, UDP engelli) cihaza registry adresi verilir (`ilmek join --registry IP:PORT`); bu durumda probe doğrudan o IP'ye gider.
+Ağın UDP'yi de TCP portunu da engellediği durumda cihaz node'u bulamaz; önce güvenlik duvarı açılmalıdır.
 
 ### 3.3 Keşif datagramları (UDP)
 
 - Probe: ASCII `ILMEK-DISCOVER/1` (16 byte), `255.255.255.255:47400` ve `127.0.0.1:47400` adreslerine; 500 ms'de bir tekrarlanır, toplam bekleme 4 sn.
 - Cevap: UTF-8 JSON `{"ilmek":1,"community_id":UUID,"registry_id":UUID,"registry_port":U53}`, en fazla 1024 byte.
 - Cevaplayıcı (node), UDP portunu dinler. Port dolu ise node çalışmaya devam eder; yalnızca bulunabilir olmaz.
-- Port `ILMEK_DISCOVERY_PORT` ortam değişkeniyle değiştirilebilir; bir ağdaki bütün cihazlar aynı değeri kullanır.
+- Port `ILMEK_DISCOVERY_PORT` ortam değişkeniyle değiştirilebilir; bir ağdaki bütün cihazlar aynı değeri kullanır. TCP taramasının denediği registry portu varsayılan 47401'dir (`ILMEK_REGISTRY_PORT`).
+
+**TCP probe.** Registry adresini bilen cihaz topluluk kimliğini UDP olmadan öğrenir: rastgele bir `community_id` ile `HELLO` gönderir; registry `INVALID_MESSAGE` / `community mismatch` ile reddeder ve `ERROR.details` içinde `{community_id, server_id, server_role}` döndürür (`server_role` `"registry"` veya `"host"`). Cihaz `server_role = "registry"` ise bu bilgiyle katılır. Bu bilgi bu sürümde gizli değildir (güvenlik yok). Bu ayrıntıyı vermeyen eski bir node “registry gibi cevap vermedi” diye görünür.
 
 ### 3.4 Host adresi
 

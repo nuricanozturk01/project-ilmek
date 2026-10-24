@@ -114,7 +114,8 @@ kept). Logs carry request IDs, error classes, durations and sizes, not bodies.
 
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
-| `no node found` on `ilmek join` | different subnet, UDP blocked, node not running, firewall | `ilmek join --registry IP:47401`; open UDP 47400 / TCP 47401-47402 on the node |
+| `no node found` on `ilmek join` | different subnet, node not running, firewall dropping both UDP 47400 and TCP 47401 | open `47401-47402/tcp` (and `47400/udp`) on the node; or `ilmek join --registry IP:47401` |
+| `… did not answer like an İlmek registry` | another program on that port, or the node was started from an older build | rebuild and restart the node; devices and node must run the same build |
 | `TCP connection failed` / timed out | wrong address, node down, firewall | check `ilmek node` is running; test `nc -vz IP 47401` |
 | `diagnose`: name resolves, `Availability: Stale` | the host's lease lapsed (host down, or cannot reach the registry) | start the host / check its route to the node |
 | `APP_UNAVAILABLE` | that application's backend is stopped, crashing or abandoned | `app list`; `app restart`; read its log |

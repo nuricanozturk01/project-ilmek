@@ -12,6 +12,21 @@ vermeden kendiliğinden katılır.
 Gerekenler: iki bilgisayar **aynı Wi-Fi/ağda** (aynı alt ağ, router'da "AP isolation" kapalı),
 her ikisinde Rust (`rust-toolchain.toml` sürümü kendiliğinden iner), Mac'te Xcode komut satırı araçları.
 
+## Özet (çalıştırma)
+
+```sh
+# Linux (node), proje klasöründe
+sudo ufw allow 47400/udp && sudo ufw allow 47401:47402/tcp   # güvenlik duvarı açıksa
+scripts/quickstart.sh                                        # açık kalsın
+
+# Mac, proje klasöründe
+cargo build -p ilmek-cli
+target/debug/ilmek join                                      # veya: join --registry LINUX_IP:47401
+target/debug/ilmek call ilmek://nuri/forum forum.topics.list
+```
+
+Pencere ve Chrome için bölüm 6. Ayrıntılar ve sorun giderme aşağıda.
+
 ```mermaid
 sequenceDiagram
     participant L as Linux (node)
@@ -94,17 +109,19 @@ target/debug/ilmek call ilmek://nuri/forum forum.topics.list
 
 ## 4. `join` "no node found" derse
 
-En olası ilk sorun: UDP yayını gerçek ağda hiç denenmedi. Sırayla:
+`join` node'u iki yoldan **aynı anda** arar: UDP yayını (47400) ve kendi ağındaki her adresin TCP 47401
+portu. İkisi de çalışmıyorsa:
 
-1. Linux'ta betik hâlâ çalışıyor mu?
-2. UDP 47400 açık mı (yukarıdaki `ufw` satırı)?
-3. İkisi aynı alt ağda mı, router'da "AP isolation" kapalı mı?
-4. Keşfi atla, adresi ver:
+1. Linux'ta betik hâlâ çalışıyor mu? **Kodu güncellediysen node'u yeniden derleyip yeniden başlat**:
+   eski bir node, yeni istemciye "registry gibi cevap vermedi" der.
+2. Linux güvenlik duvarında `47401-47402/tcp` (ve `47400/udp`) açık mı (yukarıdaki `ufw` satırı)?
+3. İkisi aynı alt ağda mı? (Farklı alt ağda tarama bulamaz; adres ver.)
+4. Adresi ver. **Topluluk numarası veya başka bir şey yazman gerekmez**, yalnızca Linux'un IP'si:
    ```sh
    target/debug/ilmek join --registry 192.168.1.10:47401
    ```
-   Bu çalışıp `join` çalışmıyorsa sorun yalnızca UDP keşfidir: sonucu bildir, `discover_on`
-   (`crates/ilmek-core/src/discovery.rs`) düzeltilecek (bazı sistemler arayüze özel yayın adresi ister).
+   Bu yalnızca TCP kullanır (UDP gerekmez). Linux'ta IP için `ip -4 route get 1.1.1.1` çıktısındaki
+   `src` adresini al (`hostname -I`'in ilk adresi sanal köprü olabilir, örn. `192.168.122.1`).
 
 Bağlantıyı elle sınamak için Mac'ten: `nc -vz 192.168.1.10 47401`.
 

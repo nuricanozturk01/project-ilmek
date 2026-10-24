@@ -5,7 +5,7 @@ Environment: one Linux x86_64 dev box; nothing else was available.
 
 ## State
 
-- `cargo fmt --check`, `cargo clippy --workspace --all-targets` clean; `cargo test --workspace` 172
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets` clean; `cargo test --workspace` 177
   passed; JS typecheck/lint/test clean (client 13, sdk 20).
 - Smoke: `scripts/smoke/{local-processes,multi-app,backup-restore}.sh` PASS; `scripts/quickstart.sh`
   works; `crates/ilmek-cli/tests/node_flow.rs` (real binary, UDP discovery, extra host) PASS.
@@ -15,6 +15,10 @@ Environment: one Linux x86_64 dev box; nothing else was available.
   in the CLI and in the desktop client; `BEGIN IMMEDIATE` for write transactions; docs rewritten
   (README, ARCHITECTURE, NETWORK_SETUP, OPERATIONS, SECURITY, TEST_REPORT, REHBER, PROTOCOL.md,
   APP_DEVELOPMENT, IPC, decision 0005).
+- Joining no longer depends on UDP: given an address it uses TCP only (the community id comes from the
+  registry's refusal of a `HELLO` for a made-up community), and without an address it runs the UDP beacon
+  and a TCP scan of the local /24 in parallel (`ilmek-core::discovery`). Nodes built before this change do
+  not return that detail and must be restarted.
 - `ilmek://` links: the desktop client registers as the scheme handler (Tauri `deep-link` +
   `single-instance` plugins, `apps/client/src-tauri/src/lib.rs`); a link from a browser or `xdg-open`
   opens the app in the running client. `Cargo.lock` pins `rust-ini` 0.21.1 because

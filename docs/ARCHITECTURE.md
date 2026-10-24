@@ -72,11 +72,13 @@ Dependency direction is one way: `protocol` ← `core` ← (`client`, `registry`
 
 ## Main flows
 
-**Joining.** A device with no state sends a UDP probe (`ILMEK-DISCOVER/1`) to the local network
-and to itself. The node's beacon answers with the community id, registry id and registry port;
-the registry's address is the answer's source address. The device stores `profile.json` and a
-self-made `device.id` in its device directory. Next time it does not look again. No token, file or
-code is exchanged.
+**Joining.** A device with no state looks for the node in parallel by a UDP probe
+(`ILMEK-DISCOVER/1`, answered by the node's beacon) and by a TCP scan of its own /24 network on the
+registry port; given an address, it uses only TCP. In every case it learns the community id, the
+registry id and the registry's address, and stores `profile.json` and a self-made `device.id` in its
+device directory. Next time it does not look again. No token, file, community name or IP has to be
+typed. (When the address is known, the community id comes from the registry's refusal of a
+`HELLO` for a made-up community, which names the real one.)
 
 ```mermaid
 sequenceDiagram

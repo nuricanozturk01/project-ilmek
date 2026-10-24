@@ -33,6 +33,41 @@ flowchart LR
 > automatic joining. **Not tested:** a second physical computer, real LAN broadcast discovery,
 > macOS, Windows, Android. See [TEST_REPORT](docs/TEST_REPORT.md).
 
+## Nasıl çalıştırılır
+
+Gerekenler: Rust (sürümü `rust-toolchain.toml` seçer), iki makine **aynı ağda**. Güvenlik yok; yalnızca güvendiğin ağda kullan.
+
+**1. Linux (node)** — proje klasöründe:
+
+```sh
+sudo ufw allow 47400/udp && sudo ufw allow 47401:47402/tcp   # güvenlik duvarı açıksa
+scripts/quickstart.sh                                        # derler, node'u başlatır, forum + merhaba yayınlar
+```
+
+Terminal açık kalır; Ctrl-C durdurur. Kodu güncellediysen önce Ctrl-C, sonra betiği yeniden çalıştır.
+
+**2. Mac (CLI)** — proje klasöründe:
+
+```sh
+cargo build -p ilmek-cli
+target/debug/ilmek join                                      # node'u kendisi bulur
+target/debug/ilmek call ilmek://nuri/forum forum.topics.list
+```
+
+Bulamazsa yalnızca Linux'un IP'sini ver: `target/debug/ilmek join --registry LINUX_IP:47401`.
+
+**3. Mac (pencere + Chrome'dan `ilmek://`)**
+
+```sh
+brew install oven-sh/bun/bun && bun install
+cd apps/client && bun run tauri build --bundles app && cd ../..
+cp -R "target/release/bundle/macos/İlmek.app" /Applications/ && open "/Applications/İlmek.app"
+# pencerede "Bul ve katıl", sonra:
+open "ilmek://nuri/forum"                                    # veya Chrome adres çubuğuna yaz
+```
+
+Adım adım ve sorun giderme: [FIRST_DEMO](docs/FIRST_DEMO.md).
+
 ## The first demo: one Linux node, one Mac
 
 **On the Linux machine** (the node). You need the Rust toolchain (`rust-toolchain.toml` pins it).
@@ -66,8 +101,11 @@ target/debug/ilmek resolve ilmek://nuri/forum
 target/debug/ilmek call ilmek://nuri/forum forum.topics.list
 ```
 
-If discovery finds nothing (a different subnet, UDP blocked), give the node's address:
-`ilmek join --registry 192.168.1.10:47401`.
+`join` looks for the node by a UDP broadcast and by a TCP scan of your own network at the same time,
+so it works even where UDP is blocked. If nothing is found (a different subnet, the node's firewall),
+give only the node's address, no community id or anything else: `ilmek join --registry
+192.168.1.10:47401` (TCP only). Rebuild and restart the node after updating the code, so it answers
+like the new clients expect.
 
 The **desktop client is İlmek's browser**: it has an address bar, a catalog, and opens each
 application in its own window (`cd apps/client && bun run tauri dev`; its **Find and join** button
@@ -124,7 +162,7 @@ Toolchain versions are pinned in `rust-toolchain.toml` and `package.json`. Verif
 
 ```sh
 cargo build -p ilmek-cli                       # target/debug/ilmek
-cargo test --workspace                         # Rust tests (172)
+cargo test --workspace                         # Rust tests (177)
 cargo clippy --workspace --all-targets         # no warnings
 bun install && bun run lint && bun run typecheck && bun run test
 scripts/smoke/local-processes.sh               # real processes over loopback

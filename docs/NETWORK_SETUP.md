@@ -16,7 +16,7 @@ not part of this branch.)
 | --- | --- |
 | The machines share an IP network (same Wi-Fi, same switch, a phone hotspot…) | İlmek is TCP over IP |
 | Client machines can open TCP connections to the node on **47401** and **47402** | registry and application host |
-| Discovery: UDP **47400** reaches the node (broadcast on the same subnet) | so a device can find the node without being told |
+| Discovery (any one of): UDP **47400** broadcast reaches the node, **or** TCP 47401 is reachable on the node's address | so a device can find the node without being told. TCP 47401 is needed anyway |
 | IPv4 | addresses in the protocol are IPv4 |
 
 ```mermaid
@@ -56,23 +56,35 @@ flowchart LR
    No other file or code has to be copied. macOS may ask whether the program may accept incoming
    connections only for a *node or host* running on the Mac; a client does not need that.
 
-## How discovery works, and when it does not
+## How a device finds the node, and when it cannot
 
-A device with no stored state sends the datagram `ILMEK-DISCOVER/1` to `255.255.255.255:47400` and
-`127.0.0.1:47400` (every 500 ms for up to 4 s). The node answers with the community id, the
-registry's id and port; the registry address is the answer's source IP. The result is stored, so
-this happens once per device.
+A device with no stored state looks for the node in two ways **at the same time** and uses whichever
+answers first. The result is stored, so this happens once per device.
+
+1. **UDP beacon.** It sends `ILMEK-DISCOVER/1` to `255.255.255.255:47400` and `127.0.0.1:47400`
+   (every 500 ms for up to 4 s). The node answers with the community id and the registry's port;
+   the registry address is the answer's source IP.
+2. **TCP scan.** It tries TCP 47401 on every address of its own /24 network (up to 64 at a time,
+   700 ms each). A registry there tells it which community it serves. This works even when UDP is
+   blocked, and needs only the TCP port you have to open anyway.
+
+If you **give the address** (`ilmek join --registry IP:47401`, or the "Node address" box of the
+desktop client) only that TCP port is used: no UDP, no scan. The community is learned from the
+registry's answer, so you never type a community id.
 
 It does **not** work when:
 
-- the machines are on different subnets (broadcast does not cross routers);
-- the network blocks client-to-client UDP (some guest Wi-Fi, "AP isolation");
-- the node's firewall drops UDP 47400.
+- the machines are on different subnets and you gave no address (neither broadcast nor the /24 scan
+  crosses routers; with an address it does, if TCP is routed);
+- TCP 47401 is blocked by the node's firewall (open `47401-47402/tcp`);
+- the device and the node run **different builds**: a node started before the TCP-probe change does
+  not describe its community in its answer and shows up as "did not answer like an İlmek registry".
+  Rebuild and restart the node.
 
-In those cases give the address: `ilmek join --registry IP:47401` (any command that needs a device
-accepts `--registry` for the first join), or in the desktop client type it in "Node address".
-If UDP 47400 is busy on the node, the node still runs but cannot be discovered; use
-`--discovery-port` on the node and `ILMEK_DISCOVERY_PORT` on every device.
+If UDP 47400 is busy on the node, the node still runs but is only found by the scan or by address;
+use `--discovery-port` on the node and `ILMEK_DISCOVERY_PORT` on every device to move the beacon.
+A network scan only tries the default registry port (`ILMEK_REGISTRY_PORT` changes it); with
+another port, give the address.
 
 ## Adding another application host
 
