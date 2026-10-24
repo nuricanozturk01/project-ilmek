@@ -15,7 +15,6 @@ pub(super) fn admit(mode: Mode, role: ServerRole, kind: MessageType) -> Admissio
     use MessageType as M;
     let always = matches!(kind, M::Ping | M::Goodbye);
     let allowed = match mode {
-        Mode::Enroll => always || kind == M::Enroll,
         Mode::Bulk => always || matches!(kind, M::GetAsset | M::Cancel),
         Mode::Control => {
             always
@@ -29,7 +28,6 @@ pub(super) fn admit(mode: Mode, role: ServerRole, kind: MessageType) -> Admissio
                             | M::RegisterApp
                             | M::UnregisterApp
                             | M::UpdateApp
-                            | M::GetTrust
                     ),
                     ServerRole::Host => matches!(
                         kind,
@@ -42,7 +40,6 @@ pub(super) fn admit(mode: Mode, role: ServerRole, kind: MessageType) -> Admissio
         kind,
         M::Ping
             | M::Goodbye
-            | M::Enroll
             | M::Resolve
             | M::ListApps
             | M::HostRegister
@@ -50,7 +47,6 @@ pub(super) fn admit(mode: Mode, role: ServerRole, kind: MessageType) -> Admissio
             | M::RegisterApp
             | M::UnregisterApp
             | M::UpdateApp
-            | M::GetTrust
             | M::GetManifest
             | M::AppCall
             | M::Subscribe

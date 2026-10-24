@@ -1,47 +1,118 @@
 # İlmek
 
-İlmek is an internet-independent community application network: devices on a local Wi-Fi network
-resolve an `ilmek://namespace/app` address through a registry, connect straight to the host that
-serves the application, verify its signed package, and run its HTML/CSS/JavaScript in an isolated
-native runtime. Everything runs over `Wi-Fi → IP → TCP → TLS 1.3 → ILMEK/1`; there is no HTTP,
-WebSocket or cloud fallback.
+İlmek lets you run your own small "internet": one machine is the **node** (a registry plus an
+application server), you publish applications on it, and any other computer on the same network
+finds the node by itself and opens those applications at `ilmek://namespace/app`. It speaks its own
+protocol, ILMEK/1, straight over TCP; there is no HTTP, no cloud and no internet needed.
 
-> **Status, stated plainly.** The software is implemented and tested on one Linux x86_64 machine,
-> with separate OS processes talking over loopback. **No physical Wi-Fi, two-node routing, Android,
-> Windows or macOS check has been run.** Those items are marked `BLOCKED` or `NOT RUN` in
-> [docs/TEST_REPORT.md](docs/TEST_REPORT.md), which is the authority on what has and has not been
-> verified. Nothing here is claimed production-ready.
+```mermaid
+flowchart LR
+    subgraph L["Linux machine: the node"]
+        direction TB
+        R["registry<br/>names, hosts"]
+        H["application host<br/>forum, notes, ..."]
+        B["backend processes"]
+        H --- B
+    end
+    M["Mac (or Windows / Linux): client"]
+    M -- "finds the node (UDP broadcast)" --> L
+    M -- "ilmek://nuri/forum" --> R
+    M -- "downloads and calls the app" --> H
+    L2["more machines running<br/><code>ilmek host start</code>"] -. "join and register by themselves" .-> R
+```
 
-The original product specification is preserved unchanged in
-[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md); the wire contract is [PROTOCOL.md](PROTOCOL.md).
-Where this file and those differ, they win.
+> **This branch (`feat/simple-no-security`) has no security.** Nothing is encrypted, nothing proves
+> who a device is, packages are checked for corruption (SHA-256) but not signed, and anyone on the
+> network can join and publish. It is meant for a trusted, closed network and for getting the whole
+> system working first. See [SECURITY](docs/SECURITY.md) and
+> [decision 0005](docs/decisions/0005-simple-no-security.md). The secure design (TLS 1.3,
+> certificates, signed packages, two-node Wi-Fi routing) lives on `main`.
+
+> **What has been tested.** Everything runs on one Linux x86_64 machine, with the registry, host,
+> backends and clients as **separate processes over `127.0.0.1`**, including UDP discovery and
+> automatic joining. **Not tested:** a second physical computer, real LAN broadcast discovery,
+> macOS, Windows, Android. See [TEST_REPORT](docs/TEST_REPORT.md).
+
+## The first demo: one Linux node, one Mac
+
+**On the Linux machine** (the node). You need the Rust toolchain (`rust-toolchain.toml` pins it).
+
+```sh
+git clone <this repository> && cd project-ilmek
+scripts/quickstart.sh          # builds, starts the node, publishes the forum and hello examples
+```
+
+`scripts/quickstart.sh` is only a convenience. By hand it is:
+
+```sh
+cargo build -p ilmek-cli -p ilmek-example-forum
+target/debug/ilmek node                       # registry + application host + discovery beacon
+# in a second terminal:
+target/debug/ilmek app pack examples/forum/app --out /tmp/forum-pkg
+target/debug/ilmek app install /tmp/forum-pkg
+target/debug/ilmek app set-backend nuri/forum --exe target/debug/ilmek-forum-backend
+target/debug/ilmek app start nuri/forum
+target/debug/ilmek app publish nuri/forum
+```
+
+Open UDP 47400 and TCP 47401 and 47402 in the Linux machine's firewall if it has one.
+
+**On the Mac** (a client). Nothing to copy from the Linux machine:
+
+```sh
+cargo build -p ilmek-cli
+target/debug/ilmek join                       # looks for the node on the network and joins it
+target/debug/ilmek resolve ilmek://nuri/forum
+target/debug/ilmek call ilmek://nuri/forum forum.topics.list
+```
+
+If discovery finds nothing (a different subnet, UDP blocked), give the node's address:
+`ilmek join --registry 192.168.1.10:47401`.
+
+The desktop client opens applications in a window (`pnpm --filter @ilmek/client tauri dev`; its
+**Find and join** button does the same discovery). Its Rust shell compiles and its UI unit tests
+pass on Linux; the window itself was **not started** in this work session and nothing was run on
+macOS.
+
+**More machines** that should also host applications run `ilmek host start`: it finds the node,
+joins, and registers itself. See [NETWORK_SETUP](docs/NETWORK_SETUP.md).
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `ilmek node` | registry + application host + discovery beacon in one process; first run creates everything |
+| `ilmek host start` | an extra application host that finds the node and joins by itself |
+| `ilmek join [--registry IP:PORT]` | join explicitly (every other command also joins automatically when needed) |
+| `ilmek app init \| pack \| install \| update \| start \| stop \| list \| publish …` | build, run and publish applications ([APP_DEVELOPMENT](docs/APP_DEVELOPMENT.md)) |
+| `ilmek resolve \| fetch \| call \| diagnose ilmek://ns/app` | use and debug an application |
+| `ilmek backup …` | back up and restore registry and host data ([OPERATIONS](docs/OPERATIONS.md)) |
+
+Data lives in `$ILMEK_HOME` (default `~/.ilmek`).
 
 ## What is in the repository
 
 | Path | What it is |
 | --- | --- |
-| `crates/ilmek-protocol` | ILMEK/1 frames, strict metadata, identifiers, manifests (fixtures from `WIRE_EXAMPLES.json` are tested) |
-| `crates/ilmek-core` | TLS 1.3 identity checks, framed transport, sessions, trust snapshots |
-| `crates/ilmek-identity` | community CA, device certificates, publisher signing keys |
-| `crates/ilmek-registry` | enrollment, names, trust snapshots, host leases, persistence |
+| `crates/ilmek-protocol` | ILMEK/1 frames, strict metadata, identifiers, manifests |
+| `crates/ilmek-core` | framed transport, sessions, UDP discovery, community profile |
+| `crates/ilmek-registry` | names, hosts, leases, persistence |
 | `crates/ilmek-host` | multi-application host: packages, backend supervision, the ILMEK/1 service |
-| `crates/ilmek-client`, `crates/ilmek-runtime` | resolve/download/call, and the page bridge with local storage |
-| `crates/ilmek-package`, `crates/ilmek-store` | signed packages; SQLite with migrations and backups |
+| `crates/ilmek-client`, `crates/ilmek-runtime` | resolve, download, call; the page bridge with local storage |
+| `crates/ilmek-package`, `crates/ilmek-store` | packages with SHA-256 manifests; SQLite with migrations and backups |
 | `crates/ilmek-app-sdk` | Rust SDK for application backends |
-| `crates/ilmek-network` | plan / apply / roll back the Wi-Fi, IP, DHCP and firewall setup of a routing node |
 | `crates/ilmek-cli` | the `ilmek` command |
 | `packages/sdk-js` | `@ilmek/sdk`, interface `IlmekAppSDK` |
 | `apps/client` | desktop client (Tauri shell; React + TypeScript UI) |
 | `examples/` | forum and notes (with backends), announcements and hello (static), isolation probe |
-| `configs/` | example `node-a`, `node-b`, `registry`, `host` configuration |
-| `deploy/systemd/` | service units for registry and host, user and directory definitions |
-| `scripts/` | loopback multi-process smoke tests, backup/restore exercise, isolation probe |
+| `deploy/systemd/` | service units for a node and for an extra host |
+| `scripts/` | quickstart, loopback multi-process smoke tests, backup/restore exercise |
 
-Documentation: [ARCHITECTURE](docs/ARCHITECTURE.md) · [NETWORK_SETUP](docs/NETWORK_SETUP.md) ·
+Documentation: [FIRST_DEMO](docs/FIRST_DEMO.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [NETWORK_SETUP](docs/NETWORK_SETUP.md) ·
 [SECURITY](docs/SECURITY.md) · [APP_DEVELOPMENT](docs/APP_DEVELOPMENT.md) ·
-[OPERATIONS](docs/OPERATIONS.md) · [IPC](docs/IPC.md) ·
-[HARDWARE_INVENTORY](docs/HARDWARE_INVENTORY.md) · [TEST_REPORT](docs/TEST_REPORT.md) ·
-[decisions](docs/decisions) · [PROGRESS](docs/PROGRESS.md)
+[OPERATIONS](docs/OPERATIONS.md) · [IPC](docs/IPC.md) · [TEST_REPORT](docs/TEST_REPORT.md) ·
+[PROTOCOL](PROTOCOL.md) · [REHBER (Türkçe)](docs/REHBER.md) · [decisions](docs/decisions) ·
+[PROGRESS](docs/PROGRESS.md)
 
 ## Build and test
 
@@ -50,55 +121,19 @@ Toolchain versions are pinned in `rust-toolchain.toml` and `package.json`. Verif
 
 ```sh
 cargo build -p ilmek-cli                       # target/debug/ilmek
-cargo test --workspace                         # Rust tests
-cargo clippy --workspace --all-targets -- -D warnings
-pnpm install && pnpm -r lint && pnpm -r typecheck && pnpm -r test && pnpm -r build
+cargo test --workspace                         # Rust tests (172)
+cargo clippy --workspace --all-targets         # no warnings
+pnpm install && pnpm -r lint && pnpm -r typecheck && pnpm -r test
+scripts/smoke/local-processes.sh               # real processes over loopback
+scripts/smoke/multi-app.sh                     # two hosts, several apps, kill and restart
+scripts/smoke/backup-restore.sh                # back up live data, destroy it, restore
 ```
 
-## Try it on one machine (loopback only)
+## Limits to know
 
-This runs a registry, a host and several devices as **separate processes on `127.0.0.1`**. It
-exercises the real protocol and persistence; it is not a Wi-Fi or multi-machine test.
-
-```sh
-scripts/smoke/local-processes.sh     # publish → resolve → download → call → restart → revoke
-scripts/smoke/backup-restore.sh      # back up live registry+host, destroy data, restore, verify
-```
-
-The steps those scripts perform, in order (each command was run by them):
-
-```sh
-ilmek community init   --config registry.toml --advertise-ip 127.0.0.1   # prints the CA fingerprint
-ilmek registry serve   --config registry.toml
-ilmek community invite --config registry.toml --role member > alice.token    # single use, 15 min
-ilmek identity enroll  --profile registry-data/community.json --fingerprint <fingerprint> \
-                       --device alice-device --name alice --token-file alice.token
-ilmek app pack  ./my-app --key publisher.key --out ./my-app-pkg --publisher-id <publisher-id>
-ilmek app install --config host.toml ./my-app-pkg
-ilmek app start   --config host.toml <namespace>/<slug>
-ilmek app publish --config host.toml <namespace>/<slug> --device publisher-device
-ilmek resolve  ilmek://<namespace>/<slug> --device alice-device
-ilmek diagnose ilmek://<namespace>/<slug> --device alice-device
-```
-
-The registry and publisher setup (`add-publisher`, `grant-namespace`, `grant-host`,
-`host trust-publisher`) is shown end to end in `scripts/lib/community.sh`.
-[APP_DEVELOPMENT](docs/APP_DEVELOPMENT.md) explains how to write and publish an application.
-
-## The two-node network
-
-[NETWORK_SETUP](docs/NETWORK_SETUP.md) describes the NODE-A / NODE-B setup and the
-`ilmek network plan | apply | rollback | status` commands. `plan` only reads the machine.
-`apply` needs root, prints the plan first, refuses without `--yes`, refuses to touch the interface
-carrying your default route or login, and records a snapshot so `rollback` can undo it.
-**It has not been applied to a real node.**
-
-## Limits to know before relying on it
-
-- Not tested on real Wi-Fi, on Android, Windows or macOS; WebView isolation is verified for Linux
-  (WebKitGTK) only.
-- Device and registry certificates last 30 days; renewal is implemented but has only been
-  exercised in software tests ([OPERATIONS](docs/OPERATIONS.md)).
-- Application backends are trusted local processes, not a security sandbox.
-- The registry is a single authoritative writer; there is no failover.
-- Windows file-permission (ACL) hardening of key files is not implemented.
+- No security (see above). Use a network you trust.
+- Discovery uses UDP broadcast, which stays inside one subnet.
+- IPv4 only.
+- Application backends are trusted local processes, not a sandbox. The HTML/JS of an application
+  does run in an isolated WebView with a strict content policy (verified on Linux/WebKitGTK only).
+- The registry is a single writer; there is no failover.

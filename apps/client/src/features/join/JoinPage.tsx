@@ -17,7 +17,7 @@ export function JoinPage({ onJoined }: { onJoined: () => void }) {
     setBusy(true)
     setError(null)
     try {
-      await shell.join(field('profile'), field('fingerprint'), field('token'), field('name'))
+      await shell.join(field('profile') || null, field('registry') || null)
       onJoined()
     } catch (failure) {
       setError(failure instanceof ShellError ? failure.code : 'unknown')
@@ -32,21 +32,16 @@ export function JoinPage({ onJoined }: { onJoined: () => void }) {
       <p>{t('join.intro')}</p>
       <form onSubmit={(event) => void submit(event)}>
         <label>
-          {t('join.profile')}
-          <textarea name="profile" rows={6} required spellCheck={false} />
+          {t('join.registry')}
+          <input name="registry" placeholder="192.168.1.10:47401" spellCheck={false} />
         </label>
-        <label>
-          {t('join.fingerprint')}
-          <input name="fingerprint" required autoComplete="off" spellCheck={false} />
-        </label>
-        <label>
-          {t('join.token')}
-          <input name="token" type="password" required autoComplete="off" spellCheck={false} />
-        </label>
-        <label>
-          {t('join.name')}
-          <input name="name" required maxLength={80} autoComplete="off" />
-        </label>
+        <details>
+          <summary>{t('join.advanced')}</summary>
+          <label>
+            {t('join.profile')}
+            <textarea name="profile" rows={6} spellCheck={false} />
+          </label>
+        </details>
         <button type="submit" disabled={busy}>
           {busy ? t('join.working') : t('join.submit')}
         </button>

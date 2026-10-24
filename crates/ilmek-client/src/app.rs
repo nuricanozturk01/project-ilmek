@@ -68,12 +68,8 @@ impl AppClient {
         if let Some(existing) = guard.as_ref().filter(|s| !s.is_closed()) {
             return Ok(existing.clone());
         }
-        let address =
-            std::net::SocketAddr::new(self.record.endpoint.ip.into(), self.record.endpoint.port);
-        let opened = self
-            .connector
-            .connect_host(address, self.record.server_id, Mode::Control)
-            .await?;
+        let address = self.connector.host_address(&self.record.endpoint);
+        let opened = self.connector.connect_host(address, Mode::Control).await?;
         *guard = Some(opened.clone());
         Ok(opened)
     }

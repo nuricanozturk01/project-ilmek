@@ -1,39 +1,45 @@
 mod app;
 mod backup;
-mod community;
 mod device;
-mod doctor;
-mod identity;
-mod network;
-mod publisher;
-mod serve;
+mod node;
 
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use ilmek_client::{Connector, Device, RegistryClient};
-use ilmek_core::clock::SystemClock;
+use ilmek_client::{Connector, Device};
+use ilmek_core::community::CommunityProfile;
+use ilmek_core::discovery::{DISCOVERY_PORT, discover_at, discover_on};
 use ilmek_protocol::Uuid7;
 
-use crate::cli::Command;
+use crate::cli::{Command, DeviceOpt, HostConfig, RegistryConfig};
 use crate::error::{CliError, CliResult, Context};
+use crate::output::note;
+
+const DISCOVERY_WAIT: Duration = Duration::from_secs(4);
+
+/// 47400, or `$ILMEK_DISCOVERY_PORT` (every device of one network must use the same value).
+pub(crate) fn discovery_port(explicit: Option<u16>) -> u16 {
+    explicit
+        .or_else(|| {
+            std::env::var("ILMEK_DISCOVERY_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+        })
+        .unwrap_or(DISCOVERY_PORT)
+}
 
 pub(crate) async fn run(command: Command) -> CliResult {
     match command {
-        Command::Community(c) => community::run(c),
-        Command::Identity(c) => identity::run(c).await,
-        Command::Publisher(c) => publisher::run(c),
-        Command::Registry(c) => serve::registry(c).await,
-        Command::Host(c) => serve::host(c).await,
+        Command::Node(args) => node::node(args).await,
+        Command::Registry(command) => node::registry(command).await,
+        Command::Host(command) => node::host(command).await,
+        Command::Join(args) => device::join(&args).await,
+        Command::Whoami(opt) => device::whoami(&opt),
         Command::App(c) => app::run(c).await,
         Command::Resolve(c) => device::resolve(&c).await,
         Command::Diagnose(c) => device::diagnose(&c).await,
         Command::Fetch(c) => device::fetch(&c).await,
         Command::Call(c) => device::call(&c).await,
-        Command::Doctor => {
-            doctor::run();
-            Ok(())
-        }
-        Command::Network(c) => network::run(c),
         Command::Backup(c) => backup::run(&c),
     }
 }
@@ -43,17 +49,74 @@ pub(crate) fn uuid(text: &str, what: &str) -> CliResult<Uuid7> {
         .map_err(|_| CliError::new(format!("{what} is not a UUIDv7: {text}")))
 }
 
-/// Loads an enrolled device and brings its trust snapshot up to date.
-pub(crate) async fn connect_device(dir: &std::path::Path) -> CliResult<Connector> {
-    let device = Device::load(dir).context("cannot load the device identity (enroll first)")?;
-    let connector = Connector::new(device, Arc::new(SystemClock)).context("device identity")?;
-    let registry = RegistryClient::connect(&connector)
-        .await
-        .context("cannot reach the registry")?;
-    registry
-        .refresh_trust(connector.trust())
-        .await
-        .context("cannot refresh trust information")?;
-    registry.close().await;
-    Ok(connector)
+/// `$ILMEK_HOME`, else `~/.ilmek`, else `./.ilmek`.
+pub(crate) fn home(explicit: Option<&Path>) -> PathBuf {
+    if let Some(path) = explicit {
+        return path.to_path_buf();
+    }
+    if let Some(path) = std::env::var_os("ILMEK_HOME").filter(|v| !v.is_empty()) {
+        return PathBuf::from(path);
+    }
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map_or_else(
+            || PathBuf::from(".ilmek"),
+            |h| PathBuf::from(h).join(".ilmek"),
+        )
+}
+
+pub(crate) fn host_config(config: &HostConfig) -> PathBuf {
+    config
+        .config
+        .clone()
+        .unwrap_or_else(|| home(None).join("host.toml"))
+}
+
+pub(crate) fn registry_config(config: &RegistryConfig) -> PathBuf {
+    config
+        .config
+        .clone()
+        .unwrap_or_else(|| home(None).join("registry.toml"))
+}
+
+pub(crate) fn device_dir(opt: &DeviceOpt) -> PathBuf {
+    opt.device
+        .clone()
+        .unwrap_or_else(|| home(None).join("device"))
+}
+
+/// Finds the node: at `registry` if given, otherwise anywhere on the local network.
+pub(crate) async fn find_profile(
+    registry: Option<std::net::SocketAddr>,
+) -> CliResult<CommunityProfile> {
+    match registry {
+        Some(std::net::SocketAddr::V4(address)) => {
+            let mut profile = discover_at(*address.ip(), discovery_port(None), DISCOVERY_WAIT)
+                .await
+                .context("cannot reach the node")?;
+            profile.registry = address;
+            Ok(profile)
+        }
+        Some(std::net::SocketAddr::V6(_)) => Err(CliError::new("only IPv4 is supported")),
+        None => {
+            note("looking for an İlmek node on this network…");
+            discover_on(discovery_port(None), DISCOVERY_WAIT)
+                .await
+                .context(
+                    "no node found (start `ilmek node` on one machine, or pass --registry IP:PORT)",
+                )
+        }
+    }
+}
+
+/// Opens this device, joining the community first if that has not happened yet.
+pub(crate) async fn connect_device(opt: &DeviceOpt) -> CliResult<Connector> {
+    let dir = device_dir(opt);
+    if !Device::exists(&dir) {
+        let profile = find_profile(opt.registry).await?;
+        Device::join(&profile, &dir).context("cannot join")?;
+        note(&format!("joined community {}", profile.community_id));
+    }
+    let device = Device::load(&dir).context("cannot load the device")?;
+    Ok(Connector::new(device))
 }

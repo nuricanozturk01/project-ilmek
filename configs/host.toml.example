@@ -1,11 +1,13 @@
-# Application host (HOST-1 in the reference plan). `advertised` is mandatory so a multi-homed
-# machine never publishes a VPN or internet address.
+# Application host. `ilmek node` and `ilmek host start` write a file like this for you
+# (<home>/host.toml); use this one with `ilmek host serve --config`.
 data_dir = "/var/lib/ilmek/host"
-device_dir = "/var/lib/ilmek/host-device"   # created by `ilmek identity enroll`
-listen = "10.77.10.10:47401"
-advertised = "10.77.10.10:47401"
+device_dir = "/var/lib/ilmek/host-device"   # created by `ilmek join --device ...`
+listen = "0.0.0.0:47402"
+# Optional. Without it the registry records the address this host connects from, which is the
+# address clients can reach it on. Set it when the machine has several addresses.
+# advertised = "192.168.1.20:47402"
 max_connections = 128
 app_max_inflight = 16
 app_queue_depth = 64
 call_deadline_ms = 12000
-trust_refresh_ms = 60000
+heartbeat_interval_ms = 30000

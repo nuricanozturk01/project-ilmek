@@ -1,10 +1,9 @@
 use ilmek_core::session::ClientSession;
-use ilmek_core::trust::{TrustPageData, TrustStore};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::{
-    AppRecord, AppUnregistered, AppsListed, AppsPage, Cursor, Endpoint, GetTrust, HeartbeatAck,
+    AppRecord, AppUnregistered, AppsListed, AppsPage, Cursor, Endpoint, HeartbeatAck,
     HostHeartbeat, HostRegister, HostRegistered, ListApps, Message, Name, RegisterApp, Resolve,
-    TrustEntries, UnregisterApp, UpdateApp,
+    UnregisterApp, UpdateApp,
 };
 
 use crate::connector::Connector;
@@ -118,30 +117,5 @@ impl RegistryClient {
             Message::AppUnregistered(done) => Ok(done),
             _ => Err(Error::UnexpectedReply("expected APP_UNREGISTERED")),
         }
-    }
-
-    /// Downloads a complete trust snapshot and installs it atomically.
-    pub async fn refresh_trust(&self, trust: &TrustStore) -> Result<(), Error> {
-        let session = &self.session;
-        trust
-            .refresh(|cursor| async move {
-                let request = Message::GetTrust(GetTrust { limit: 100, cursor });
-                match session.request(&request).await.map_err(|e| e.to_string())? {
-                    Message::TrustPage(payload) => {
-                        let body: TrustEntries = serde_json::from_slice(&payload.body)
-                            .map_err(|_| "TRUST_PAGE body".to_owned())?;
-                        Ok(TrustPageData {
-                            snapshot_id: payload.data.snapshot_id,
-                            revision: payload.data.revision,
-                            generated_at_ms: payload.data.generated_at_ms,
-                            next_cursor: payload.data.next_cursor,
-                            entries: body.entries,
-                        })
-                    }
-                    _ => Err("expected TRUST_PAGE".to_owned()),
-                }
-            })
-            .await?;
-        Ok(())
     }
 }

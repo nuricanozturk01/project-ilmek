@@ -1,19 +1,15 @@
 //! Fetching and verifying application packages (REQUIREMENTS §17.4, PROTOCOL.md §11).
 //!
 //! Progress counts bytes actually received. Nothing becomes visible until every file's size and
-//! SHA-256 and the manifest signature have been verified.
+//! SHA-256 has been verified.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 use ilmek_core::session::{ClientError, ClientSession};
-use ilmek_core::trust::TrustStore;
-use ilmek_identity::PublisherKey;
 use ilmek_package::{
-    ASSETS_DIR, MANIFEST_FILE, PackageLimits, SIGNATURE_FILE, hash_file, verify_dir,
-    verify_manifest,
+    ASSETS_DIR, MANIFEST_FILE, PackageLimits, hash_file, verify_dir, verify_manifest,
 };
 use ilmek_protocol::manifest::{Manifest, ManifestFile};
 use ilmek_protocol::wire::{
@@ -86,13 +82,7 @@ impl PackageCache {
         if !dir.is_dir() {
             return Ok(None);
         }
-        let key = publisher_key(record)?;
-        let package = verify_dir(
-            &dir,
-            &key,
-            Some(record.manifest_hash),
-            PackageLimits::default(),
-        )?;
+        let package = verify_dir(&dir, Some(record.manifest_hash), PackageLimits::default())?;
         Ok(Some(CachedPackage {
             dir,
             manifest: package.manifest,
@@ -128,15 +118,6 @@ fn directory_size(path: &Path) -> u64 {
         .sum()
 }
 
-fn publisher_key(record: &AppRecord) -> Result<PublisherKey, Error> {
-    let key = PublisherKey::from_base64url(&record.publisher_public_key.to_string())
-        .map_err(|e| Error::PublisherKey(e.to_string()))?;
-    if key.key_id() != record.publisher_key_id.to_string() {
-        return Err(Error::PublisherKey("key id does not match the key".into()));
-    }
-    Ok(key)
-}
-
 /// Downloads, verifies and caches the package named by `record`.
 ///
 /// Interrupted transfers keep their partial files, and calling again resumes them. Cancelling
@@ -151,18 +132,9 @@ pub async fn fetch_package(
     if let Some(cached) = cache.lookup(record)? {
         return Ok(cached);
     }
-    let key = publisher_key(record)?;
-    if connector
-        .trust()
-        .publisher_key_revoked(&record.publisher_key_id)
-    {
-        return Err(Error::PublisherRevoked);
-    }
-    let address = SocketAddr::new(record.endpoint.ip.into(), record.endpoint.port);
-    let control = connector
-        .connect_host(address, record.server_id, Mode::Control)
-        .await?;
-    let (manifest, manifest_bytes, signature) = fetch_manifest(&control, record, &key).await?;
+    let address = connector.host_address(&record.endpoint);
+    let control = connector.connect_host(address, Mode::Control).await?;
+    let (manifest, manifest_bytes) = fetch_manifest(&control, record).await?;
     control.close().await;
 
     let needed = manifest.total_size_bytes;
@@ -177,14 +149,8 @@ pub async fn fetch_package(
     let partial = cache.partial_dir(record);
     fs::create_dir_all(partial.join(ASSETS_DIR))?;
     fs::write(partial.join(MANIFEST_FILE), &manifest_bytes)?;
-    fs::write(
-        partial.join(SIGNATURE_FILE),
-        ilmek_package_signature_text(&signature),
-    )?;
 
-    let bulk = connector
-        .connect_host(address, record.server_id, Mode::Bulk)
-        .await?;
+    let bulk = connector.connect_host(address, Mode::Bulk).await?;
     let mut done = 0u64;
     let total_files = manifest.files.len();
     for (index, file) in manifest.files.iter().enumerate() {
@@ -210,7 +176,6 @@ pub async fn fetch_package(
 
     verify_dir(
         &partial,
-        &key,
         Some(record.manifest_hash),
         PackageLimits::default(),
     )?;
@@ -226,16 +191,10 @@ pub async fn fetch_package(
     })
 }
 
-fn ilmek_package_signature_text(signature: &[u8]) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(signature)
-}
-
 async fn fetch_manifest(
     control: &ClientSession,
     record: &AppRecord,
-    key: &PublisherKey,
-) -> Result<(Manifest, Vec<u8>, Vec<u8>), Error> {
+) -> Result<(Manifest, Vec<u8>), Error> {
     let request = Message::GetManifest(GetManifest {
         app_id: record.app_id,
         version: record.version,
@@ -244,17 +203,11 @@ async fn fetch_manifest(
     let Message::Manifest(payload) = control.request(&request).await? else {
         return Err(Error::UnexpectedReply("expected MANIFEST"));
     };
-    if payload.data.app_id != record.app_id
-        || payload.data.version != record.version
-        || payload.data.publisher_key_id != record.publisher_key_id
-    {
+    if payload.data.app_id != record.app_id || payload.data.version != record.version {
         return Err(Error::UnexpectedReply("MANIFEST describes another package"));
     }
-    let signature = payload.data.signature.into_bytes();
     let (manifest, _) = verify_manifest(
         &payload.body,
-        &signature,
-        key,
         Some(record.manifest_hash),
         PackageLimits::default(),
     )?;
@@ -263,7 +216,7 @@ async fn fetch_manifest(
             "manifest identity differs from the registry record",
         ));
     }
-    Ok((manifest, payload.body, signature))
+    Ok((manifest, payload.body))
 }
 
 /// Fetches one file into `partial/assets/`, resuming a `.part` file if one exists.
@@ -413,14 +366,6 @@ async fn stream_into(
     }
 }
 
-/// Checks that a trust store marks neither the host nor the publisher key as revoked.
-pub fn ensure_not_revoked(trust: &TrustStore, record: &AppRecord) -> Result<(), Error> {
-    if trust.publisher_key_revoked(&record.publisher_key_id) {
-        return Err(Error::PublisherRevoked);
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     //! A hostile host that follows the handshake but misbehaves while streaming an asset
@@ -431,10 +376,9 @@ mod tests {
     use std::time::Duration;
 
     use ilmek_core::clock::SystemClock;
-    use ilmek_core::peer::PeerCredentials;
     use ilmek_core::session::{
-        ClientParams, ClientSession, ConnectionParams, Handler, PeerGate, Reply,
-        ServerSessionConfig, Verdict, serve_connection,
+        ClientParams, ClientSession, ConnectionParams, Handler, Reply, ServerSessionConfig,
+        serve_connection,
     };
     use ilmek_protocol::Uuid7;
     use ilmek_protocol::digest::sha256;
@@ -545,14 +489,6 @@ mod tests {
         }
     }
 
-    struct AllowAll;
-
-    impl PeerGate for AllowAll {
-        fn check(&self, _peer: Option<&PeerCredentials>) -> Verdict {
-            Verdict::Allow
-        }
-    }
-
     struct Rig {
         bulk: ClientSession,
         record: AppRecord,
@@ -581,17 +517,12 @@ mod tests {
         tokio::spawn(serve_connection(
             far,
             ConnectionParams {
-                peer: Some(PeerCredentials {
-                    id: Uuid7::generate(),
-                    serial: "01".into(),
-                }),
                 remote_ip: None,
                 config: Arc::new(config),
                 handler: Arc::new(Hostile {
                     content: content.clone(),
                     behavior,
                 }),
-                gate: Arc::new(AllowAll),
                 shutdown: CancellationToken::new(),
             },
         ));
@@ -600,7 +531,7 @@ mod tests {
             ClientParams {
                 mode: Mode::Bulk,
                 community_id: community,
-                expected_server_id: server_id,
+                client_id: Uuid7::generate(),
                 expected_role: ServerRole::Host,
                 client_name: "test".into(),
                 client_version: Version::new(1, 0, 0),
@@ -621,8 +552,6 @@ mod tests {
             "endpoint": { "ip": "127.0.0.1", "port": 47401 },
             "version": "1.0.0",
             "manifest_hash": Hash::from_bytes([7; 32]).to_string(),
-            "publisher_key_id": Hash::from_bytes([8; 32]).to_string(),
-            "publisher_public_key": "AAAA",
             "name": "Forum",
             "description": "test",
             "revision": 1,

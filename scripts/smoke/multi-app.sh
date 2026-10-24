@@ -13,42 +13,31 @@ step "build"
 
 step "community, HOST-1 (publisher nuri), one member"
 lib_start_community
-host1_peer="$(lib_enroll host member,host --server-ip 127.0.0.1)"
-pub1_peer="$(lib_enroll publisher1 member,publisher)"
-lib_enroll alice member >/dev/null
-lib_publisher nuri "$pub1_peer" "$host1_peer"
+lib_join host >/dev/null
+lib_join publisher1 >/dev/null
+lib_join alice >/dev/null
 lib_start_host
 host1_pid="$host_pid"
-nuri_publisher_id="$publisher_id"
-cp "$work/publisher.key" "$work/nuri.key"
 
 step "HOST-2 (publisher ece), a separate process with its own data directory"
 host2_port=$((hostport + 10))
-host2_peer="$(lib_enroll host2 member,host --server-ip 127.0.0.1)"
-pub2_peer="$(lib_enroll publisher2 member,publisher)"
+lib_join host2 >/dev/null
+lib_join publisher2 >/dev/null
 cat >"$work/host2.toml" <<TOML
 data_dir = "$work/host2"
 device_dir = "$work/host2-device"
 listen = "127.0.0.1:$host2_port"
 advertised = "127.0.0.1:$host2_port"
-trust_refresh_ms = 1000
 heartbeat_interval_ms = 1000
 TOML
-ece_pubkey="$("$ilmek" publisher keygen --out "$work/ece.key" 2>/dev/null)"
-ece_publisher_id="$("$ilmek" community add-publisher --config "$work/registry.toml" --name ece 2>/dev/null)"
-"$ilmek" community add-publisher-device --config "$work/registry.toml" --publisher "$ece_publisher_id" --peer "$pub2_peer" 2>/dev/null
-"$ilmek" community add-publisher-key --config "$work/registry.toml" --publisher "$ece_publisher_id" --key "$ece_pubkey" >/dev/null 2>&1
-"$ilmek" community grant-namespace --config "$work/registry.toml" --publisher "$ece_publisher_id" --namespace ece 2>/dev/null
-"$ilmek" community grant-host --config "$work/registry.toml" --publisher "$ece_publisher_id" --host "$host2_peer" 2>/dev/null
-"$ilmek" host trust-publisher --config "$work/host2.toml" --key "$ece_pubkey" 2>/dev/null
 "$ilmek" host serve --config "$work/host2.toml" 2>>"$work/host2.log" &
 host2_pid=$!; pids+=($host2_pid)
 wait_for "host 2" "(exec 3<>/dev/tcp/127.0.0.1/$host2_port)"
 
-deploy() { # CONFIG KEY PUBLISHER_ID DEVICE SOURCE NAME [BACKEND_EXE]
-  local config="$1" key="$2" pid="$3" device="$4" source="$5" name="$6" exe="${7:-}"
-  "$ilmek" app pack "$source" --key "$key" --out "$work/$name-pkg" --publisher-id "$pid" >/dev/null 2>&1
-  "$ilmek" app install --config "$config" "$work/$name-pkg" >/dev/null 2>&1
+deploy() { # CONFIG DEVICE SOURCE NAME [BACKEND_EXE]
+  local config="$1" device="$2" source="$3" name="$4" exe="${5:-}"
+  "$ilmek" app pack "$source" --out "$work/$name-pkg" >/dev/null 2>&1
+  "$ilmek" app install --config "$config" "$work/$name-pkg" >/dev/null
   local ref; ref="$(sed -n 's/^namespace = "\(.*\)"/\1/p' "$source/app.toml")/$(sed -n 's/^slug = "\(.*\)"/\1/p' "$source/app.toml")"
   if [ -n "$exe" ]; then "$ilmek" app set-backend --config "$config" "$ref" --exe "$exe" 2>/dev/null; fi
   "$ilmek" app start --config "$config" "$ref" 2>/dev/null
@@ -57,11 +46,11 @@ deploy() { # CONFIG KEY PUBLISHER_ID DEVICE SOURCE NAME [BACKEND_EXE]
 }
 
 step "HOST-1 serves three applications at once"
-deploy "$work/host.toml" "$work/nuri.key" "$nuri_publisher_id" "$work/publisher1-device" \
+deploy "$work/host.toml" "$work/publisher1-device" \
   "$root/examples/forum/app" forum "$bin/ilmek-forum-backend"
-deploy "$work/host.toml" "$work/nuri.key" "$nuri_publisher_id" "$work/publisher1-device" \
+deploy "$work/host.toml" "$work/publisher1-device" \
   "$root/examples/notes/app" notlar1 "$bin/ilmek-notes-backend"
-deploy "$work/host.toml" "$work/nuri.key" "$nuri_publisher_id" "$work/publisher1-device" \
+deploy "$work/host.toml" "$work/publisher1-device" \
   "$root/examples/hello-html/app" merhaba
 wait_for "three running apps on host 1" \
   "[ \"\$(\"$ilmek\" app list --config \"$work/host.toml\" 2>/dev/null | grep -c 'state=running')\" -eq 3 ]"
@@ -69,13 +58,13 @@ wait_for "three running apps on host 1" \
 
 step "HOST-2 serves its own applications (notes under ece, plus a static one)"
 # The same notes application under another namespace needs its own application id.
-"$ilmek" app init --namespace ece --slug notlar --publisher-id "$ece_publisher_id" "$work/ece-scaffold" >/dev/null 2>&1
+"$ilmek" app init --namespace ece --slug notlar "$work/ece-scaffold" >/dev/null 2>&1
 ece_app_id="$(sed -n 's/^app_id = "\(.*\)"/\1/p' "$work/ece-scaffold/app.toml")"
 mkdir -p "$work/ece-notes"; cp -r "$root/examples/notes/app/." "$work/ece-notes/"
 sed -i -e 's/^namespace = "nuri"/namespace = "ece"/' -e "s/^app_id = .*/app_id = \"$ece_app_id\"/" "$work/ece-notes/app.toml"
-deploy "$work/host2.toml" "$work/ece.key" "$ece_publisher_id" "$work/publisher2-device" \
+deploy "$work/host2.toml" "$work/publisher2-device" \
   "$work/ece-notes" notlar2 "$bin/ilmek-notes-backend"
-deploy "$work/host2.toml" "$work/ece.key" "$ece_publisher_id" "$work/publisher2-device" \
+deploy "$work/host2.toml" "$work/publisher2-device" \
   "$root/examples/announcements/app" duyurular
 wait_for "two running apps on host 2" \
   "[ \"\$(\"$ilmek\" app list --config \"$work/host2.toml\" 2>/dev/null | grep -c 'state=running')\" -eq 2 ]"

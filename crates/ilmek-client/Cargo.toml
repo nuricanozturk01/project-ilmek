@@ -1,6 +1,6 @@
 [package]
 name = "ilmek-client"
-description = "Device enrollment, trusted connections and the registry/host clients"
+description = "Joining a community, connections and the registry/host clients"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,10 +8,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-base64.workspace = true
 getrandom.workspace = true
 ilmek-core.workspace = true
-ilmek-identity.workspace = true
 ilmek-package.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true

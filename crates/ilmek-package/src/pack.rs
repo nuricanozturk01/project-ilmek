@@ -1,9 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use ilmek_identity::PublisherSigner;
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::digest::sha256;
 use ilmek_protocol::manifest::{DEFAULT_MAX_TOTAL_BYTES, Manifest, ManifestFile, Permission};
@@ -12,7 +9,7 @@ use ilmek_protocol::wire::{Hash, Name, PackagePath, Version};
 use crate::error::PackageError;
 use crate::hashing::hash_file;
 use crate::spec::AppSpec;
-use crate::{ASSETS_DIR, MANIFEST_FILE, SIGNATURE_FILE};
+use crate::{ASSETS_DIR, MANIFEST_FILE};
 
 #[derive(Debug)]
 pub struct PackedPackage {
@@ -62,24 +59,18 @@ pub fn init_app(
 
 const STARTER_HTML: &str = "<!doctype html>\n<html lang=\"en\">\n<head><meta charset=\"utf-8\"><title>App</title></head>\n<body><h1>Hello from İlmek</h1></body>\n</html>\n";
 
-/// Builds `manifest.json`, signs it and copies the assets into `output`.
+/// Builds `manifest.json` and copies the assets into `output`.
 ///
-/// `source` must contain `app.toml` and an `assets/` directory. The signature covers the exact
-/// bytes written to `manifest.json`.
-pub fn pack(
-    source: &Path,
-    signer: &PublisherSigner,
-    output: &Path,
-) -> Result<PackedPackage, PackageError> {
+/// `source` must contain `app.toml` and an `assets/` directory.
+pub fn pack(source: &Path, output: &Path) -> Result<PackedPackage, PackageError> {
     let spec = AppSpec::load(&source.join("app.toml"))?;
-    pack_spec(spec, source, signer, output)
+    pack_spec(spec, source, output)
 }
 
 /// Like [`pack`] but with an explicit spec, e.g. after overriding the publisher id.
 pub fn pack_spec(
     spec: AppSpec,
     source: &Path,
-    signer: &PublisherSigner,
     output: &Path,
 ) -> Result<PackedPackage, PackageError> {
     let assets_root = source.join(ASSETS_DIR);
@@ -112,16 +103,10 @@ pub fn pack_spec(
         backend_required: spec.backend_required,
         files,
         total_size_bytes,
-        publisher_key_id: signer
-            .public_key()
-            .key_id()
-            .parse()
-            .map_err(|_| PackageError::Source("publisher key id".into()))?,
     };
     let manifest_bytes =
         serde_json::to_vec(&manifest).map_err(|e| PackageError::Source(e.to_string()))?;
     let manifest = Manifest::parse(&manifest_bytes, DEFAULT_MAX_TOTAL_BYTES)?;
-    let signature = signer.sign_manifest(&manifest_bytes);
 
     if output.exists() {
         return Err(PackageError::DestinationExists(
@@ -137,10 +122,6 @@ pub fn pack_spec(
         fs::copy(disk, &target).map_err(|e| PackageError::io(&target, e))?;
     }
     write(&output.join(MANIFEST_FILE), &manifest_bytes)?;
-    write(
-        &output.join(SIGNATURE_FILE),
-        URL_SAFE_NO_PAD.encode(signature).as_bytes(),
-    )?;
 
     Ok(PackedPackage {
         manifest,

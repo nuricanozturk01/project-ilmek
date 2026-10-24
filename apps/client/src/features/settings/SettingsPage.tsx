@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { formatBytes, formatDate } from '../../shared/format.js'
+import { formatBytes } from '../../shared/format.js'
 import { errorText, useT } from '../../shared/i18n/index.js'
 import { ShellError, shell, type CachedApp, type Status } from '../../shared/ipc.js'
 
@@ -37,12 +37,6 @@ export function SettingsPage({ initial, locale }: { initial: Status | null; loca
     }
   }
 
-  const trustLabel = {
-    fresh: t('settings.trustFresh'),
-    stale: t('settings.trustStale'),
-    missing: t('settings.trustMissing'),
-  }
-
   return (
     <section aria-labelledby="settings-title">
       <h2 id="settings-title">{t('settings.title')}</h2>
@@ -63,12 +57,7 @@ export function SettingsPage({ initial, locale }: { initial: Status | null; loca
               {status.registry} —{' '}
               {status.registry_reachable ? t('settings.reachable') : t('settings.unreachable')}
             </dd>
-            <dt>{t('settings.trust')}</dt>
-            <dd>{trustLabel[status.trust]}</dd>
-            <dt>{t('settings.expires')}</dt>
-            <dd>{formatDate(status.certificate_expires_at_ms, locale)}</dd>
           </dl>
-          {status.certificate_expires_soon ? <p role="alert">{t('settings.expiresSoon')}</p> : null}
           <button type="button" onClick={() => void refresh()}>
             {t('settings.refresh')}
           </button>

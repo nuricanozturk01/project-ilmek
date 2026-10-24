@@ -50,7 +50,6 @@ pub struct Manifest {
     pub backend_required: bool,
     pub files: Vec<ManifestFile>,
     pub total_size_bytes: u64,
-    pub publisher_key_id: Hash,
 }
 
 #[derive(Debug, Error)]

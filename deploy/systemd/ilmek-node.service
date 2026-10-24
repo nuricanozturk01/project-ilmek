@@ -1,0 +1,23 @@
+[Unit]
+Description=İlmek node (registry and application host)
+Documentation=file:///usr/share/doc/ilmek/OPERATIONS.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ilmek
+Group=ilmek
+Environment=ILMEK_HOME=/var/lib/ilmek
+ExecStart=/usr/local/bin/ilmek node
+Restart=on-failure
+RestartSec=3
+# Application backends run as children of this unit. A separate process is not a sandbox for
+# hostile code; only run backends from people you trust.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/ilmek
+
+[Install]
+WantedBy=multi-user.target

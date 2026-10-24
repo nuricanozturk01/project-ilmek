@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::PackageError;
 
-/// `app.toml`: what a developer writes; `pack` turns it into a signed manifest.
+/// `app.toml`: what a developer writes; `pack` turns it into a manifest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppSpec {

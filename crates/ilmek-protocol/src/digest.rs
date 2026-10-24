@@ -5,7 +5,6 @@ use sha2::{Digest, Sha256};
 use crate::ids::Uuid7;
 
 const CALL_DOMAIN: &[u8] = b"ILMEK-CALL-V1\0";
-const MANIFEST_DOMAIN: &[u8] = b"ILMEK-MANIFEST-V1\0";
 
 /// Lowercase hex encoding.
 #[must_use]
@@ -37,12 +36,4 @@ pub fn payload_hash(app_id: Uuid7, method: &str, body: &[u8]) -> Sha256Digest {
     hasher.update([0]);
     hasher.update(body);
     hasher.finalize().into()
-}
-
-/// Bytes the publisher signs: `"ILMEK-MANIFEST-V1" 0x00 SHA256(manifest_bytes)`.
-#[must_use]
-pub fn manifest_signing_preimage(manifest_bytes: &[u8]) -> Vec<u8> {
-    let mut preimage = MANIFEST_DOMAIN.to_vec();
-    preimage.extend_from_slice(&sha256(manifest_bytes));
-    preimage
 }

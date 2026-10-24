@@ -6,9 +6,9 @@ use ilmek_host::{Host, Installer, Launcher, RunningHost, Settings, Store};
 use ilmek_protocol::Uuid7;
 use tempfile::TempDir;
 
-use crate::community::{Community, LOOPBACK, Member, Owner, START_ATTEMPTS, free_port};
+use crate::community::{Community, LOOPBACK, Member, START_ATTEMPTS, free_port};
 
-/// A host enrolled in a test community, listening on loopback.
+/// A host that joined a test community, listening on loopback.
 pub struct TestHost {
     pub running: RunningHost,
     pub member: Member,
@@ -20,20 +20,12 @@ pub struct TestHost {
     _dir: TempDir,
 }
 
-/// Starts a host, grants `owner` the right to publish on it and trusts the owner's key.
+/// Starts a host in the community.
 ///
 /// Binding a probed port can lose a race against another test process, so a failed bind is
 /// retried on a fresh port and data directory.
-pub async fn start_host(
-    community: &Community,
-    owner: &Owner,
-    launcher: Arc<dyn Launcher>,
-) -> TestHost {
+pub async fn start_host(community: &Community, launcher: Arc<dyn Launcher>) -> TestHost {
     let member = community.host(LOOPBACK).await;
-    community
-        .registry
-        .grant_host(owner.id, member.peer_id)
-        .unwrap();
 
     let dir = tempfile::tempdir().unwrap();
     let mut last_error = String::new();
@@ -41,17 +33,13 @@ pub async fn start_host(
         let port = free_port();
         let data_dir = dir.path().join(format!("host-{attempt}"));
         let settings = Settings::parse(&format!(
-            "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nbackend_start_deadline_ms = 5000\ntrust_refresh_ms = 300\nheartbeat_interval_ms = 300\nrestart_backoff_ms = 20\n",
+            "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nbackend_start_deadline_ms = 5000\nheartbeat_interval_ms = 300\nrestart_backoff_ms = 20\n",
             data_dir.display(),
             member.device_dir().display(),
         ))
         .unwrap();
         let clock: Arc<dyn Clock> = community.clock.clone();
         let host = Host::open(settings, Arc::clone(&launcher), clock)
-            .await
-            .unwrap();
-        host.store()
-            .add_trusted_publisher(&owner.signer.public_key(), community.clock.now_ms())
             .await
             .unwrap();
         let installer = host.installer().clone();

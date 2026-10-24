@@ -2,7 +2,7 @@
 
 #![expect(clippy::expect_used, reason = "panicking helpers are fine in tests")]
 
-use ilmek_protocol::digest::{manifest_signing_preimage, payload_hash, sha256};
+use ilmek_protocol::digest::{payload_hash, sha256};
 use ilmek_protocol::{Envelope, Frame, FrameDecoder, FrameError, JsonError, MessageType};
 use serde::Deserialize;
 
@@ -13,7 +13,7 @@ struct Fixtures {
     valid_frames: Vec<ValidFrame>,
     invalid_frames: Vec<InvalidFrame>,
     hash_example: HashExample,
-    signature_example: SignatureExample,
+    manifest_example: ManifestExample,
 }
 
 #[derive(Deserialize)]
@@ -39,10 +39,9 @@ struct HashExample {
 }
 
 #[derive(Deserialize)]
-struct SignatureExample {
+struct ManifestExample {
     manifest_utf8: String,
     manifest_hash: String,
-    preimage_hex: String,
 }
 
 fn fixtures() -> Fixtures {
@@ -164,12 +163,10 @@ fn rpc_payload_hash_matches_fixture() {
 }
 
 #[test]
-fn manifest_hash_and_signing_preimage_match_fixture() {
-    let sig = fixtures().signature_example;
-    let manifest = sig.manifest_utf8.as_bytes();
-    assert_eq!(hex::encode(sha256(manifest)), sig.manifest_hash);
+fn manifest_hash_matches_fixture() {
+    let example = fixtures().manifest_example;
     assert_eq!(
-        hex::encode(manifest_signing_preimage(manifest)),
-        sig.preimage_hex
+        hex::encode(sha256(example.manifest_utf8.as_bytes())),
+        example.manifest_hash
     );
 }

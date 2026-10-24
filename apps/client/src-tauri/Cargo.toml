@@ -21,7 +21,6 @@ tauri-build.workspace = true
 
 [dependencies]
 ilmek-client.workspace = true
-ilmek-core.workspace = true
 ilmek-protocol.workspace = true
 ilmek-runtime.workspace = true
 serde.workspace = true

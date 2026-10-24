@@ -1,77 +1,80 @@
-# ILMEK/1 — Uygulama Protokolü Sözleşmesi
+# ILMEK/1 — Uygulama Protokolü Sözleşmesi (basit sürüm)
 
-**Sözleşme sürümü:** 1.0 — İlmek adlandırma ve UUIDv7 revizyonu  
-**Belge tarihi:** 22 Ekim 2026  
-**Durum:** İlk uygulama için normatif proje şartnamesi; yayımlanmış internet standardı veya denetlenmiş ürün değildir.  
-**Ürün ve kurulum:** [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)  
-**Adlandırma:** Proje **İlmek**, İngilizce protokol adı **Ilmek Protocol**, sürüm `ILMEK/1`, ALPN `ilmek/1`, uygulama adres şeması `ilmek://`. Teknik tanımlayıcılar ASCII'dir.
+**Sözleşme sürümü:** 1.0-basit — kimliksiz, düz TCP, otomatik katılım  
+**Dal:** `feat/simple-no-security`  
+**Durum:** Bu dalın gerçek davranışını anlatır. Yayımlanmış internet standardı değildir. `main` dalındaki TLS 1.3 / sertifika / imza tabanlı sözleşmeden bilinçli olarak sadeleştirilmiştir; bkz. [karar kaydı](docs/decisions/0005-simple-no-security.md).  
+**Ürün ve kurulum:** [README.md](README.md)  
+**Adlandırma:** Proje **İlmek**, İngilizce protokol adı **Ilmek Protocol**, sürüm `ILMEK/1`, uygulama adres şeması `ilmek://`. Teknik tanımlayıcılar ASCII'dir.
 
-> Bu belge ILMEK/1 konuşan iki bağımsız uygulamanın aynı byte dizisini ve mesaj davranışını yorumlaması için yazılmıştır. MUST = zorunlu; MUST NOT = yasak; SHOULD = aksi gerekçelendirilmedikçe uygulanmalı. Uyumluluk, bu kuralları uygulamak ve test etmekle elde edilir; yalnızca bu belgeyi yazmakla kanıtlanmış olmaz.
+> **Bu sürümde güvenlik yoktur.** Bağlantılar şifrelenmez, sunucular ve istemciler kimlik kanıtlamaz, paketler imzalanmaz. Aynı ağdaki herkes topluluğa katılabilir, trafiği okuyabilir ve uygulama yayınlayabilir. Yalnızca güvendiğiniz, kapalı bir ağda kullanın. Güvenlik daha sonra bu sözleşmenin yeni bir sürümüyle eklenecektir.
 
-## 1. Kesin mimari kararı
+> Bu belge ILMEK/1 konuşan iki bağımsız uygulamanın aynı byte dizisini ve mesaj davranışını yorumlaması için yazılmıştır. MUST = zorunlu; MUST NOT = yasak; SHOULD = aksi gerekçelendirilmedikçe uygulanmalı.
 
-**Wi-Fi → IP → TCP → TLS 1.3 → ILMEK/1.**
+## 1. Mimari karar
 
-- ILMEK/1, HTTP'nin bulunduğu uygulama katmanındadır. TCP veya IP'nin yerine geçmez.
-- Node'lar standart IP yönlendirmesi yapar. Uygulama TLS bağlantısı istemci ile ilgili registry/host arasında sonlanır.
+**Ağ (Wi-Fi, Ethernet, herhangi bir IP bağlantısı) → IP → TCP → ILMEK/1.**
+
+- ILMEK/1, HTTP'nin bulunduğu uygulama katmanındadır. TCP veya IP'nin yerine geçmez. Hangi fiziksel bağlantının kullanıldığı protokolü ilgilendirmez: aynı IP ağındaki iki makine yeterlidir. Özel donanım (iki Wi-Fi kartı, erişim noktası) gerekmez.
 - HTTP, HTTPS, WebSocket ve gRPC üzerinden tünelleme MUST NOT kullanılmalı.
-- TLS 1.3 kullanmak HTTPS kullanmak değildir.
-- QUIC, CBOR, Protobuf, sıkıştırma ve uygulama seviyesinde özel UDP taşıması ILMEK/1.0 kapsamında değildir.
+- Bu sürümde TLS yoktur; ALPN yoktur. İleride güvenlik eklenirse yeni bir sürüm olur.
+- QUIC, CBOR, Protobuf, sıkıştırma ILMEK/1.0 kapsamında değildir.
 - Dosya gövdeleri ham byte, metadata UTF-8 JSON'dur.
 - Büyük dosyalar ayrı `bulk` bağlantısında taşınır. Kontrol/RPC bağlantısına dosya aktarımı eklenmez.
-- Bu seçim ilk iki-node ürünün uygulanabilirliğine yöneliktir; HTTP'den veya QUIC'ten her koşulda hızlı olacağı iddiası yoktur.
+
+```mermaid
+flowchart LR
+    subgraph N["Node (bir Linux makine)"]
+        R["Registry<br/>TCP 47401"]
+        H["Uygulama host'u<br/>TCP 47402"]
+        B["Beacon<br/>UDP 47400"]
+        A["Backend süreçleri"]
+        H --- A
+    end
+    C["İstemci (Mac, Windows, Linux)"]
+    C -. "1. UDP probe: node nerede?" .-> B
+    C -- "2. RESOLVE" --> R
+    C -- "3. GET_MANIFEST, GET_ASSET, APP_CALL" --> H
+```
 
 ## 2. Uçlar ve bağlantı türleri
 
-| Uç | Varsayılan | Kabul edilen mod | TLS |
+| Uç | Varsayılan | Kabul edilen mod | Not |
 | --- | --- | --- | --- |
-| Registry | TCP 47401 | `control` | mTLS |
-| Host | TCP 47401 | `control`, `bulk` | mTLS |
-| Registry katılım ucu | TCP 47402 | `enroll` | Sunucu doğrulamalı TLS; cihaz henüz sertifikasız |
+| Registry | TCP 47401 | `control` | İsimler, host'lar, uygulama kayıtları |
+| Host | TCP 47402 | `control`, `bulk` | Uygulama paketleri ve backend çağrıları |
+| Beacon | UDP 47400 | — | Node'u bulmak için (bölüm 3) |
 
-Portlar proje içi yapılandırılabilir varsayılandır; IANA tahsisi iddiası yoktur. Registry ve host aynı IP'de çalışacaksa farklı listen portları atanır. Adres kayıtları gerçek portu taşır.
+Portlar proje içi yapılandırılabilir varsayılandır; IANA tahsisi iddiası yoktur. Adres kayıtları gerçek portu taşır. Bir makinede registry ve host birlikte çalışabilir (`ilmek node`); host ayrı makinede de çalışabilir (`ilmek host start`).
 
-ALPN tam byte dizisi `ilmek/1` (7 ASCII byte: `69 6c 6d 65 6b 2f 31`) MUST olmalı. Bu proje içi tanımlayıcıdır; IANA kaydı yapıldığı iddia edilmez. Seçilmezse bağlantı kapanır; HTTP veya açık TCP'ye dönüş yapılmaz. TLS early data / 0-RTT ILMEK/1.0'da kapalıdır. İlk sürümde TLS session resumption kapalı tutulur; böylece her yeni oturumda güncel kimlik denetimi yapılır. TLS kütüphanesinin güncel güvenli TLS 1.3 ayarları kullanılır; özel cipher veya şifreleme tasarlanmaz.
+## 3. Kimlik, katılım ve keşif
 
-## 3. TLS kimliği ve güven zinciri
+### 3.1 Kimlik yok
 
-### 3.1 Sertifika profili
+- Her cihaz ilk kullanımda kendi UUIDv7 `peer_id`'sini üretir ve cihaz dizinine yazar.
+- İstemci bu kimliği `HELLO.client_id` ile **bildirir**. Hiçbir şey bunu doğrulamaz; bir cihaz başka bir cihazın kimliğini söyleyebilir. Kimlik yalnızca cihazları ayırt etmek ve sahiplik kayıtlarını (isim alanı, uygulama) tutmak içindir.
+- Sunucu, `client_id`'yi oturum boyunca değiştirmez; `principal_id = client_id` kabul edilir. Host bu kimliği backend'e `IPC_CALL.principal_id` olarak iletir; mesaj gövdesindeki iddia yetkili kimliği değiştiremez.
+- Katılım token'ı, sertifika, CA, CSR, iptal listesi ve rol yoktur. Registry'ye bağlanan herkes topluluk üyesidir.
 
-Topluluğa özgü CA, uygulamanın kendi trust store'unda tutulur; işletim sisteminin genel kök deposuna eklenmesi gerekmez. CA ve TLS leaf anahtarları için V1 referans profili ECDSA P-256/SHA-256'dır; paket imzaları ayrıca Ed25519 kullanır.
+### 3.2 Katılım (otomatik)
 
-- Her peer için değişmez UUIDv7 `peer_id` vardır.
-- Leaf sertifikada tam olarak bir kimlik URI SAN'ı bulunur: `urn:uuid:<peer_id>`.
-- TLS sunucusunun sertifikası ayrıca dinlediği/published olduğu IP'yi IP SAN olarak taşır. V1 endpoint'leri IPv4 adresidir; DNS ismi çözmeye gerek yoktur.
-- İstemci standart zincir, süre, kullanım amacı ve IP SAN doğrulamasının yanında beklenen `server_id` ile URI SAN kimliğini karşılaştırır.
-- IP değişiminde gerekiyorsa yeni IP SAN içeren sertifika çıkarılır. Kimlik doğrulaması devre dışı bırakılmaz.
-- Registry'nin beklenen kimliği, adresi ve CA parmak izi güvenilir bootstrap profilinde bulunur.
-- Host kimliği registry'nin yetkili kaydından alınır. Ortak CA tarafından imzalanmış herhangi bir sertifika, hedef host yerine geçemez.
-- mTLS'de istemcinin kimliği sertifikadan türetilir; metadata içindeki kullanıcı iddiası güven kaynağı değildir.
-- İlk sürümde `principal_id = peer_id` kabul edilir. Aynı kişinin iki cihazda aynı kullanıcı hesabını kullanması ayrı bir hesap bağlama özelliğidir ve V1 garantisi değildir.
+Bir cihaz topluluğa şöyle katılır; hiçbir dosya veya kod gerekmez:
 
-Leaf sertifika süresi varsayılan 30 gündür. Süre sonuna 7 gün kala istemci uyarı verir. V1 yenileme, yönetici onaylı yeni enrollment token'ı ve mevcut kimlik/anahtar doğrulamasıyla yapılır; otomatik sertifika yenileme mesajı bu sürümde yoktur. Aynı peer kimliğine yeni sertifika çıkarma yetkisi yalnızca yönetici onaylı yenileme token'ındadır. Yeni cihaz sıradan token ile mevcut peer kimliğini sahiplenemez.
+1. Cihaz UDP `16 byte` probe gönderir (bölüm 3.3) ve ilk cevabı alır.
+2. Cevaptan `community_id`, `registry_id` ve registry portunu öğrenir. Registry adresi, cevap datagramının **kaynak IP**'sidir; böylece düğüm kendi IP'sini bilmek zorunda değildir.
+3. Cihaz bu bilgiyi (`profile.json`) ve kendi kimliğini (`device.id`) cihaz dizinine yazar. Sonraki açılışlarda keşif yapılmaz.
 
-### 3.2 Katılım token'ı
+Keşif kullanılamıyorsa (farklı alt ağ, UDP engelli) cihaza registry adresi verilir (`ilmek join --registry IP:PORT`); bu durumda probe doğrudan o IP'ye gider.
 
-- En az 256 bit kriptografik rastgele veri; base64url, padding yok.
-- Varsayılan yaşam süresi 15 dakika; sunucuda yalnızca token özeti tutulur.
-- Token rol/izin sınırlarını yönetici önceden belirler. İstemcinin istediği rol yetki sayılmaz.
-- Log, URL ve komut satırına yazılmaz.
-- Başarılı enrollment sonucu ile token tüketimi aynı kalıcı transaction'da kaydedilir.
-- Cevap kaybolursa aynı enrollment operation ID, aynı CSR ve aynı token ile aynı sonuç tekrar alınabilir. Başka içerikle tekrar kullanım reddedilir.
-- Enrollment sonucu en az token süresinin sonundan itibaren 24 saat saklanır. Bu süreden sonra belirsiz katılım yönetici tarafından çözülür.
+### 3.3 Keşif datagramları (UDP)
 
-### 3.3 İptal ve offline süre
+- Probe: ASCII `ILMEK-DISCOVER/1` (16 byte), `255.255.255.255:47400` ve `127.0.0.1:47400` adreslerine; 500 ms'de bir tekrarlanır, toplam bekleme 4 sn.
+- Cevap: UTF-8 JSON `{"ilmek":1,"community_id":UUID,"registry_id":UUID,"registry_port":U53}`, en fazla 1024 byte.
+- Cevaplayıcı (node), UDP portunu dinler. Port dolu ise node çalışmaya devam eder; yalnızca bulunabilir olmaz.
+- Port `ILMEK_DISCOVERY_PORT` ortam değişkeniyle değiştirilebilir; bir ağdaki bütün cihazlar aynı değeri kullanır.
 
-Registry iptal edilmiş sertifika seri numaralarını ve yayıncı anahtarlarını tutar. Her sunucu/istemci tam bir trust snapshot'ını en fazla 60 saniyede bir yenilemeyi dener.
+### 3.4 Host adresi
 
-- Son başarılı tam snapshot 24 saatten eskiyse yeni uzak uygulama erişimi ve uzak işlem MUST reddedilmeli; hata `TRUST_STALE` olur.
-- Yerel olarak indirilmiş statik içeriğin çevrimdışı okunması farklıdır; kullanıcıya doğrulamanın güncel olmadığı belirtilir. İptali öğrenilmiş paket anahtarıyla yeni paket kurulmaz.
-- Süre dolmadan da bağlantı başına ve en az dakikada bir iptal kontrolü yapılır. Bilinen iptal yeni isteklere uygulanır ve ilgili oturum kapatılır.
-- Süreç yeniden başlatmasında veya saat geriye gitmişse cache süresi güvenle belirlenemiyorsa snapshot yenilenmeden uzak erişim verilmez.
-- İlk katılımda trust snapshot tamamlanmadan uygulama erişimi açılmaz.
-- Registry, trust yenilemek için gelen geçerli CA/kimlik sertifikasını kendi güncel iptal listesine göre denetler. Bu uç kendi eski önbelleğine bağımlı değildir.
-- Offline iptal anlık değildir; azami 24 saatlik pencere ürünün açık sınırıdır.
+Host kendi dış adresini bilmek zorunda değildir. `HOST_REGISTER.endpoint.ip = "0.0.0.0"` gönderirse registry, bağlantının **kaynak IPv4 adresini** kaydeder. Registry ile aynı makinedeki host loopback'ten bağlandığı için `127.0.0.1` kaydedilir; istemci, kayıttaki adres loopback ve kendi registry adresi loopback değilse, host'a **registry'nin adresiyle** bağlanır (`host_address` kuralı).
 
 ## 4. Temel veri tipleri
 
@@ -96,17 +99,18 @@ Bu protokol JSON alanlarının sırasına güvenmez. Kriptografik özeti alınan
 
 ### 4.1 UUIDv7 üretim, saklama ve tekrar kuralları
 
-- `UUID` tipi bu sözleşmede **yalnızca RFC 9562 UUIDv7** anlamına gelir. Community, peer/server, principal, publisher, app, request, operation, session, subscription, event ve snapshot kimlikleri buna dahildir. Hash, revision, sequence, sertifika seri numarası ve opaque cursor UUID değildir; kendi tiplerinde kalır.
+- `UUID` tipi bu sözleşmede **yalnızca RFC 9562 UUIDv7** anlamına gelir. Community, peer/server, principal, publisher, app, request, operation, session, subscription, event ve snapshot kimlikleri buna dahildir. Hash, revision, sequence ve opaque cursor UUID değildir; kendi tiplerinde kalır.
 - Wire biçimi küçük harfli, tireli 36 ASCII karakterdir. Version nibble 7, RFC variant bitleri `10` olmalıdır. Nil UUID ve diğer sürümler reddedilir.
 - 48 bit Unix epoch milisaniye alanı; version/variant dışındaki 74 bit için kriptografik güvenli rastgelelik kullanan RFC uyumlu kütüphane tercih edilir. UUID üretmek için merkezi registry çağrısı veya internet gerekmez.
 - V1 strict global ya da process-içi monoton sıra vaat etmez. Aynı milisaniyedeki rastgele UUIDv7 değerleri üretim sırasıyla sıralanmayabilir; saat gerilemesi ve cihazlar arası saat farkı olabilir. İş sırası için revision/sequence/cursor, nedensellik için uygulama kuralları kullanılır.
 - UUID içindeki zaman, kimlik üretiminin yaklaşık zamanını açığa çıkarabilir. Sunucu güvenilir audit zamanı için kendi `created_at` alanını tutar; istemcinin UUID zamanı yetki veya süre aşımı kanıtı değildir.
-- UUIDv7 gizli token, parola, CSRF/oturum sırrı veya şifreleme anahtarı yerine geçmez. Enrollment token'ları ve güvenlik nonce'ları mevcut CSPRNG kurallarında kalır.
+- UUIDv7 gizli token, parola veya şifreleme anahtarı yerine geçmez.
 - Request kimliği her yeni istekte yenidir. Operation kimliği yazmanın ilk oluşturulduğu anda üretilir ve bütün tekrarlarında aynen korunur; v7 timestamp'i güncellemek için yeniden üretilmez.
 - Kalıcı app/server/peer kimliği restart, uygulama sürümü veya IP değişince yeniden üretilmez. SQLite'ta UUID, kanonik metin veya 16-byte network-order BLOB olarak saklanabilir; bir kolon için tek gösterim seçilir. .NET GUID little-endian byte düzeni wire'a taşınmaz.
 - Veritabanında uygun UNIQUE/PRIMARY KEY kısıtları yine zorunludur. Yeni oluşturulan entity kimliğinde çakışma fark edilirse kontrollü yeniden üretim yapılır; idempotent operation kimliği çakışma diye sessizce değiştirilmez.
 - JavaScript `crypto.randomUUID()` doğrudan kullanılmaz; standart çağrı UUIDv7 üretmez. Native ortak çekirdek veya doğrulanmış UUIDv7 kütüphanesi kullanılır. UUID'nin version bitini değiştirerek UUIDv4'ü UUIDv7 diye etiketleme yasaktır.
-- Henüz dağıtılmamış önceki doküman örnekleri UUIDv4 idi; bu revizyon onları geçersiz kılar. Gerçek eski veri varsa anahtarlar yerinde körlemesine değiştirilmez; FK, sertifika, imza ve referans etkilerini ele alan ayrı migration gerekir.
+- Henüz dağıtılmamış önceki doküman örnekleri UUIDv4 idi; bu revizyon onları geçersiz kılar. Gerçek eski veri varsa anahtarlar yerinde körlemesine değiştirilmez; FK ve referans etkilerini ele alan ayrı migration gerekir.
+
 
 ## 5. Byte düzeyi frame
 
@@ -119,12 +123,12 @@ Bu protokol JSON alanlarının sırasına güvenmez. Kriptografik özeti alınan
 | 12+M | B | Ham gövde byte'ları |
 
 - `1 ≤ M ≤ 65536`, `0 ≤ B ≤ 262144`.
-- En büyük frame: `12 + 65536 + 262144 = 327692` byte; TLS overhead hariç.
-- Ağdaki registry/host/enrollment uçlarında magic yalnızca TLS içinde gönderilir; plaintext İlmek ağ servisi yoktur. Bölüm 16'daki yalnızca loopback yerel IPC aynı frame codec'ini TLS olmadan kullanabilir; ağ endpoint'i değildir.
+- En büyük frame: `12 + 65536 + 262144 = 327692` byte.
+- Frame'ler düz TCP üzerinde gönderilir (şifreleme yok). Bölüm 16'daki yalnızca loopback yerel IPC aynı frame codec'ini kullanır; ağ endpoint'i değildir.
 - Limit dışı boyut, kötü magic veya tamamlanmamış frame halinde bağlantı kapanır. Saldırganın bildirdiği boyut kadar bellek allocate edilmez.
 - TCP tek okumasının bir frame olduğu varsayılmaz. Parçalı okumalar biriktirilir, aynı okumadaki fazla byte sonraki frame için saklanır.
 - İlk frame byte'ından itibaren 30 saniyede frame tamamlanmazsa bağlantı kapanır. Kısmi ilerleme bu toplam deadline'ı sıfırlamaz.
-- Birden fazla task aynı TLS stream'e kilitsiz byte yazamaz. Tek writer kuyruğu veya eşdeğer frame bütünlüğü garantisi gerekir.
+- Birden fazla task aynı TCP akışına kilitsiz byte yazamaz. Tek writer kuyruğu veya eşdeğer frame bütünlüğü garantisi gerekir.
 
 ### Ortak metadata nesnesi
 
@@ -147,29 +151,26 @@ Yalnızca dört üst alan vardır: `type`, `request_id`, `community_id`, `data`.
 ```mermaid
 stateDiagram-v2
     [*] --> TCP
-    TCP --> TLS: Bağlantı kuruldu
-    TLS --> HelloBekleniyor: TLS ve ALPN başarılı
+    TCP --> HelloBekleniyor: Bağlantı kuruldu
     HelloBekleniyor --> Aktif: HELLO_ACK
     Aktif --> Kapanis: GOODBYE veya fatal hata
     Kapanis --> [*]
     TCP --> [*]: Zaman aşımı
-    TLS --> [*]: Doğrulama hatası
     HelloBekleniyor --> [*]: Hatalı ilk mesaj
     Aktif --> [*]: Bağlantı kaybı
 ```
 
 1. TCP connect deadline 5 sn.
-2. TLS handshake deadline 10 sn.
-3. TLS sonrası istemci ilk mesaj olarak 5 sn içinde `HELLO` gönderir.
-4. Sunucu `HELLO_ACK` göndermeden başka uygulama isteği kabul etmez.
-5. ACK'den sonra bağlantı modu değişmez.
-6. Uyumsuz topluluk/sürüm/mod için mümkünse `ERROR`, ardından TLS close_notify.
-7. Normal kapanış `GOODBYE`/`GOODBYE_ACK`; in-flight işler bitirilmeden sonlanırsa yazma sonuçları istemci açısından belirsizdir.
-8. Socket EOF veya timeout, backend transaction'ının geri alındığı anlamına gelmez.
+2. İstemci ilk mesaj olarak 5 sn içinde `HELLO` gönderir.
+3. Sunucu `HELLO_ACK` göndermeden başka uygulama isteği kabul etmez.
+4. ACK'den sonra bağlantı modu değişmez.
+5. Uyumsuz topluluk/sürüm/mod için mümkünse `ERROR`, ardından bağlantı kapanır.
+6. Normal kapanış `GOODBYE`/`GOODBYE_ACK`; in-flight işler bitirilmeden sonlanırsa yazma sonuçları istemci açısından belirsizdir.
+7. Socket EOF veya timeout, backend transaction'ının geri alındığı anlamına gelmez.
 
 ### HELLO — istemci → sunucu
 
-`data = {version:1, mode:"control"|"bulk"|"enroll", client_name:string, client_version:Version}`; gövde boş. `client_name` en fazla 64 UTF-8 byte.
+`data = {version:1, client_id:UUID, mode:"control"|"bulk", client_name:string, client_version:Version}`; gövde boş. `client_name` en fazla 64 UTF-8 byte. `client_id` bölüm 3.1'deki bildirilen kimliktir.
 
 ### HELLO_ACK — sunucu → istemci
 
@@ -177,9 +178,9 @@ stateDiagram-v2
 
 - `control`: max inflight 1..16; max subscriptions host'ta 0..8, registry'de 0.
 - `bulk`: max inflight 1; subscriptions 0.
-- `enroll`: max inflight 1; subscriptions 0.
 - Frame limitleri sabittir; daha büyük frame için pazarlık yoktur.
-- `server_id` TLS kimliğiyle eşleşmeli. `server_time_ms` teşhis içindir; cihaz saati sessizce değiştirilmez.
+- `server_id` bilgi amaçlıdır; istemci bunu doğrulayamaz. `server_time_ms` teşhis içindir; cihaz saati sessizce değiştirilmez.
+- İstemci, `server_role` beklediğinden farklıysa bağlantıyı kapatır.
 
 ## 7. Request/response, oturum ve sınırlar
 
@@ -190,7 +191,7 @@ stateDiagram-v2
 - `SUBSCRIBED` ve `ASSET_INFO` uzun akışın başlangıcını bildirir; aşağıdaki özel yaşam döngüleri geçerlidir.
 - Aynı socket'te cevapların istek sırasını takip etmesi gerekmez; request ID ile eşleştirilir.
 - Süreç içi dedupe state'in sınırsız büyümemesi için bağlantı en fazla 100000 yeni istek kabul eder; sonra `DRAIN` verilir. İstemci yeni bağlantı açar. Bu sınır kontrol/aktarım istekleri ve onların ID kayıtları içindir; EVENT frame sayısı değildir. Sonuçlanmamış yazma işlemlerinde aynı operation ID korunur.
-- Host referans sınırı 128 eşzamanlı normal TLS bağlantısı; yönetici değiştirebilir. Sınırda yeni bağlantı reddi, sınırsız accept kuyruğu yerine açık işletim davranışıdır.
+- Host referans sınırı 128 eşzamanlı bağlantı; yönetici değiştirebilir. Sınırda yeni bağlantı reddi, sınırsız accept kuyruğu yerine açık işletim davranışıdır.
 - Kontrol istekleri için istemci varsayılan deadline 15 sn. Okumalar yeniden denenebilir; yazmalar bölüm 12'ye göre denenir.
 - 20 sn outbound boşta kalan istemci `PING` gönderir. 10 sn içinde `PONG` yoksa bağlantıyı sağlıksız sayıp kapatır. Sunucu 90 sn hiç inbound frame almamış oturumu kapatabilir.
 - PING/PONG, CANCEL, EVENT_ACK, UNSUBSCRIBE ve GOODBYE için küçük ayrı kontrol kuyruğu ayrılır; uzun aktarım bunları sonsuza kadar bloke edemez.
@@ -201,23 +202,12 @@ stateDiagram-v2
 
 Sunucu tarafından başlatılabilen `DRAIN`, HELLO request ID'sini taşır; `data={reason:"request_limit"|"shutdown", grace_ms:U53}`. Grace en fazla 30000 ms. Yeni uygulama isteği `SERVER_DRAINING` alır. Mevcut kısa istekler süre içinde tamamlanabilir; bulk bağlantısı yeniden açılıp dosya offset'iyle devam edilir.
 
+
 ## 8. Mesaj kataloğu
 
-Bütün mesajlarda ortak dört metadata alanı vardır. Aşağıdaki tabloda yalnızca `data` ve gövde tanımlanır. Özel yapı isimleri sonraki bölümlerde açıklanır.
+Bütün mesajlarda ortak dört metadata alanı vardır. Aşağıdaki tabloda yalnızca `data` ve gövde tanımlanır.
 
-### 8.1 Katılım — yalnızca enroll/registry
-
-| İstek | Data | Gövde | Başarı cevabı |
-| --- | --- | --- | --- |
-| `ENROLL` | `{operation_id:UUID, token:Token, display_name:string, csr_der:Token}` | Boş | `ENROLLED` |
-
-`display_name` en fazla 80 byte; CSR DER en fazla 8192 byte. CSR kendi anahtarıyla imzalanmış olmalı; CA algoritma ve anahtar gücünü doğrular. CSR'nin istediği subject/rol/peer kimliği yetki sayılmaz. Peer ID yeni katılımda sunucuda üretilip sonuç transaction'ında saklanır; yenileme token'ında yönetici tarafından bağlanmış kimlik kullanılır.
-
-`ENROLLED data={peer_id:UUID, certificate_der:Token, chain_der:[Token], roles:["member"|"publisher"|"host"|"admin"], registry_endpoint:Endpoint, registry_id:UUID, expires_at_ms:Timestamp}`. Gövde boş; toplam metadata limitine sığmalı. Başarılı cevaptan sonra enrollment bağlantısı kapatılır; istemci normal mTLS bağlantısı açar.
-
-Yanlış token için gizli bilgiyi açıklamayan `UNAUTHORIZED`; hız sınırı uygulanır. Yeni enrollment önceki cihaz kimliğini salt isim benzerliğiyle devralamaz.
-
-### 8.2 Registry kontrol mesajları
+### 8.1 Registry kontrol mesajları
 
 | İstek | Data | Gövde | Başarı cevabı |
 | --- | --- | --- | --- |
@@ -225,56 +215,45 @@ Yanlış token için gizli bilgiyi açıklamayan `UNAUTHORIZED`; hız sınırı 
 | `LIST_APPS` | `{query:string, limit:U53, cursor:Cursor\|null}` | Boş | `APPS_LISTED` |
 | `HOST_REGISTER` | `{operation_id:UUID, endpoint:Endpoint, expected_revision:U53}` | Boş | `HOST_REGISTERED` |
 | `HOST_HEARTBEAT` | `{host_revision:U53}` | Boş | `HEARTBEAT_ACK` |
-| `REGISTER_APP` | `{operation_id:UUID, namespace:Name, slug:Name, app_id:UUID, server_id:UUID, version:Version, manifest_hash:Hash, publisher_key_id:Hash, name:string, description:string}` | Boş | `APP_REGISTERED` |
+| `REGISTER_APP` | `{operation_id:UUID, namespace:Name, slug:Name, app_id:UUID, server_id:UUID, version:Version, manifest_hash:Hash, name:string, description:string}` | Boş | `APP_REGISTERED` |
 | `UNREGISTER_APP` | `{operation_id:UUID, app_id:UUID, expected_revision:U53}` | Boş | `APP_UNREGISTERED` |
-| `UPDATE_APP` | `{operation_id:UUID, app_id:UUID, expected_revision:U53, server_id:UUID, version:Version, manifest_hash:Hash, publisher_key_id:Hash, name:string, description:string}` | Boş | `APP_UPDATED` |
-| `GET_TRUST` | `{limit:U53, cursor:Cursor\|null}` | Boş | `TRUST_PAGE` |
+| `UPDATE_APP` | `{operation_id:UUID, app_id:UUID, expected_revision:U53, server_id:UUID, version:Version, manifest_hash:Hash, name:string, description:string}` | Boş | `APP_UPDATED` |
 
-`Endpoint={ip:string, port:U53}`; ip kanonik IPv4, port 1..65535. Registry endpoint allowlist'inde bulunmayan veya İlmek ağından erişilemeyecek advertised endpoint reddedilir. V1'de uygulamanın hedefi kullanıcıdan gelen keyfi URL değildir.
+`Endpoint={ip:string, port:U53}`; ip kanonik IPv4, port 1..65535. `HOST_REGISTER`'da `ip="0.0.0.0"` registry'ye kaynak adresi doldurma izni verir (bölüm 3.4). Registry yapılandırmasında `allowed_endpoints` boş değilse, bu ağlar dışındaki adres `FORBIDDEN` ile reddedilir; boşsa her adres kabul edilir.
 
 `RESOLVED data={record:AppRecord, cache_ttl_seconds:60}`; gövde boş.
 
-`APPS_LISTED data={snapshot_id:UUID, next_cursor:Cursor|null}`; gövde UTF-8 JSON `{"records":[AppRecord,...]}`. `limit` 1..50, query en fazla 128 byte. Sonraki sayfada query ve limit korunur; cursor bunlara bağlıdır. Snapshot 5 dakika tutulur; sonra `CURSOR_EXPIRED`. Registry yeni kayıtlarla sayfalar arasında sessiz atlama/tekrarlama üretmez; sabit snapshot veya açık cursor expiry kullanır.
+`APPS_LISTED data={snapshot_id:UUID, next_cursor:Cursor|null}`; gövde UTF-8 JSON `{"records":[AppRecord,...]}`. `limit` 1..50, query en fazla 128 byte. Sonraki sayfada query ve limit korunur; cursor bunlara bağlıdır. Snapshot 5 dakika tutulur; sonra `CURSOR_EXPIRED`. Cursor, onu üreten `client_id`'ye bağlıdır.
 
-`HOST_REGISTERED data={server_id:UUID, revision:U53, heartbeat_interval_seconds:30, lease_seconds:90}`. Server ID TLS peer kimliğidir. İlk kayıt expected_revision=0; sonraki değişiklik mevcut revision ister.
+`HOST_REGISTERED data={server_id:UUID, revision:U53, heartbeat_interval_seconds:30, lease_seconds:90}`. `server_id`, host'un bildirdiği `client_id`'dir. İlk kayıt expected_revision=0; sonraki değişiklik mevcut revision ister.
 
-`HEARTBEAT_ACK data={lease_expires_at_ms:Timestamp}`. Aktör host rolüne sahip olmalı; yalnızca kendi lease'ini yeniler. Heartbeat, host endpoint'inin her istemciden erişilebildiğini kanıtlamaz.
+`HEARTBEAT_ACK data={lease_expires_at_ms:Timestamp}`. Host yalnızca kendi lease'ini yeniler. Heartbeat, host endpoint'inin her istemciden erişilebildiğini kanıtlamaz.
 
-`APP_REGISTERED` ve `APP_UPDATED data={record:AppRecord}`; gövde boş. Kayıt işlemi ile operation dedupe sonucu aynı transaction'dadır. Yayıncı namespace sahipliği ve hedef host üzerinde yayınlama yetkisi doğrulanır. V1'de bu yetki eşleştirmelerini ve namespace sahipliklerini yönetici yerel CLI üzerinden oluşturur; namespace için ayrı ağ mesajı zorunlu değildir.
+`APP_REGISTERED` ve `APP_UPDATED data={record:AppRecord}`; gövde boş. Kayıt işlemi ile operation dedupe sonucu aynı transaction'dadır. Kurallar:
 
-`APP_UNREGISTERED data={app_id:UUID, revision:U53}`; gövde boş. Yayın sahibi uygulamayı katalogdan kaldırabilir. Registry isim sahipliğini ve son revision'ı tombstone olarak korur; LIST_APPS ve RESOLVE bu kaydı döndürmez. Tekrar yayınlama aynı yetkili sahip ve aynı app_id ile REGISTER_APP kullanır, yeni operation ID taşır ve revision artırır. Başka uygulama/kişi eski ismi ele geçiremez. Katalogdan kaldırma, önceden indirilen içeriği silmez; backend erişimini kapatmak için host ayrıca durdurulur. Aynı operation ID ile tekrar eski sonucu döndürür; yeni ID'yle zaten tombstone kayıt için mevcut revision döner.
+- Bir isim alanını (`namespace`) **ilk kaydeden cihaz** sahiplenir; sonraki kayıt/güncelleme/kaldırma yalnızca aynı `client_id` ile yapılabilir, aksi `FORBIDDEN`. (`client_id` doğrulanmadığı için bu bir kaza önleme kuralıdır, güvenlik değil.)
+- `REGISTER_APP` ve `UPDATE_APP` hedef `server_id`'nin kayıtlı bir host olmasını ister; değilse `INVALID_MESSAGE`. Host henüz kaydolmamışsa istemci kısa süre bekleyip yeniden dener.
 
-Registry yeni bir uygulama kaydını, var olan namespace/slug'a başka `app_id` atayarak değiştiremez. Update'te `app_id` ve ad alanı değişmez. Sunucu taşıma, yetkili `server_id` güncellemesiyle yapılabilir; backend veri taşıması otomatik değildir.
+`APP_UNREGISTERED data={app_id:UUID, revision:U53}`; gövde boş. Registry isim sahipliğini ve son revision'ı tombstone olarak korur; LIST_APPS ve RESOLVE bu kaydı döndürmez. Tekrar yayınlama aynı sahip ve aynı app_id ile REGISTER_APP kullanır, yeni operation ID taşır ve revision artırır. Başka uygulama eski ismi ele geçiremez. Katalogdan kaldırma, önceden indirilen içeriği silmez; backend erişimini kapatmak için host ayrıca durdurulur. Aynı operation ID ile tekrar eski sonucu döndürür.
 
-### 8.3 AppRecord
+Registry yeni bir uygulama kaydını, var olan namespace/slug'a başka `app_id` atayarak değiştiremez. Update'te `app_id` ve ad alanı değişmez; sürüm geriye gidemez, aynı sürüm başka içerikle yayınlanamaz (`VERSION_CONFLICT`).
+
+### 8.2 AppRecord
 
 ```text
 {
  community_id:UUID, namespace:Name, slug:Name, app_id:UUID,
  publisher_id:UUID, server_id:UUID, endpoint:Endpoint,
- version:Version, manifest_hash:Hash, publisher_key_id:Hash,
- publisher_public_key:Token, name:string, description:string,
+ version:Version, manifest_hash:Hash, name:string, description:string,
  revision:U53, lease_expires_at_ms:Timestamp,
  availability:"recent_heartbeat"|"stale"|"unknown"
 }
 ```
 
-`publisher_public_key` tam 32 byte Ed25519 anahtarının base64url biçimi; `publisher_key_id = SHA256(public_key_raw)` hex. Name en fazla 128, description en fazla 2048 UTF-8 byte; bunlar genel string limitinin açık istisnasıdır. Publisher ID yerel yönetici kayıtlarındaki kalıcı kimliktir; peer ID ile aynı olmak zorunda değildir.
+Name en fazla 128, description en fazla 2048 UTF-8 byte; bunlar genel string limitinin açık istisnasıdır. `publisher_id`, uygulamayı kaydeden cihazın bildirdiği kimliktir.
 
-İsim cache'i 60 saniye sonra yenilenir. Registry erişilemiyorsa daha önce doğrulanmış aynı server/publisher kimliği ve endpoint, son tam trust doğrulamasından itibaren en fazla 24 saat boyunca **stale olduğu belirtilerek** kullanılabilir. Geçmiş heartbeat lease'i ulaşılabilirlik göstergesidir; isim sahipliğini devretmez. Sunucu bağlantısında TLS ve izin denetimleri yine yapılır. Cache'e hiç alınmamış isim registry yokken çözülemez.
+İsim cache'i 60 saniye sonra yenilenir. Registry erişilemiyorsa daha önce çözülmüş kayıt, en fazla 24 saat boyunca **stale olduğu belirtilerek** kullanılabilir. Geçmiş heartbeat lease'i ulaşılabilirlik göstergesidir. Cache'e hiç alınmamış isim registry yokken çözülemez.
 
-### 8.4 Trust snapshot
-
-`TRUST_PAGE data={snapshot_id:UUID, revision:U53, generated_at_ms:Timestamp, next_cursor:Cursor|null}`; gövde UTF-8 JSON:
-
-```text
-{"entries":[
-  {"kind":"certificate", "value":<sertifika-seri-hex>, "revoked_at_ms":<Timestamp>},
-  {"kind":"publisher_key", "value":<Hash>, "revoked_at_ms":<Timestamp>}
-]}
-```
-
-Limit 1..100. Sertifika seri numarası küçük harfli, çift uzunlukta hex; en fazla 40 karakter, en az 2. Snapshot 5 dakika sabittir. Yeni snapshot bütün sayfaları tamamlanmadan eski trust state'in yerine geçirilmez. Başarısız sayfa yenilemesi 24 saat sayacını sıfırlamaz. Tamamlanan snapshot boş olabilir. Zaman/registry revision geriye gitmişse güvenli hata ve yönetici incelemesi gerekir; eski iptal listesini sessiz kabul etme.
 
 ## 9. Host kontrol mesajları
 
@@ -286,9 +265,9 @@ Limit 1..100. Sertifika seri numarası küçük harfli, çift uzunlukta hex; en 
 | `EVENT_ACK` | `{subscription_id:UUID, sequence:U53, cursor:Cursor}` | Boş | `EVENT_ACKED` |
 | `UNSUBSCRIBE` | `{subscription_id:UUID}` | Boş | `UNSUBSCRIBED` |
 
-Her istekte host, uygulamayı ve aktörün o uygulamaya erişim yetkisini doğrular. Bir community üyesi olmak bütün uygulamaları yönetme veya bütün kullanıcı verilerini okuma yetkisi değildir.
+Her istekte host uygulamanın var ve çalışır olduğunu ve istemcinin açtığı sürümün uyumlu olduğunu doğrular. Erişim denetimi yoktur: community'ye bağlanan her cihaz her uygulamayı çağırabilir. Uygulama kendi verisini cihaz kimliğine (`principal_id`) göre ayırabilir; örnek `notes` uygulaması böyle yapar.
 
-`MANIFEST data={app_id:UUID, version:Version, manifest_hash:Hash, publisher_key_id:Hash, signature:Token}`; gövde saklanan **tam manifest.json byte'ları**. İmza 64 byte Ed25519. Manifest gövdesi en fazla 256 KiB. Yanlış hash/sürüm için `VERSION_CONFLICT` veya `NOT_FOUND`; otomatik başka sürüm döndürme yok.
+`MANIFEST data={app_id:UUID, version:Version, manifest_hash:Hash}`; gövde saklanan **tam manifest.json byte'ları**. Manifest gövdesi en fazla 256 KiB; istemci SHA-256 özetini kayıttaki `manifest_hash` ile karşılaştırır. Yanlış hash/sürüm için `VERSION_CONFLICT` veya `NOT_FOUND`; otomatik başka sürüm döndürme yok.
 
 `APP_RESULT data={app_id:UUID, operation_id:UUID|null}`; gövde uygulamaya özgü UTF-8 JSON object, en fazla 256 KiB. İş hatası `ERROR` ile döner; 200/404 gibi HTTP status kodları kullanılmaz. İstemci başka bir app_id veya operation ID içeren cevabı kabul etmez.
 
@@ -300,7 +279,7 @@ Her istekte host, uygulamayı ve aktörün o uygulamaya erişim yetkisini doğru
 
 - `cursor=null` yeni aboneliktir: sunucu önce bir sınır cursor'u oluşturur ve sadece bu sınırdan sonraki olayları gönderir. İlk ekran geçmişi ayrı `APP_CALL` ile alınır. Arada veri kaçırmamak için önce subscribe, sonra liste/snapshot alıp event ID/revision ile birleştirme yapılır.
 - Cursor verilmişse o cursor'dan **sonraki** olaylar yeniden gönderilir.
-- Cursor topluluk, principal, app ve topic'e bağlıdır; başka kullanıcının cursor'u kabul edilmez.
+- Cursor topluluk, principal, app ve topic'e bağlıdır; başka cihazın cursor'u kabul edilmez.
 - Sunucu o topic için en az son 10000 olayı saklayan bir akış sunar. Daha eski cursor için `CURSOR_EXPIRED`; istemci yeniden snapshot alır. Her uygulama aynı event saklama ihtiyacına sahip değildir; daha büyük saklama yerel uygulama kararıdır.
 - Veri değişikliğiyle ilgili event kaydı, örnek backend'lerde aynı DB transaction'ında yazılır. Event'in kesin teslimi değil, yeniden okunabilen kalıcı olay günlüğü sağlanır.
 
@@ -347,7 +326,7 @@ Bütün cevaplar aynı GET_ASSET request ID'sini taşır. Chunk sequence 0'dan b
 - Aktarımın terminal cevabı zaten kuyruğa alındıysa ACK `already_finished`; ID bu oturumda bilinmiyorsa `not_found` olur. Aynı request için END ve ERROR iki terminal cevap olarak gönderilmez.
 - CANCEL, APP_CALL transaction'ını geri almaz ve bu amaçla kullanılamaz. Abonelikler UNSUBSCRIBE ile sonlandırılır.
 - İstemci CANCEL ACK'sini beklemeden socket'i kapatabilir; bu durumda sunucu socket iptalini de kaynak temizliği için kullanır.
-- İlerleme barı gerçek alınan byte sayısına dayanır. Hash ve imza tamamlanmadan “kuruldu” gösterilmez.
+- İlerleme barı gerçek alınan byte sayısına dayanır. Hash doğrulaması tamamlanmadan “kuruldu” gösterilmez.
 
 ## 12. Yazma işlemleri ve idempotency
 
@@ -364,7 +343,7 @@ Bu gösterim birleştirme tarifidir; `||` karakterleri gönderilmez. Host hash'i
 
 - Backend method tablosu method'un salt okunur mu yazma mı olduğunu belirler. İstemcinin `read_only` iddiasına güvenilmez.
 - Yazmada `operation_id` MUST UUID olmalı; okumada MUST null olmalı.
-- Dedupe anahtarı: `(community_id, app_id, principal_id, operation_id)`.
+- Dedupe anahtarı: `(community_id, app_id, principal_id, operation_id)`; `principal_id` bildirilen `client_id`'dir.
 - Method, hash ve sonuç dedupe kaydında bulunur. Aynı anahtar farklı method/hash ile gelirse `OPERATION_CONFLICT`.
 - İş değişikliği, event outbox kaydı ve başarılı sonuç aynı DB transaction'ında saklanır.
 - Aynı anahtarla eşzamanlı iki istek unique constraint/transaction kontrolüyle tek yazma üretir. İkinci istek sonucu bekleyebilir; deadline dolarsa `OPERATION_PENDING` dönebilir ve aynı ID ile tekrar edilir.
@@ -374,7 +353,7 @@ Bu gösterim birleştirme tarifidir; `||` karakterleri gönderilmez. Host hash'i
 - V1 örnek uygulamalarında dedupe kayıtları otomatik expire edilmez. Manuel silme, o kimlikler için geçmiş tekrar garantisini kaldırır ve bakım işlemi olarak belgelenir.
 - Harici yan etkiler (e-posta, ödeme vb.) bu atomiklik kapsamının dışındadır. SDK genel “exactly once” garantisi sunmaz.
 
-Her tekrar isteğinde önce güncel kimlik ve yetki kontrolü yapılır; sonra dedupe kaydı incelenir. Mevcut dedupe sonucu bulunduğunda revision/sürüm önkoşulları yeniden uygulanarak önceki başarılı işlem yanlış conflict'e çevrilmez. Yeni işte revision kontrolü transaction içinde yapılır.
+Her tekrar isteğinde önce uygulamanın hazır olduğu kontrol edilir; sonra dedupe kaydı incelenir. Mevcut dedupe sonucu bulunduğunda revision/sürüm önkoşulları yeniden uygulanarak önceki başarılı işlem yanlış conflict'e çevrilmez. Yeni işte revision kontrolü transaction içinde yapılır.
 
 Registry mutation'larında da operation ID MUST kullanılır. Dedupe scope `(community_id, principal_id, message_type, operation_id)`; ilgili typed data alanları operation ID hariç saklanıp eşitlikle karşılaştırılır. JSON anahtar sırası önemsizdir; bütün değerler aynı olmalıdır. Registry kaydıyla sonuç aynı transaction'da commit edilir.
 
@@ -382,14 +361,13 @@ Registry mutation'larında da operation ID MUST kullanılır. Dedupe scope `(com
 
 ## 13. Hata sözleşmesi
 
-`ERROR data={code:enum, message:string, retryable:boolean, retry_after_ms:U53|null, details:object}`; gövde boş. Message en fazla 512 UTF-8 byte; details en fazla 2048 byte ve sır içermez. İş mesajına ait hata aynı request ID'yi taşır. Frame bozuksa request ID elde edilemeyebilir; bu durumda ERROR uydurulmadan bağlantı kapatılır.
+`ERROR data={code:enum, message:string, retryable:boolean, retry_after_ms:U53|null, details:object}`; gövde boş. Message en fazla 512 UTF-8 byte; details en fazla 2048 byte. İş mesajına ait hata aynı request ID'yi taşır. Frame bozuksa request ID elde edilemeyebilir; bu durumda ERROR uydurulmadan bağlantı kapatılır.
 
 | Kod | Anlam / davranış |
 | --- | --- |
-| `UNAUTHORIZED` | Kimlik/token geçersiz; aynı kimlikle otomatik sonsuz tekrar yok |
-| `FORBIDDEN` | Doğrulanmış aktörün yetkisi yok |
-| `TRUST_STALE` | Trust yenilemesi gerekli; registry'ye ulaşmadan uygulama işlemine devam yok |
-| `NOT_FOUND` | Yetki sınırları içinde hedef bulunamadı |
+| `UNAUTHORIZED` | Şu an hiçbir yol üretmez; ileride kimlik eklenirse için ayrılmıştır |
+| `FORBIDDEN` | İsim alanı/uygulama başka cihaza ait veya endpoint izinli ağlar dışında |
+| `NOT_FOUND` | Hedef bulunamadı |
 | `NAME_CONFLICT` | İsim başka kayıt tarafından kullanılıyor |
 | `REVISION_CONFLICT` | Registry/uygulama optimistic revision uyuşmuyor |
 | `VERSION_CONFLICT` | İstenen uygulama sürümü/hash'i sunulan içerikle uyuşmuyor |
@@ -397,8 +375,8 @@ Registry mutation'larında da operation ID MUST kullanılır. Dedupe scope `(com
 | `UNSUPPORTED_VERSION` | İlmek protokol sürümü desteklenmiyor; bağlantı kapanır |
 | `UNSUPPORTED_MESSAGE` | Sözleşmede olmayan type; istek reddedilir |
 | `INVALID_MESSAGE` | Alan/format/mod/sequence hatası |
-| `TOO_LARGE` | Geçerli iş isteği içerik limitini aşıyor; frame-level taşmada bağlantı kapanır |
-| `RATE_LIMITED` | İstek hızı sınırı; retry_after_ms zorunlu ve 0..60000 |
+| `TOO_LARGE` | Geçerli iş isteği içerik limitini aşıyor |
+| `RATE_LIMITED` | İstek hızı sınırı; retry_after_ms 0..60000 |
 | `RESOURCE_EXHAUSTED` | Kuyruk/bağlantı/iş slotu veya disk kaynağı yok |
 | `APP_UNAVAILABLE` | Backend çalışmıyor veya hazır değil |
 | `OPERATION_CONFLICT` | Aynı operation ID farklı içerikle kullanıldı |
@@ -406,7 +384,6 @@ Registry mutation'larında da operation ID MUST kullanılır. Dedupe scope `(com
 | `CURSOR_EXPIRED` | Yeniden liste/snapshot/abonelik başlangıcı gerekli |
 | `SLOW_CONSUMER` | Olay alıcısı ACK ilerletmiyor; abonelik kapatılır |
 | `HASH_MISMATCH` | İçerik/istek özeti uyuşmuyor |
-| `SIGNATURE_INVALID` | İmza veya yayıncı anahtarı geçersiz; çoğunlukla istemci yerel hatası |
 | `CANCELLED` | Aktarım iptal edildi |
 | `CANNOT_CANCEL` | Hedef işlem iptal edilebilir aktarım değil |
 | `TIMEOUT` | Sunucunun iş deadline'ı doldu; commit sonucunu tek başına kanıtlamaz |
@@ -415,24 +392,25 @@ Registry mutation'larında da operation ID MUST kullanılır. Dedupe scope `(com
 
 `retryable=true`, yeni operation ID ile yazma izni değildir. SDK yazmada daima ilk ID/body'yi korur. Retry varsayılan 0.5, 1, 2, 4, 8 saniye üst sınırlarına sahip jitter'lı en fazla 5 otomatik denemedir. Daha sonra kullanıcıya durum sunulur; kuyruk sessizce sonsuza kadar büyümez. RATE_LIMITED zamanını dikkate alır.
 
-İstemci tarafında ağ/TLS hataları ayrıca sınıflandırılır: bağlantı yok, yanlış ağ, timeout, kimlik uyuşmazlığı, saat/sertifika sorunu. Bunlar server ERROR frame'i alınmış gibi gösterilmez.
+İstemci tarafında ağ hataları ayrıca sınıflandırılır: bağlantı yok, yanlış ağ, timeout. Bunlar server ERROR frame'i alınmış gibi gösterilmez.
 
-## 14. Yetki matrisi ve uygulama sürümü
+## 14. Yetki ve uygulama sürümü
 
-| İşlem | Yetki |
+Bu sürümde yetkilendirme **yoktur**; yalnızca tutarlılık kuralları vardır:
+
+| İşlem | Kural |
 | --- | --- |
-| HELLO/PING/GOODBYE | İlgili TLS modundaki peer |
-| ENROLL | Geçerli enrollment token'ı; yalnızca bootstrap ucu |
-| GET_TRUST | İptal edilmemiş community kimliği |
-| RESOLVE/LIST_APPS | Community üyesi; katalog erişim politikası |
-| HOST_REGISTER/HEARTBEAT | Host rolü; yalnızca kendi kimliği |
-| REGISTER_APP/UPDATE_APP/UNREGISTER_APP | Namespace sahibi/yetkili yayıncı ve hedef host yetkisi |
-| GET_MANIFEST/GET_ASSET | Uygulamayı okuyabilen üye |
-| APP_CALL/SUBSCRIBE | Uygulama ve backend method/topic ACL'si |
-| EVENT_ACK/UNSUBSCRIBE | Aynı TLS oturumunda abonelik sahibi |
+| HELLO/PING/GOODBYE | Herkes |
+| RESOLVE/LIST_APPS | Herkes |
+| HOST_REGISTER/HEARTBEAT | Herkes; kayıt `client_id` altında tutulur |
+| REGISTER_APP | Namespace'i ilk kaydeden `client_id`; hedef host kayıtlı olmalı |
+| UPDATE_APP/UNREGISTER_APP | Uygulamayı kaydeden `client_id` |
+| GET_MANIFEST/GET_ASSET | Herkes |
+| APP_CALL/SUBSCRIBE | Herkes; uygulama method/topic kurallarına uyar |
+| EVENT_ACK/UNSUBSCRIBE | Aynı oturumdaki abonelik sahibi |
 | CANCEL | Aynı bağlantıdaki aktarım sahibi |
 
-Kimlik, TLS session'dan host tarafından backend'e aktarılır; JS gövdesindeki `principal_id` hiçbir zaman yetkili kimliği değiştiremez.
+Kimlik host tarafından backend'e aktarılır (`IPC_CALL.principal_id`); JS gövdesindeki `principal_id` hiçbir zaman bu değeri değiştiremez. `client_id` doğrulanmadığı için bu, yetki değil ayrım sağlar.
 
 APP_CALL ve SUBSCRIBE tablolarındaki zorunlu `client_app_version` alanı istemcinin açtığı doğrulanmış paket sürümüdür. Host kabul ettiği sürümleri yerel backend config'inde belirtir; varsayılan yalnızca aktif sürümdür. Eski istemci uyumsuzsa APP_VERSION_UNSUPPORTED alır, yeni manifest/asset akışına yönlendirilir. Payload hash'ine sürüm ayrıca dahil edilmez; aynı method/input için operation dedupe sürüm güncellemesinde de korunur. Method semantiği uyumsuz değişiyorsa method adı veya açık veri şeması sürümü değiştirilir.
 
@@ -447,7 +425,7 @@ Normatif manifest nesnesi:
  version:Version, min_runtime_version:Version,
  entrypoint:Path, permissions:[Permission], backend_required:boolean,
  files:[{path:Path, size_bytes:U53, sha256:Hash}],
- total_size_bytes:U53, publisher_key_id:Hash
+ total_size_bytes:U53
 }
 ```
 
@@ -460,28 +438,24 @@ Normatif manifest nesnesi:
 - `entrypoint` listede bulunur ve `.html` ile biter.
 - Path: en fazla 240 byte; slash ile ayrılmış ASCII `[A-Za-z0-9._-]+` segmentler. Boş segment, `.`/`..`, başlangıç slash, ters slash, kolon, NUL, yüzde encoding ve sondaki nokta yasaktır.
 - Windows aygıt isimleri (CON/PRN/AUX/NUL/COM1..9/LPT1..9, uzantılı halleri dahil) ve büyük-küçük harf katlanınca çakışan yollar reddedilir.
-- Manifest ve imza payload dosya listesine konmaz; dosyalar `assets/` altında göreli listelenir. Symlink/hardlink ile paket dışına çıkılamaz.
+- Manifest payload dosya listesine konmaz; dosyalar `assets/` altında göreli listelenir. Symlink/hardlink ile paket dışına çıkılamaz.
 - Diskteki manifest, daha sonra tekrar serialize edilmeden byte olarak saklanır.
 
-İmza preimage'i:
 
-```text
-ASCII("ILMEK-MANIFEST-V1") || 0x00 || SHA256(manifest_bytes)
-```
+**İmza yoktur.** Bütünlük SHA-256 ile korunur: istemci, registry kaydındaki `manifest_hash` değerini indirdiği manifest baytlarının özetiyle, sonra manifestteki her dosyanın boyut ve SHA-256'sını diskteki dosyayla karşılaştırır. Bu, **bozulmayı ve yarım indirmeyi** yakalar; kötü niyetli bir host'a (hem manifesti hem kaydı değiştirebilir) karşı koruma sağlamaz.
 
-Ed25519 imzası 64 byte'tır. Registry'den doğrulanmış yayıncı anahtarı kullanılır. Paketin içindeki kendi anahtarını kendisinin doğrulaması yeterli değildir.
+Doğrulama sırası: byte boyutu → manifest hash → şema/path/izin/limitler → dosya boyut/hash'leri → atomik etkinleştirme. Geçersiz içerik uygulama WebView'unda çalıştırılmaz. Paket dizini yalnızca `manifest.json` ve `assets/` içerir.
 
-Doğrulama sırası: byte boyutu → manifest hash → yayıncı kimliği/anahtar durumu → imza → şema/path/izin/limitler → dosya boyut/hash'leri → atomik etkinleştirme. Geçersiz içerik ana uygulama WebView'unda çalıştırılmaz.
 
 ## 16. Native SDK köprüsü ve yerel backend IPC
 
 ### İstemci tarafı
 
-JavaScript keyfi socket açmaz. Native runtime, yüklenen app bağlamını bilir ve SDK'daki istekleri yalnızca o app'in sunucusuna yönlendirir. UI gönderdi diye app ID, publisher key veya registry endpoint'i değiştirilmez. Local storage aynı community/principal/app kapsamına bağlıdır.
+JavaScript keyfi socket açmaz. Native runtime, yüklenen app bağlamını bilir ve SDK'daki istekleri yalnızca o app'in sunucusuna yönlendirir. UI gönderdi diye app ID, publisher key veya registry endpoint'i değiştirilmez. Local storage aynı community/cihaz/app kapsamına bağlıdır.
 
 ### Sunucu tarafı: yerel IPC sözleşmesi
 
-Host → backend iletişimi yalnızca loopback'te açılan rastgele porttadır. Bu **yerel IPC**, ağdaki ILMEK/1 servis portu değildir. Güvenilen aynı makine süreçleri için TLS zorunlu değildir; dış arayüze bind MUST NOT yapılmalı. Byte framing bölüm 5 ile aynıdır. Ortak metadata alanları yine type/request_id/community_id/data; mesajların `IPC_` öneki ağ endpoint'inde reddedilir.
+Host → backend iletişimi yalnızca loopback'te açılan rastgele porttadır. Bu **yerel IPC**, ağdaki ILMEK/1 servis portu değildir. Dış arayüze bind MUST NOT yapılmalı. Byte framing bölüm 5 ile aynıdır. Ortak metadata alanları yine type/request_id/community_id/data; mesajların `IPC_` öneki ağ endpoint'inde reddedilir.
 
 - Host yerel dinleyiciyi başlatır; backend'e en az 32 rastgele byte token, loopback portu, community_id ve app_id'yi inherited stdin pipe üzerinden verir. Secret komut satırına veya loga konmaz.
 - Backend bağlantıyı açar; ilk mesaj `IPC_HELLO data={token:Token, app_id:UUID}`. Host cevabı `IPC_READY data={app_id:UUID}`. Gövdeler boş. Token, process instance'a özgüdür; yanlış kimlik veya token'da socket kapanır.
@@ -493,69 +467,86 @@ Host → backend iletişimi yalnızca loopback'te açılan rastgele porttadır. 
 - Host, dış oturum request/subscription kimliklerini yerel unique kimliklere map eder. Farklı istemcilerin aynı UUID'yi göndermesi IPC içinde çakışma veya yetki geçişi yaratmaz.
 - Ağ aboneliği kapanınca IPC aboneliği de sonlandırılır. Backend çökerse ilgili işler APP_UNAVAILABLE olur; commit sonucu belirsiz yazmalar aynı operation ID ile toparlanır.
 - Backend IPC başka uygulamalara, registry yönetimine, dosya indirme veya keyfi socket proxy işine izin vermez.
-- Host'un yerel yöneticisinin çalıştırdığı backend executable güvenilen koddur. Bu token modeli root/yerel yönetici saldırganına karşı sandbox değildir.
+- Host'un yerel yöneticisinin çalıştırdığı backend executable güvenilen koddur; ayrı süreç olması sandbox sayılmaz.
 
 Bu sözleşmenin Rust SDK implementasyonu `docs/IPC.md` altında örneklerle açıklanır. Normatif alanlar yukarıdadır; farklı wire biçimi uydurulmaz.
 
 ## 17. Referans akışlar
 
-### 17.1 Adres açma ve işlem
+### 17.1 İlk açılış ve adres açma
 
 ```mermaid
 sequenceDiagram
     participant C as İstemci
+    participant B as Beacon (node, UDP)
     participant R as Registry
     participant H as Uygulama host'u
-    participant B as Backend
-    C->>R: mTLS + HELLO
+    participant K as Backend
+    C->>B: UDP ILMEK-DISCOVER/1
+    B-->>C: community_id, registry_id, registry_port
+    Note over C: profile.json + device.id yazılır
+    C->>R: HELLO(client_id)
     R-->>C: HELLO_ACK
     C->>R: RESOLVE nuri/forum
     R-->>C: RESOLVED kimlik ve endpoint
-    C->>H: mTLS + HELLO control
+    C->>H: HELLO control
     H-->>C: HELLO_ACK
     C->>H: GET_MANIFEST
-    H-->>C: MANIFEST ve imza
-    Note over C,H: Ayrı bulk oturumunda dosyalar alınır ve doğrulanır
+    H-->>C: MANIFEST
+    Note over C,H: Ayrı bulk oturumunda dosyalar alınır ve SHA-256 ile doğrulanır
     C->>H: APP_CALL + operation_id
-    H->>B: Kimliği doğrulanmış IPC_CALL
-    B->>B: Veri ve dedupe kaydı aynı commit
-    B-->>H: IPC_RESULT
+    H->>K: IPC_CALL(principal_id)
+    K->>K: Veri ve dedupe kaydı aynı commit
+    K-->>H: IPC_RESULT
     H-->>C: APP_RESULT
 ```
 
-Node'lar bu çizimde uygulama katmanı katılımcısı değildir; yukarıdaki bağlantıların paketlerini IP katmanında taşırlar.
+### 17.2 Bir host'un kendiliğinden katılması
 
-### 17.2 Commit oldu, cevap kayboldu
+```mermaid
+sequenceDiagram
+    participant H as Yeni host makinesi
+    participant B as Beacon (node)
+    participant R as Registry
+    H->>B: UDP probe
+    B-->>H: profil bilgisi
+    H->>R: HELLO + HOST_REGISTER(endpoint 0.0.0.0:port)
+    Note over R: 0.0.0.0 yerine bağlantının kaynak IP'si kaydedilir
+    R-->>H: HOST_REGISTERED
+    loop her 30 sn
+        H->>R: HOST_HEARTBEAT
+        R-->>H: HEARTBEAT_ACK
+    end
+```
+
+### 17.3 Commit oldu, cevap kayboldu
 
 1. İstemci operation X ile APP_CALL gönderir.
 2. Backend veri değişikliği ve sonucu aynı transaction'da commit eder.
 3. Cevap gönderilirken bağlantı kopar; istemci sonucu bilmiyor.
-4. İstemci yeni TLS oturumunda yeni request ID, **aynı operation X ve aynı body** ile tekrar eder.
+4. İstemci yeni oturumda yeni request ID, **aynı operation X ve aynı body** ile tekrar eder.
 5. Backend dedupe kaydındaki sonucu döndürür; ikinci yazma yapmaz.
 
 ## 18. Sürümleme ve uyumluluk
 
-- Protokol gösterimi `ILMEK/1`, 4-byte frame magic `ILM1`, ALPN `ilmek/1` ve HELLO version=1 bu sürümün birlikte kullanılan tanımlayıcılarıdır.
-- RPC hash domain öneki `ILMEK-CALL-V1`, manifest imza domain öneki `ILMEK-MANIFEST-V1` olarak sabittir. Her birini tek NUL byte izler; kalan preimage bölüm 12 ve 15'te tanımlıdır.
-- Önceki geçici adlandırmanın ALPN, magic veya hash/imza önekleri kabul edilmez. İsim değişikliği wire ve imza uyumluluğunu kırar; önceki paketler yeniden üretilip imzalanmalıdır. Gerçek eski veri varsa ayrı migration tasarlanır; UUIDv7 kimlikleri yalnızca isim değişti diye yeniden üretilmez.
-- ALPN veya major sürüm farklıysa yeni protokol gerekir; sessiz downgrade yoktur.
+- Protokol gösterimi `ILMEK/1`, 4-byte frame magic `ILM1` ve HELLO version=1 bu sürümün birlikte kullanılan tanımlayıcılarıdır. ALPN bu sürümde kullanılmaz.
+- RPC hash domain öneki `ILMEK-CALL-V1` sabittir ve tek NUL byte izler; preimage bölüm 12'de tanımlıdır. Manifest imza öneki bu sürümde yoktur.
+- **Bu sürüm `main` dalındaki ILMEK/1 ile wire uyumlu değildir:** HELLO'da `client_id` zorunludur; ENROLL/GET_TRUST yoktur; `AppRecord`, `REGISTER_APP`, `UPDATE_APP`, `MANIFEST` ve manifest imza/anahtar alanları taşımaz. Katı şema nedeniyle iki sürüm birbirini reddeder.
 - 1.0 strict schema'dır: bilinmeyen mesaj/alanı otomatik kabul ederek semantik tahmin edilmez.
-- Yeni opsiyonel özellikler sonraki şartnamede HELLO yetenek pazarlığıyla tanımlanabilir. Bu belgede pazarlığı olmayan alanlar eklenmez.
 - Manifest schema_version ve uygulama version, wire version'dan ayrıdır.
-- Referans istemci/server bu belgede bulunmayan mesajı “başarılı” saymaz.
 
-## 19. Kaynak yönetimi ve gizlilik
+## 19. Kaynak yönetimi
 
-- Kişi/kimlik/bağlantı bazında istek hız sınırı; enrollment için daha düşük limit.
 - Kontrol kuyruğu varsayılan en fazla 64 bekleyen frame, writer kuyruğu en fazla 2 MiB. Limitte üretici bekletilir veya açık hata oluşur; süreç belleği sınırsız büyümez.
-- Backend başına eşzamanlı iş varsayılan 16; bekleme kuyruğu 64; yönetici değiştirebilir. Uygulama sayısı kotası değildir.
+- Backend başına eşzamanlı iş varsayılan 16; bekleme kuyruğu 64; yönetici değiştirebilir.
 - Okumayan istemciye sonsuz cevap buffer'ı biriktirilmez. Yazma ilerlemesi 30 sn yoksa bağlantı kapanır.
-- Büyük manifest/katalog cevabı frame sınırına sığmıyorsa daha küçük sayfa/uygun hata; sınır gizlice artırılmaz.
-- Loglarda request ID, hata sınıfı, süre ve boyut bulunabilir. Token, özel anahtar ve varsayılan olarak body loglanmaz.
-- Yönlendiriciler TLS içeriklerini göremez; IP'ler, trafik miktarı ve zamanlama gibi metadata yine görülebilir. Anonimlik iddiası yoktur.
-- İnternete açık geçit yokluğu, yerel üyeler için yetkilendirmenin yerine geçmez.
+- Büyük manifest/katalog cevabı frame sınırına sığmıyorsa daha küçük sayfa/uygun hata.
+- Loglarda request ID, hata sınıfı, süre ve boyut bulunabilir; body loglanmaz.
+- **Gizlilik yoktur:** trafik şifrelenmez; aynı ağdaki herkes içeriği görebilir.
 
-## 20. Normatif uyumluluk kontrolleri
+## 20. Uyumluluk kontrolleri
+
+Aşağıdaki kontroller bu dalın otomatik testleriyle karşılanır; eşleme [docs/TEST_REPORT.md](docs/TEST_REPORT.md) içindedir.
 
 | ID | Kontrol |
 | --- | --- |
@@ -563,45 +554,38 @@ Node'lar bu çizimde uygulama katmanı katılımcısı değildir; yukarıdaki ba
 | P02 | Frame parça parça geldiğinde aynı mesaj elde ediliyor |
 | P03 | İki frame tek okumada geldiğinde ikisi doğru ayrılıyor |
 | P04 | Boyut aşımı allocation öncesi reddediliyor |
-| P05 | UUIDv7 version/variant/canonical formatı ve duplicate JSON keys/bozuk UTF-8/bilinmeyen alan reddediliyor |
-| P06 | Yanlış ALPN, CA, IP SAN veya peer ID reddediliyor |
+| P05 | UUIDv7 formatı, yinelenen JSON anahtarı, bozuk UTF-8 ve bilinmeyen alan reddediliyor |
 | P07 | HELLO olmadan APP_CALL kabul edilmiyor |
 | P08 | Sırası değişmiş cevaplar request ID ile doğru eşleşiyor |
 | P09 | Aynı operation ID paralel yazmada tek commit oluşturuyor |
 | P10 | Aynı ID farklı payload'da OPERATION_CONFLICT oluşturuyor |
-| P11 | Enrollment cevap kaybında aynı credential sonucu alınabiliyor |
-| P12 | Başka app/principal erişimi sunucu tarafında reddediliyor |
 | P13 | Asset offset/sequence sapması ve hash uyuşmazlığı reddediliyor |
 | P14 | Cancel/finish yarışında tek terminal aktarım cevabı var |
 | P15 | EVENT penceresi dolunca buffer büyümüyor; ACK ile devam ediyor |
 | P16 | Cursor expiry açık; sessiz event kaybı yok |
-| P17 | Trust snapshot bütün sayfalar bitmeden etkinleşmiyor |
-| P18 | Güncelliği 24 saati aşmış trust cache ile uzak iş yapılmıyor |
 | P19 | Başarısız paket/güncelleme eski aktif sürümü bozmuyor |
 | P20 | GET_ASSET kontrol bağlantısında, APP_CALL bulk'ta reddediliyor |
-| P21 | Başkasının namespace veya endpoint'i yetkisiz güncellenemiyor |
-| P22 | İptal edilen kimlik yeni doğrulamada ve aktif oturum kontrolünde reddediliyor |
+| P21 | Başkasının namespace'i/uygulaması güncellenemiyor |
 | P23 | Büyük aktarım kontrol bağlantısının writer kuyruğunu kullanmıyor |
 | P24 | Native bridge yanlış app bağlamı ve keyfi ağ erişimini reddediyor |
+| P25 | Bir cihaz UDP keşfiyle node'u buluyor ve katılıyor |
+| P26 | `0.0.0.0` host kaydı kaynak IP ile tamamlanıyor |
 
-`WIRE_EXAMPLES.json` küçük deterministik byte örnekleri içerir. Bunlar implementasyon testi değildir; encoder/decoder testlerine aktarılacak fixture'lardır. Bu belgeden üretilen schema/code generator, örnekler ve testler arasında sürüm kontrolü kurulmalıdır.
+P06 (TLS/ALPN/IP SAN), P11 (enrollment), P12 (kimlik tabanlı erişim), P17/P18 (trust snapshot), P22 (iptal) bu sürümde **yoktur**: ilgili özellikler kaldırıldı.
 
-## 21. Belgeler arası öncelik ve açık sınırlar
+`WIRE_EXAMPLES.json` ve `tests/protocol/fixtures/wire_examples.ilmek.json` küçük deterministik byte örnekleridir. Bu dalda `tests/protocol/fixtures/wire_examples.ilmek.json` yeni mesaj şemasına göre güncellenmiştir (HELLO `client_id`, imzasız manifest); kök dizindeki `WIRE_EXAMPLES.json` `main` sözleşmesine aittir ve bu dalın testlerinde kullanılmaz.
 
-- Wire formatı, mesaj alanı, hata/timeout, imza preimage'i ve protokol davranışında bu dosya normatiftir.
-- Cihaz topolojisi, ürün kapsamı, kurulum ve teslimat gereksiniminde docs/REQUIREMENTS.md normatiftir.
-- Bir çelişki görülürse uygulama sessizce birini seçmez; iki belge birlikte düzeltilir ve karar kaydı yazılır.
-- Burada ağ protokolü tanımlanmıştır. Donanım uyumluluğu, platform WebView izolasyonu, OS sertifika saklaması ve gerçek performans uygulama/test kapılarıdır.
-- Birim/entegrasyon testleri fiziksel iki-node kabulünün yerine geçmez.
-- Bu belge dış güvenlik denetimi, formal doğrulama veya üretim sertifikasyonu değildir.
+## 21. Açık sınırlar
 
-## 22. Referanslar ve kararın dayanağı
+- Wire formatı, mesaj alanı, hata/timeout ve protokol davranışında bu dosya normatiftir.
+- Güvenlik yoktur (bölüm başındaki uyarı). Bu belge güvenlik denetimi değildir.
+- UDP keşfi yalnızca aynı yayın (broadcast) alanında çalışır; yönlendiricilerin ötesi için registry adresi verilir.
+- Yalnızca IPv4.
+- Birim/entegrasyon testleri gerçek çok-makineli ağ denemesinin yerine geçmez.
+
+## 22. Referanslar
 
 - UUIDv7 normatif tanımı: https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7
-- TLS 1.3 uygulama protokolünden bağımsızdır: https://www.rfc-editor.org/rfc/rfc8446.html
-- QUIC bağımsız stream'ler sağlar; bu sürümde taşıyıcı olarak seçilmedi: https://www.rfc-editor.org/rfc/rfc9000.html
-- TLS kütüphanesi dokümantasyonu: https://docs.rs/rustls/latest/rustls/
-- Linux Wi-Fi arayüzleri: https://wireless.docs.kernel.org/en/latest/en/users/documentation/iw.html
-- Native istemci platform önkoşulları: https://v2.tauri.app/start/prerequisites/
 
-Bu kaynaklar temel teknolojileri açıklar. ILMEK/1 mesajları, portları, limitleri ve rol modeli bu projeye ait tasarım kararlarıdır.
+ILMEK/1 mesajları, portları, limitleri ve rol modeli bu projeye ait tasarım kararlarıdır.
+

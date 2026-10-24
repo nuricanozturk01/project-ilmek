@@ -2,7 +2,6 @@
 resolver = "3"
 members = [
     "crates/ilmek-protocol",
-    "crates/ilmek-identity",
     "crates/ilmek-core",
     "crates/ilmek-store",
     "crates/ilmek-registry",
@@ -10,7 +9,6 @@ members = [
     "crates/ilmek-package",
     "crates/ilmek-app-sdk",
     "crates/ilmek-host",
-    "crates/ilmek-network",
     "crates/ilmek-testing",
     "crates/ilmek-cli",
     "crates/ilmek-runtime",
@@ -28,7 +26,6 @@ publish = false
 
 [workspace.dependencies]
 ilmek-protocol = { path = "crates/ilmek-protocol" }
-ilmek-identity = { path = "crates/ilmek-identity" }
 ilmek-core = { path = "crates/ilmek-core" }
 ilmek-store = { path = "crates/ilmek-store" }
 ilmek-registry = { path = "crates/ilmek-registry" }
@@ -36,7 +33,6 @@ ilmek-client = { path = "crates/ilmek-client" }
 ilmek-package = { path = "crates/ilmek-package" }
 ilmek-app-sdk = { path = "crates/ilmek-app-sdk" }
 ilmek-host = { path = "crates/ilmek-host" }
-ilmek-network = { path = "crates/ilmek-network" }
 ilmek-testing = { path = "crates/ilmek-testing" }
 ilmek-runtime = { path = "crates/ilmek-runtime" }
 tauri = { version = "2.12.5", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
@@ -48,16 +44,9 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
 tempfile = "3.27.0"
 base64 = "0.23.1"
-ed25519-dalek = "3.0.0"
 getrandom = "0.4.3"
-rustls-pki-types = "1.15.1"
-rcgen = { version = "0.14.10", features = ["x509-parser"] }
-time = "0.3.55"
 tokio = "1.54.1"
 tokio-util = "0.7.20"
-tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
-rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }
-x509-parser = "0.18.1"
 hex = "0.4.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }

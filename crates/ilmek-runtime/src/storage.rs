@@ -72,7 +72,9 @@ impl AppStorage {
         let outcome = self
             .db
             .call(move |c| {
-                let tx = c.transaction()?;
+                let tx = c.transaction_with_behavior(
+                    ilmek_store::rusqlite::TransactionBehavior::Immediate,
+                )?;
                 let others: i64 = tx.query_row(
                     "SELECT COALESCE(SUM(LENGTH(key) + LENGTH(value)), 0) FROM kv WHERE key != ?1",
                     [&key],

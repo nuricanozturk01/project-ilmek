@@ -5,12 +5,6 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration {
     version: 1,
     name: "initial",
     sql: "
-CREATE TABLE trusted_publishers (
-    key_id TEXT PRIMARY KEY,
-    public_key TEXT NOT NULL,
-    added_at_ms INTEGER NOT NULL
-) STRICT;
-
 CREATE TABLE apps (
     app_id TEXT PRIMARY KEY,
     namespace TEXT NOT NULL,

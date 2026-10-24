@@ -1,3 +1,5 @@
+> **Arşiv.** `main` dalındaki şartnamenin belge denetimleridir; `feat/simple-no-security` dalı için güncellenmemiştir (bkz. docs/decisions/0005-simple-no-security.md).
+
 # Doküman doğrulama kaydı
 
 Tarih: 22 Ekim 2026. Bu kayıt yalnızca teslim edilen tasarım belgeleri ve byte fixture'ları içindir.

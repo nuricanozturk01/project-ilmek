@@ -1,9 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use ilmek_identity::PublisherKey;
 use ilmek_protocol::digest::sha256;
 use ilmek_protocol::manifest::{DEFAULT_MAX_TOTAL_BYTES, MAX_MANIFEST_BYTES, Manifest};
 use ilmek_protocol::wire::Hash;
@@ -11,7 +8,7 @@ use ilmek_protocol::wire::Hash;
 use crate::error::PackageError;
 use crate::hashing::hash_file;
 use crate::pack::collect;
-use crate::{ASSETS_DIR, MANIFEST_FILE, SIGNATURE_FILE};
+use crate::{ASSETS_DIR, MANIFEST_FILE};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PackageLimits {
@@ -33,7 +30,6 @@ pub struct Package {
     pub manifest: Manifest,
     pub manifest_bytes: Vec<u8>,
     pub manifest_hash: Hash,
-    pub signature: Vec<u8>,
 }
 
 impl Package {
@@ -43,12 +39,9 @@ impl Package {
     }
 }
 
-/// Verifies manifest bytes against the publisher key (PROTOCOL.md §15 order, steps 1–5):
-/// size, hash, signature, key identity, schema.
+/// Checks manifest bytes: size, hash against `expected_hash`, schema.
 pub fn verify_manifest(
     manifest_bytes: &[u8],
-    signature: &[u8],
-    key: &PublisherKey,
     expected_hash: Option<Hash>,
     limits: PackageLimits,
 ) -> Result<(Manifest, Hash), PackageError> {
@@ -61,22 +54,14 @@ pub fn verify_manifest(
             expected: expected.to_string(),
         });
     }
-    key.verify_manifest(manifest_bytes, signature)?;
     let manifest = Manifest::parse(manifest_bytes, limits.max_total_bytes)?;
-    if manifest.publisher_key_id.to_string() != key.key_id() {
-        return Err(PackageError::KeyMismatch {
-            manifest: manifest.publisher_key_id.to_string(),
-            actual: key.key_id(),
-        });
-    }
     Ok((manifest, hash))
 }
 
-/// Fully verifies a package directory: manifest, signature, then every file's size and hash.
+/// Fully verifies a package directory: manifest, then every file's size and hash.
 /// Files on disk that the manifest does not list are an error.
 pub fn verify_dir(
     dir: &Path,
-    key: &PublisherKey,
     expected_hash: Option<Hash>,
     limits: PackageLimits,
 ) -> Result<Package, PackageError> {
@@ -89,16 +74,7 @@ pub fn verify_dir(
     }
     let manifest_bytes =
         fs::read(&manifest_path).map_err(|e| PackageError::io(&manifest_path, e))?;
-    let signature_path = dir.join(SIGNATURE_FILE);
-    let signature = URL_SAFE_NO_PAD
-        .decode(
-            fs::read_to_string(&signature_path)
-                .map_err(|e| PackageError::io(&signature_path, e))?
-                .trim(),
-        )
-        .map_err(|_| PackageError::SignatureEncoding)?;
-    let (manifest, manifest_hash) =
-        verify_manifest(&manifest_bytes, &signature, key, expected_hash, limits)?;
+    let (manifest, manifest_hash) = verify_manifest(&manifest_bytes, expected_hash, limits)?;
 
     let assets_root = dir.join(ASSETS_DIR);
     let mut on_disk = Vec::new();
@@ -132,7 +108,6 @@ pub fn verify_dir(
         manifest,
         manifest_bytes,
         manifest_hash,
-        signature,
     })
 }
 

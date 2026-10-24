@@ -10,37 +10,21 @@ root="$lib_root"
 step "build"
 (cd "$root" && cargo build -q -p ilmek-cli -p ilmek-example-forum -p ilmek-example-notes)
 
-step "community init + registry serve"
+step "registry serve (creates the community on its first run)"
 lib_start_community
 
-step "enroll host, publisher and two members"
-host_peer="$(lib_enroll host member,host --server-ip 127.0.0.1)"
-pub_peer="$(lib_enroll publisher member,publisher)"
-lib_enroll alice member >/dev/null
-lib_enroll bob member >/dev/null
+step "join: host, publisher and two members"
+host_peer="$(lib_join host)"
+pub_peer="$(lib_join publisher)"
+lib_join alice >/dev/null
+lib_join bob >/dev/null
 printf 'host=%s publisher=%s\n' "$host_peer" "$pub_peer"
-
-step "reuse of a consumed token is refused"
-if "$ilmek" identity enroll --profile "$profile" --fingerprint "$fingerprint" \
-     --device "$work/reuse-device" --token-file "$work/alice.token" >/dev/null 2>&1; then
-  fail "a consumed token was accepted"
-fi
-
-step "wrong CA fingerprint is refused"
-if "$ilmek" identity enroll --profile "$profile" --fingerprint "$(printf '0%.0s' {1..64})" \
-     --device "$work/evil-device" --token-file "$work/alice.token" >/dev/null 2>&1; then
-  fail "a profile with the wrong fingerprint was accepted"
-fi
-
-step "publisher namespace, key and host grant"
-lib_publisher nuri "$pub_peer" "$host_peer"
 
 step "host serve"
 lib_start_host
 
 step "pack, install, configure and start the forum"
-"$ilmek" app pack "$root/examples/forum/app" --key "$work/publisher.key" --out "$work/forum-pkg" \
-  --publisher-id "$publisher_id" 2>/dev/null >/dev/null
+"$ilmek" app pack "$root/examples/forum/app" --out "$work/forum-pkg" 2>/dev/null >/dev/null
 "$ilmek" app install --config "$work/host.toml" "$work/forum-pkg" 2>/dev/null
 "$ilmek" app set-backend --config "$work/host.toml" nuri/forum --exe "$bin/ilmek-forum-backend" 2>/dev/null
 "$ilmek" app start --config "$work/host.toml" nuri/forum 2>/dev/null
@@ -83,11 +67,10 @@ wait_for "backend restart" "\"$ilmek\" app list --config \"$work/host.toml\" 2>/
 "$ilmek" call ilmek://nuri/forum forum.topics.list --device "$work/alice-device" 2>/dev/null | grep -q Merhaba \
   || fail "forum data not available after the backend restarted"
 
-step "revoked member is refused"
-"$ilmek" community revoke-peer --config "$work/registry.toml" --peer "$("$ilmek" community peers --config "$work/registry.toml" 2>/dev/null | grep ' bob ' | awk '{print $1}')" 2>/dev/null
-sleep 3
-if "$ilmek" resolve ilmek://nuri/forum --device "$work/bob-device" >/dev/null 2>&1; then
-  fail "a revoked device could still use the registry"
+lib_join intruder >/dev/null
+step "another device cannot take over the namespace"
+if "$ilmek" app publish --config "$work/host.toml" nuri/forum --device "$work/intruder-device" >/dev/null 2>&1; then
+  fail "a second device published into someone else's namespace"
 fi
 
 printf '\nALL STEPS PASSED (multi-process, loopback)\n'

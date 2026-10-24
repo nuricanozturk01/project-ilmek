@@ -1,4 +1,4 @@
-//! Application packages on disk: `manifest.json`, `manifest.sig` and `assets/`.
+//! Application packages on disk: `manifest.json` and `assets/`.
 
 mod error;
 mod hashing;
@@ -13,5 +13,4 @@ pub use spec::AppSpec;
 pub use verify::{Package, PackageLimits, copy_package, verify_dir, verify_manifest};
 
 pub const MANIFEST_FILE: &str = "manifest.json";
-pub const SIGNATURE_FILE: &str = "manifest.sig";
 pub const ASSETS_DIR: &str = "assets";

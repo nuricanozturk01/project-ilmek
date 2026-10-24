@@ -17,9 +17,6 @@ export interface Status {
   peer_id: string
   registry: string
   registry_reachable: boolean
-  trust: 'fresh' | 'stale' | 'missing'
-  certificate_expires_at_ms: number
-  certificate_expires_soon: boolean
 }
 
 export interface ShellState {
@@ -80,8 +77,8 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 export const shell = {
   state: () => call<ShellState>('shell_state'),
-  join: (profile: string, fingerprint: string, token: string, name: string) =>
-    call<null>('shell_join', { profile, fingerprint, token, name }),
+  join: (profile: string | null, registry: string | null) =>
+    call<null>('shell_join', { profile, registry }),
   refresh: () => call<Status>('shell_refresh'),
   catalog: (query: string, cursor: string | null) =>
     call<CatalogPage>('shell_catalog', { query, cursor }),

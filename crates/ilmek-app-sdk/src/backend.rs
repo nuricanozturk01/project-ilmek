@@ -18,7 +18,7 @@ pub enum MethodKind {
 pub struct CallContext {
     pub app_id: Uuid7,
     pub method: Method,
-    /// Authenticated by the host from the TLS certificate.
+    /// The device id the client declared in HELLO, attached by the host (not verified).
     pub principal_id: Uuid7,
     pub client_app_version: Version,
     pub operation_id: Option<Uuid7>,

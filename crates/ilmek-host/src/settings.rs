@@ -16,16 +16,17 @@ pub enum SettingsError {
     Invalid(String),
 }
 
-/// `host.toml`. The advertised address is mandatory so a multi-homed machine never publishes a
-/// VPN or internet address by accident.
+/// `host.toml`. `advertised` may be left out: the registry then fills in the address the host
+/// connected from, which is the one clients can reach.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
     pub data_dir: PathBuf,
-    /// Directory holding the enrolled device identity (see `ilmek identity enroll`).
+    /// Directory holding this host's device state (see `ilmek join`).
     pub device_dir: PathBuf,
     pub listen: SocketAddr,
-    pub advertised: SocketAddr,
+    #[serde(default)]
+    pub advertised: Option<SocketAddr>,
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
     #[serde(default = "default_package_limit")]
@@ -46,9 +47,6 @@ pub struct Settings {
     /// First delay before restarting a crashed backend; it doubles up to 30 s.
     #[serde(default = "default_backoff_ms")]
     pub restart_backoff_ms: u64,
-    /// How often the revocation snapshot is refreshed (the protocol asks for at most 60 s).
-    #[serde(default = "default_trust_ms")]
-    pub trust_refresh_ms: u64,
 }
 
 fn default_backoff_ms() -> u64 {
@@ -56,9 +54,6 @@ fn default_backoff_ms() -> u64 {
 }
 fn default_heartbeat_ms() -> u64 {
     30_000
-}
-fn default_trust_ms() -> u64 {
-    60_000
 }
 
 fn default_max_connections() -> usize {
@@ -101,17 +96,24 @@ impl Settings {
             && settings.backend_start_deadline_ms > 0
             && settings.reconcile_interval_ms > 0
             && settings.heartbeat_interval_ms > 0
-            && settings.restart_backoff_ms > 0
-            && settings.trust_refresh_ms > 0;
+            && settings.restart_backoff_ms > 0;
         if !positive {
             return Err(SettingsError::Invalid("limits must be positive".into()));
         }
-        if !settings.advertised.is_ipv4() || settings.advertised.ip().is_unspecified() {
+        if !settings.listen.is_ipv4() || settings.advertised.is_some_and(|a| !a.is_ipv4()) {
             return Err(SettingsError::Invalid(
-                "advertised must be a concrete IPv4 address:port reachable by clients".into(),
+                "listen and advertised must be IPv4 addresses".into(),
             ));
         }
         Ok(settings)
+    }
+
+    /// What the registry is told. Without `advertised`, `0.0.0.0:<port>` asks the registry to
+    /// substitute the address this host connects from.
+    #[must_use]
+    pub fn advertised(&self) -> SocketAddr {
+        self.advertised
+            .unwrap_or_else(|| SocketAddr::from(([0, 0, 0, 0], self.listen.port())))
     }
 
     #[must_use]

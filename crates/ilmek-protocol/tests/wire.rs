@@ -58,7 +58,7 @@ fn every_fixture_decodes_and_re_encodes_byte_for_byte() {
 fn hello_fields_are_typed() {
     let (header, message) = Message::decode(&frame(
         "HELLO",
-        r#"{"version":1,"mode":"bulk","client_name":"x","client_version":"1.2.3"}"#,
+        r#"{"version":1,"client_id":"01a160e8-5006-7b5e-8c3a-1d2f4e6a7b80","mode":"bulk","client_name":"x","client_version":"1.2.3"}"#,
         b"",
     ))
     .expect("decodes");
@@ -110,7 +110,7 @@ fn scalar_grammar_is_enforced() {
         ("PING", r#"{"nonce":"AAAA="}"#),
         (
             "HELLO",
-            r#"{"version":1,"mode":"control","client_name":"x","client_version":"1.0"}"#,
+            r#"{"version":1,"client_id":"01a160e8-5006-7b5e-8c3a-1d2f4e6a7b80","mode":"control","client_name":"x","client_version":"1.0"}"#,
         ),
     ] {
         assert!(

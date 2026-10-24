@@ -2,16 +2,18 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ilmek_client::{
-    AppClient, Connector, Error, PackageCache, RegistryClient, Resolver, Source, fetch_package,
+    AppClient, Connector, Device, Error, PackageCache, RegistryClient, Resolver, Source,
+    fetch_package,
 };
 use ilmek_core::clock::SystemClock;
-use ilmek_core::tls::TlsError;
+use ilmek_core::community::CommunityProfile;
+use ilmek_core::net::ConnectError;
 use ilmek_protocol::address::Address;
 use ilmek_protocol::wire::{AppRecord, Mode};
 use tokio_util::sync::CancellationToken;
 
-use super::connect_device;
-use crate::cli::{Call, DeviceAddress, Fetch};
+use super::{connect_device, device_dir, find_profile, home};
+use crate::cli::{Call, DeviceAddress, DeviceOpt, Fetch, Join};
 use crate::error::{CliError, CliResult, Context};
 use crate::output::{line, note};
 
@@ -19,12 +21,12 @@ fn address(text: &str) -> CliResult<Address> {
     text.parse().context("invalid address")
 }
 
-async fn resolver(device: &std::path::Path) -> CliResult<(Arc<Connector>, Resolver)> {
+async fn resolver(device: &DeviceOpt) -> CliResult<(Arc<Connector>, Resolver)> {
     let connector = Arc::new(connect_device(device).await?);
     let resolver = Resolver::new(
         Arc::clone(&connector),
         Arc::new(SystemClock),
-        Some(device.join("resolve-cache.json")),
+        Some(device_dir(device).join("resolve-cache.json")),
     );
     Ok((connector, resolver))
 }
@@ -60,34 +62,17 @@ pub(crate) async fn resolve(args: &DeviceAddress) -> CliResult {
     Ok(())
 }
 
-/// A human reason for a failure, telling "no network" from "no such name" from "wrong peer".
+/// A human reason for a failure, telling "no network" from "no such name".
 fn explain(error: &Error) -> String {
     match error {
-        Error::Tls(TlsError::Connect(cause)) => {
+        Error::Connect(ConnectError::Connect(cause)) => {
             format!(
                 "TCP connection failed ({cause}): no route, the machine is down, or this is the wrong network"
             )
         }
-        Error::Tls(TlsError::ConnectTimeout) => {
+        Error::Connect(ConnectError::Timeout) => {
             "TCP connection timed out: no route, or a firewall is dropping the traffic".to_owned()
         }
-        Error::Tls(TlsError::Certificate(reason)) => {
-            format!(
-                "the peer's certificate was rejected ({reason:?}); check this device's clock and enrollment"
-            )
-        }
-        Error::Tls(TlsError::UnexpectedPeer { .. }) => {
-            "a different machine answered than the registry names; refusing to talk to it"
-                .to_owned()
-        }
-        Error::Tls(TlsError::AlpnMismatch | TlsError::Handshake(_)) => {
-            "the endpoint did not complete an ILMEK/1 TLS handshake".to_owned()
-        }
-        Error::TrustStale => {
-            "trust information is missing or older than 24 hours; reach the registry to refresh it"
-                .to_owned()
-        }
-        Error::PeerRevoked => "the peer's certificate has been revoked".to_owned(),
         other => match other.remote() {
             Some(remote) => format!("the server refused: {:?} ({})", remote.code, remote.message),
             None => other.to_string(),
@@ -113,17 +98,12 @@ pub(crate) async fn diagnose(args: &DeviceAddress) -> CliResult {
     step_ok("address", &wanted.to_string(), started);
 
     let started = Instant::now();
-    let device = ilmek_client::Device::load(&args.device)
-        .map_err(|e| step_failed("device identity", &e.to_string()))?;
     let connector = Arc::new(
-        Connector::new(device, Arc::new(SystemClock))
-            .map_err(|e| step_failed("device identity", &e.to_string()))?,
+        connect_device(&args.device)
+            .await
+            .map_err(|e| step_failed("device", &e.to_string()))?,
     );
-    step_ok(
-        "device identity",
-        &connector.device().peer_id.to_string(),
-        started,
-    );
+    step_ok("device", &connector.device().peer_id.to_string(), started);
 
     let started = Instant::now();
     let registry = RegistryClient::connect(&connector)
@@ -131,16 +111,9 @@ pub(crate) async fn diagnose(args: &DeviceAddress) -> CliResult {
         .map_err(|e| step_failed("registry", &explain(&e)))?;
     step_ok(
         "registry",
-        &connector.device().profile.registry_control.to_string(),
+        &connector.device().profile.registry.to_string(),
         started,
     );
-
-    let started = Instant::now();
-    registry
-        .refresh_trust(connector.trust())
-        .await
-        .map_err(|e| step_failed("trust snapshot", &explain(&e)))?;
-    step_ok("trust snapshot", "revocation list is current", started);
 
     let started = Instant::now();
     let record = registry
@@ -155,9 +128,9 @@ pub(crate) async fn diagnose(args: &DeviceAddress) -> CliResult {
     );
 
     let started = Instant::now();
-    let address = std::net::SocketAddr::new(record.endpoint.ip.into(), record.endpoint.port);
+    let address = connector.host_address(&record.endpoint);
     let session = connector
-        .connect_host(address, record.server_id, Mode::Control)
+        .connect_host(address, Mode::Control)
         .await
         .map_err(|e| step_failed("host", &explain(&e)))?;
     step_ok(
@@ -192,7 +165,11 @@ pub(crate) async fn fetch(args: &Fetch) -> CliResult {
         .resolve(&address(&args.address)?)
         .await
         .map_err(|e| CliError::new(explain(&e)))?;
-    let cache = PackageCache::new(args.cache.clone(), args.quota_mib * 1024 * 1024);
+    let cache_dir = args
+        .cache
+        .clone()
+        .unwrap_or_else(|| home(None).join("cache"));
+    let cache = PackageCache::new(cache_dir, args.quota_mib * 1024 * 1024);
     let mut last_percent = 101;
     let package = fetch_package(
         &connector,
@@ -233,5 +210,25 @@ pub(crate) async fn call(args: &Call) -> CliResult {
     }
     .map_err(|e| CliError::new(explain(&e)))?;
     line(&String::from_utf8_lossy(&result.body));
+    Ok(())
+}
+
+pub(crate) async fn join(args: &Join) -> CliResult {
+    let dir = device_dir(&args.device);
+    let profile = match &args.profile {
+        Some(path) => CommunityProfile::load(path).context("cannot read the profile")?,
+        None => find_profile(args.device.registry).await?,
+    };
+    let joined = Device::join(&profile, &dir).context("cannot join")?;
+    line(&format!("device {}", joined.peer_id));
+    note(&format!("Joined. Device state is in {}.", dir.display()));
+    Ok(())
+}
+
+pub(crate) fn whoami(opt: &DeviceOpt) -> CliResult {
+    let device = Device::load(&device_dir(opt)).context("not joined yet (run `ilmek join`)")?;
+    line(&format!("device    {}", device.peer_id));
+    line(&format!("community {}", device.profile.community_id));
+    line(&format!("registry  {}", device.profile.registry));
     Ok(())
 }

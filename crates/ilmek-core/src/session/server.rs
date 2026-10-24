@@ -14,13 +14,12 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{Mutex as AsyncMutex, Semaphore};
 use tokio::task::JoinSet;
-use tokio::time::{interval, timeout};
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 use super::modes::{Admission, admit};
 use super::{error_message, header, priority};
 use crate::clock::Clock;
-use crate::peer::PeerCredentials;
 use crate::transport::{FrameReader, FrameSender, Priority, TransportError, spawn_writer};
 
 const HELLO_DEADLINE: Duration = Duration::from_secs(5);
@@ -33,12 +32,9 @@ pub struct ServerSessionConfig {
     pub server_id: Uuid7,
     pub role: ServerRole,
     pub community_id: Uuid7,
-    /// `true` for the enrollment listener: only `enroll` connections, no client certificate.
-    pub enrollment_endpoint: bool,
     pub max_control_inflight: u64,
     pub max_subscriptions: u64,
     pub idle_timeout: Duration,
-    pub gate_interval: Duration,
     pub drain_grace: Duration,
     pub request_limit: u64,
     pub clock: Arc<dyn Clock>,
@@ -56,11 +52,9 @@ impl ServerSessionConfig {
             server_id,
             role,
             community_id,
-            enrollment_endpoint: false,
             max_control_inflight: 16,
             max_subscriptions: if role == ServerRole::Host { 8 } else { 0 },
             idle_timeout: Duration::from_secs(90),
-            gate_interval: Duration::from_mins(1),
             drain_grace: Duration::from_secs(30),
             request_limit: 100_000,
             clock,
@@ -84,23 +78,12 @@ pub struct SessionInfo {
     pub server_id: Uuid7,
     pub community_id: Uuid7,
     pub mode: Mode,
-    /// Identity from the verified TLS certificate; `None` only on enrollment connections.
-    pub peer: Option<PeerCredentials>,
+    /// Identity the client declared in HELLO. Nothing verifies it.
+    pub peer_id: Uuid7,
     pub remote_ip: Option<IpAddr>,
     pub max_subscriptions: u64,
     /// Cancelled when the connection ends, for work that outlives a single request.
     pub closed: CancellationToken,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Verdict {
-    Allow,
-    Deny { code: ErrorCode, close: bool },
-}
-
-/// Consulted at HELLO, on every request and periodically, so revocation reaches live sessions.
-pub trait PeerGate: Send + Sync + 'static {
-    fn check(&self, peer: Option<&PeerCredentials>) -> Verdict;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,7 +93,6 @@ pub enum SessionEnd {
     Shutdown,
     IdleTimeout,
     HelloTimeout,
-    Revoked,
     ProtocolViolation,
     Transport,
 }
@@ -321,18 +303,16 @@ impl Shared {
 
 /// Everything a connection needs besides its stream.
 pub struct ConnectionParams<H> {
-    pub peer: Option<PeerCredentials>,
     pub remote_ip: Option<IpAddr>,
     pub config: Arc<ServerSessionConfig>,
     pub handler: Arc<H>,
-    pub gate: Arc<dyn PeerGate>,
     pub shutdown: CancellationToken,
 }
 
 impl<H> std::fmt::Debug for ConnectionParams<H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConnectionParams")
-            .field("peer", &self.peer)
+            .field("remote_ip", &self.remote_ip)
             .finish_non_exhaustive()
     }
 }
@@ -375,9 +355,6 @@ where
         Err(end) => return end,
     };
 
-    let mut gate_tick = interval(config.gate_interval);
-    gate_tick.tick().await;
-
     loop {
         tokio::select! {
             () = params.shutdown.cancelled(), if !shared.draining.load(Ordering::Relaxed) => {
@@ -385,19 +362,6 @@ where
                 wait_for_inflight(&shared).await;
                 shared.cancel_all();
                 return SessionEnd::Shutdown;
-            }
-            _ = gate_tick.tick() => {
-                if let Verdict::Deny { code, close: true } = params.gate.check(params.peer.as_ref()) {
-                    let revoked = error_message(code, "access revoked", false);
-                    let _ = send_message(
-                        sender,
-                        header(hello_request_id, config.community_id),
-                        &revoked,
-                        None,
-                    ).await;
-                    shared.cancel_all();
-                    return SessionEnd::Revoked;
-                }
             }
             next = timeout(config.idle_timeout, reader.next()) => {
                 let frame = match next {
@@ -407,13 +371,12 @@ where
                     Ok(Err(_)) => { shared.cancel_all(); return SessionEnd::Transport; }
                 };
                 let flow = handle_frame(
-                    &shared, &params.handler, params.gate.as_ref(), hello_request_id, &frame, tasks,
+                    &shared, &params.handler, hello_request_id, &frame, tasks,
                 ).await;
                 let end = match flow {
                     Flow::Continue => continue,
                     Flow::Goodbye => { wait_for_inflight(&shared).await; SessionEnd::Goodbye }
                     Flow::Violation => SessionEnd::ProtocolViolation,
-                    Flow::Revoked => SessionEnd::Revoked,
                 };
                 shared.cancel_all();
                 return end;
@@ -440,9 +403,7 @@ impl Rejection {
 
 fn validate_hello(
     frame: &Frame,
-    peer: Option<&PeerCredentials>,
     config: &ServerSessionConfig,
-    gate: &dyn PeerGate,
 ) -> Result<(Header, Hello), Rejection> {
     let Ok((hdr, Message::Hello(hello))) = Message::decode(frame) else {
         let request_id = Envelope::parse(&frame.metadata).ok().map(|e| e.request_id);
@@ -467,21 +428,6 @@ fn validate_hello(
             "community mismatch",
         ));
     }
-    let mode_fits_endpoint = if config.enrollment_endpoint {
-        hello.mode == Mode::Enroll && peer.is_none()
-    } else {
-        hello.mode != Mode::Enroll && peer.is_some()
-    };
-    if !mode_fits_endpoint {
-        return Err(Rejection::new(
-            id,
-            ErrorCode::InvalidMessage,
-            "mode not served here",
-        ));
-    }
-    if let Verdict::Deny { code, .. } = gate.check(peer) {
-        return Err(Rejection::new(id, code, "access denied"));
-    }
     Ok((hdr, hello))
 }
 
@@ -498,37 +444,36 @@ async fn negotiate<R: AsyncRead + Unpin, H>(
         Ok(Ok(None)) => return Err(SessionEnd::PeerClosed),
         Ok(Err(_)) => return Err(SessionEnd::Transport),
     };
-    let (hdr, hello) =
-        match validate_hello(&frame, params.peer.as_ref(), config, params.gate.as_ref()) {
-            Ok(accepted) => accepted,
-            Err(rejection) => {
-                if let Some(request_id) = rejection.request_id {
-                    let error = error_message(rejection.code, rejection.text, false);
-                    let _ = send_message(
-                        sender,
-                        header(request_id, config.community_id),
-                        &error,
-                        None,
-                    )
-                    .await;
-                }
-                return Err(SessionEnd::ProtocolViolation);
+    let (hdr, hello) = match validate_hello(&frame, config) {
+        Ok(accepted) => accepted,
+        Err(rejection) => {
+            if let Some(request_id) = rejection.request_id {
+                let error = error_message(rejection.code, rejection.text, false);
+                let _ = send_message(
+                    sender,
+                    header(request_id, config.community_id),
+                    &error,
+                    None,
+                )
+                .await;
             }
-        };
+            return Err(SessionEnd::ProtocolViolation);
+        }
+    };
 
     let (max_inflight, max_subscriptions) = match hello.mode {
         Mode::Control => (
             config.max_control_inflight.clamp(1, 16),
             config.max_subscriptions,
         ),
-        Mode::Bulk | Mode::Enroll => (1, 0),
+        Mode::Bulk => (1, 0),
     };
     let info = Arc::new(SessionInfo {
         session_id: Uuid7::generate(),
         server_id: config.server_id,
         community_id: config.community_id,
         mode: hello.mode,
-        peer: params.peer.clone(),
+        peer_id: hello.client_id,
         remote_ip: params.remote_ip,
         max_subscriptions,
         closed: closed.clone(),
@@ -573,7 +518,6 @@ enum Flow {
     Continue,
     Goodbye,
     Violation,
-    Revoked,
 }
 
 impl Shared {
@@ -602,7 +546,6 @@ impl Shared {
 /// Request-level checks that need no handler; `Err` carries what to do instead.
 async fn precheck(
     shared: &Arc<Shared>,
-    gate: &dyn PeerGate,
     hello_request_id: Uuid7,
     hdr: Header,
     message: &Message,
@@ -631,11 +574,6 @@ async fn precheck(
             .await;
         return Err(Flow::Violation);
     };
-    if let Verdict::Deny { code, close } = gate.check(shared.info.peer.as_ref()) {
-        shared.reject(id, code, "access denied").await;
-        shared.complete(id);
-        return Err(if close { Flow::Revoked } else { Flow::Continue });
-    }
     if shared.request_count() > shared.config.request_limit {
         notify_drain(shared, hello_request_id, DrainReason::RequestLimit).await;
     }
@@ -652,7 +590,6 @@ async fn precheck(
 async fn handle_frame<H: Handler>(
     shared: &Arc<Shared>,
     handler: &Arc<H>,
-    gate: &dyn PeerGate,
     hello_request_id: Uuid7,
     frame: &Frame,
     tasks: &mut JoinSet<()>,
@@ -661,7 +598,7 @@ async fn handle_frame<H: Handler>(
         Ok(decoded) => decoded,
         Err(error) => return reject_undecodable(shared, frame, &error).await,
     };
-    let state = match precheck(shared, gate, hello_request_id, hdr, &message).await {
+    let state = match precheck(shared, hello_request_id, hdr, &message).await {
         Ok(state) => state,
         Err(flow) => return flow,
     };

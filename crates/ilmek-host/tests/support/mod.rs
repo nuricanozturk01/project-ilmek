@@ -140,7 +140,7 @@ pub(crate) async fn world() -> World {
     let community = Community::start().await;
     let owner = community.publisher("nuri").await;
     let (launcher, backends) = ilmek_testing::notes_launcher();
-    let host = ilmek_testing::start_host(&community, &owner, Arc::new(launcher)).await;
+    let host = ilmek_testing::start_host(&community, Arc::new(launcher)).await;
     World {
         community,
         owner,
@@ -152,7 +152,7 @@ pub(crate) async fn world() -> World {
 
 impl World {
     pub(crate) fn package(&self, name: &str, spec: &PackageSpec<'_>) -> std::path::PathBuf {
-        build_package(self.scratch.path(), name, spec, &self.owner.signer)
+        build_package(self.scratch.path(), name, spec)
     }
 
     /// A fresh enrolled member whose trust snapshot is current.

@@ -2,11 +2,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ilmek_core::clock::Clock;
+use ilmek_core::net;
 use ilmek_core::session::{ClientParams, ClientSession};
-use ilmek_core::tls::{ServerTarget, TlsClient};
-use ilmek_core::trust::{Freshness, TrustStore};
-use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::{Mode, ServerRole, Version};
 
 use crate::device::Device;
@@ -15,11 +12,9 @@ use crate::error::Error;
 const CLIENT_NAME: &str = "ilmek-client";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// Opens authenticated connections for one enrolled device.
+/// Opens connections for one device.
 pub struct Connector {
     device: Arc<Device>,
-    tls: TlsClient,
-    trust: Arc<TrustStore>,
 }
 
 impl std::fmt::Debug for Connector {
@@ -31,13 +26,11 @@ impl std::fmt::Debug for Connector {
 }
 
 impl Connector {
-    pub fn new(device: Device, clock: Arc<dyn Clock>) -> Result<Self, Error> {
-        let tls = TlsClient::new(Some(&device.identity), device.profile.ca_der())?;
-        Ok(Self {
+    #[must_use]
+    pub fn new(device: Device) -> Self {
+        Self {
             device: Arc::new(device),
-            tls,
-            trust: Arc::new(TrustStore::new(clock)),
-        })
+        }
     }
 
     #[must_use]
@@ -45,55 +38,102 @@ impl Connector {
         &self.device
     }
 
-    #[must_use]
-    pub fn trust(&self) -> &Arc<TrustStore> {
-        &self.trust
-    }
-
-    /// Connects to the registry. Allowed while trust is stale: this is how trust is refreshed.
+    /// Connects to the registry named in the community profile.
     pub async fn connect_registry(&self) -> Result<ClientSession, Error> {
-        let profile = &self.device.profile;
-        let target = ServerTarget {
-            address: SocketAddr::V4(profile.registry_control),
-            server_id: profile.registry_id,
-        };
-        self.open(target, ServerRole::Registry, Mode::Control).await
+        let address = SocketAddr::V4(self.device.profile.registry);
+        self.open(address, ServerRole::Registry, Mode::Control)
+            .await
     }
 
-    /// Connects to an application host; refused unless trust is fresh and the host's
-    /// certificate is not revoked.
+    /// The address to dial for a host that registered `endpoint`. A host on the registry's own
+    /// machine registers a loopback address; other devices reach it on the registry's address.
+    #[must_use]
+    pub fn host_address(&self, endpoint: &ilmek_protocol::wire::Endpoint) -> SocketAddr {
+        let registry = *self.device.profile.registry.ip();
+        let ip = if endpoint.ip.is_loopback() && !registry.is_loopback() {
+            registry
+        } else {
+            endpoint.ip
+        };
+        SocketAddr::from((ip, endpoint.port))
+    }
+
+    /// Connects to an application host.
     pub async fn connect_host(
         &self,
         address: SocketAddr,
-        server_id: Uuid7,
         mode: Mode,
     ) -> Result<ClientSession, Error> {
-        if self.trust.freshness() != Freshness::Fresh {
-            return Err(Error::TrustStale);
-        }
-        self.open(ServerTarget { address, server_id }, ServerRole::Host, mode)
-            .await
+        self.open(address, ServerRole::Host, mode).await
     }
 
     async fn open(
         &self,
-        target: ServerTarget,
+        address: SocketAddr,
         role: ServerRole,
         mode: Mode,
     ) -> Result<ClientSession, Error> {
-        let connection = self.tls.connect(target).await?;
-        if role == ServerRole::Host && self.trust.certificate_revoked(&connection.server.serial) {
-            return Err(Error::PeerRevoked);
-        }
+        let stream = net::connect(address).await?;
         let params = ClientParams {
             mode,
             community_id: self.device.profile.community_id,
-            expected_server_id: target.server_id,
+            client_id: self.device.peer_id,
             expected_role: role,
             client_name: CLIENT_NAME.to_owned(),
             client_version: Version::new(1, 0, 0),
             request_timeout: REQUEST_TIMEOUT,
         };
-        Ok(ClientSession::open(connection.stream, params).await?)
+        Ok(ClientSession::open(stream, params).await?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ilmek_core::community::CommunityProfile;
+    use ilmek_protocol::Uuid7;
+    use ilmek_protocol::wire::Endpoint;
+
+    use super::*;
+
+    fn connector(registry: [u8; 4]) -> Connector {
+        let profile = CommunityProfile::new(
+            Uuid7::generate(),
+            Uuid7::generate(),
+            std::net::SocketAddrV4::new(registry.into(), 47401),
+        );
+        Connector::new(Device {
+            profile,
+            peer_id: Uuid7::generate(),
+        })
+    }
+
+    fn endpoint(ip: [u8; 4]) -> Endpoint {
+        Endpoint {
+            ip: ip.into(),
+            port: 47402,
+        }
+    }
+
+    #[test]
+    fn a_host_on_the_registry_machine_is_reached_on_the_registry_address() {
+        let lan = connector([192, 168, 1, 10]);
+        assert_eq!(
+            lan.host_address(&endpoint([127, 0, 0, 1])).to_string(),
+            "192.168.1.10:47402"
+        );
+    }
+
+    #[test]
+    fn other_addresses_are_used_as_registered() {
+        let lan = connector([192, 168, 1, 10]);
+        assert_eq!(
+            lan.host_address(&endpoint([192, 168, 1, 20])).to_string(),
+            "192.168.1.20:47402"
+        );
+        let local = connector([127, 0, 0, 1]);
+        assert_eq!(
+            local.host_address(&endpoint([127, 0, 0, 1])).to_string(),
+            "127.0.0.1:47402"
+        );
     }
 }

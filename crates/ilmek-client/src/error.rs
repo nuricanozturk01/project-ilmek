@@ -1,7 +1,7 @@
+use ilmek_core::community::ProfileError;
+use ilmek_core::discovery::DiscoveryError;
+use ilmek_core::net::ConnectError;
 use ilmek_core::session::ClientError;
-use ilmek_core::tls::TlsError;
-use ilmek_core::trust::TrustError;
-use ilmek_identity::{PkiError, ProfileError};
 use ilmek_protocol::wire::{ErrorCode, ErrorData};
 use thiserror::Error;
 
@@ -10,21 +10,15 @@ pub enum Error {
     #[error(transparent)]
     Session(#[from] ClientError),
     #[error(transparent)]
-    Tls(#[from] TlsError),
-    #[error(transparent)]
-    Pki(#[from] PkiError),
+    Connect(#[from] ConnectError),
     #[error(transparent)]
     Profile(#[from] ProfileError),
     #[error(transparent)]
-    Trust(#[from] TrustError),
+    Discovery(#[from] DiscoveryError),
     #[error("storage: {0}")]
     Storage(#[from] std::io::Error),
     #[error("stored device data is damaged: {0}")]
     Corrupt(&'static str),
-    #[error("trust information is older than 24 hours or missing; refresh it from the registry")]
-    TrustStale,
-    #[error("the peer's certificate has been revoked")]
-    PeerRevoked,
     #[error("unexpected reply: {0}")]
     UnexpectedReply(&'static str),
     #[error("invalid input: {0}")]
@@ -37,10 +31,6 @@ pub enum Error {
     Quota { needed: u64, quota: u64 },
     #[error("the download was cancelled")]
     Cancelled,
-    #[error("the publisher key in the registry record is not usable: {0}")]
-    PublisherKey(String),
-    #[error("the publisher key was revoked")]
-    PublisherRevoked,
 }
 
 impl Error {
@@ -64,7 +54,7 @@ impl Error {
         matches!(
             self,
             Self::Session(ClientError::Timeout | ClientError::Closed | ClientError::Transport(_))
-                | Self::Tls(_)
+                | Self::Connect(_)
         )
     }
 }

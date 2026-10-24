@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use ilmek_identity::PublisherSigner;
 use ilmek_package::{init_app, pack};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::manifest::Permission;
@@ -20,13 +19,8 @@ pub struct PackageSpec<'a> {
     pub files: Vec<(&'a str, Vec<u8>)>,
 }
 
-/// Packs and signs a package under `root` and returns its directory.
-pub fn build_package(
-    root: &Path,
-    name: &str,
-    spec: &PackageSpec<'_>,
-    signer: &PublisherSigner,
-) -> PathBuf {
+/// Packs a package under `root` and returns its directory.
+pub fn build_package(root: &Path, name: &str, spec: &PackageSpec<'_>) -> PathBuf {
     let source = root.join(format!("src-{name}"));
     let mut app = init_app(
         &source,
@@ -46,6 +40,6 @@ pub fn build_package(
         fs::write(target, bytes).unwrap();
     }
     let out = root.join(format!("pkg-{name}"));
-    pack(&source, signer, &out).unwrap();
+    pack(&source, &out).unwrap();
     out
 }

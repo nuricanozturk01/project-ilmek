@@ -13,13 +13,11 @@ step "build"
 step "community, host, forum with data"
 lib_start_community
 registry_pid="${pids[0]}"
-host_peer="$(lib_enroll host member,host --server-ip 127.0.0.1)"
-pub_peer="$(lib_enroll publisher member,publisher)"
-lib_enroll alice member >/dev/null
-lib_publisher nuri "$pub_peer" "$host_peer"
+lib_join host >/dev/null
+lib_join publisher >/dev/null
+lib_join alice >/dev/null
 lib_start_host
-"$ilmek" app pack "$root/examples/forum/app" --key "$work/publisher.key" --out "$work/forum-pkg" \
-  --publisher-id "$publisher_id" >/dev/null 2>&1
+"$ilmek" app pack "$root/examples/forum/app" --out "$work/forum-pkg" >/dev/null 2>&1
 "$ilmek" app install --config "$work/host.toml" "$work/forum-pkg" 2>/dev/null
 "$ilmek" app set-backend --config "$work/host.toml" nuri/forum --exe "$bin/ilmek-forum-backend" 2>/dev/null
 "$ilmek" app start --config "$work/host.toml" nuri/forum 2>/dev/null
@@ -29,8 +27,8 @@ call() { "$ilmek" call ilmek://nuri/forum "$@" --device "$work/alice-device" 2>/
 call forum.topics.create --write --body '{"title":"Yedekte olmali","body":"ilk"}' >/dev/null
 call forum.topics.list | grep -q "Yedekte olmali" || fail "setup: topic missing"
 
-step "backup the running registry (with keys) and host"
-"$ilmek" backup registry --config "$work/registry.toml" --out "$work/registry-backup" --include-keys
+step "backup the running registry and host"
+"$ilmek" backup registry --config "$work/registry.toml" --out "$work/registry-backup"
 "$ilmek" backup host --config "$work/host.toml" --out "$work/host-backup"
 "$ilmek" backup verify --dir "$work/registry-backup"
 "$ilmek" backup verify --dir "$work/host-backup"

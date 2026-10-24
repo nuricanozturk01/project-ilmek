@@ -41,7 +41,8 @@ pub enum ClientError {
 pub struct ClientParams {
     pub mode: Mode,
     pub community_id: Uuid7,
-    pub expected_server_id: Uuid7,
+    /// Who this client claims to be; sent in HELLO and not verified by anyone.
+    pub client_id: Uuid7,
     pub expected_role: ServerRole,
     pub client_name: String,
     pub client_version: Version,
@@ -163,7 +164,7 @@ impl std::fmt::Debug for ClientSession {
 }
 
 impl ClientSession {
-    /// Performs HELLO over an already authenticated stream.
+    /// Performs HELLO over a connected stream.
     pub async fn open<S>(stream: S, params: ClientParams) -> Result<Self, ClientError>
     where
         S: AsyncRead + AsyncWrite + Send + 'static,
@@ -175,6 +176,7 @@ impl ClientSession {
         let hello_id = Uuid7::generate();
         let hello = Message::Hello(Hello {
             version: 1,
+            client_id: params.client_id,
             mode: params.mode,
             client_name: params
                 .client_name
@@ -200,7 +202,6 @@ impl ClientSession {
         };
         let acceptable = ack.version == 1
             && ack.mode == params.mode
-            && ack.server_id == params.expected_server_id
             && ack.server_role == params.expected_role
             && reply_header.community_id == params.community_id;
         if !acceptable {

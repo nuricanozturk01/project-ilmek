@@ -26,17 +26,18 @@ wait_for() {
   fail "timed out waiting for $what"
 }
 
-# lib_start_community: creates the community and starts the registry. Sets $work, $profile,
-# $fingerprint, $control, $hostport.
+# lib_start_community: starts the registry (it creates the community on its first run).
+# Sets $work, $profile, $control, $hostport.
 lib_start_community() {
   work="$(mktemp -d)"
   trap cleanup EXIT
-  control=$((20000 + RANDOM % 20000)); enroll_port=$((control + 1)); hostport=$((control + 2))
+  control=$((20000 + RANDOM % 20000)); hostport=$((control + 2))
+  # A private discovery port, so a real node on this network is never answered by mistake.
+  export ILMEK_DISCOVERY_PORT=$((40000 + RANDOM % 20000))
 
   cat >"$work/registry.toml" <<TOML
 data_dir = "$work/registry"
-control_listen = "127.0.0.1:$control"
-enroll_listen = "127.0.0.1:$enroll_port"
+listen = "127.0.0.1:$control"
 allowed_endpoints = ["127.0.0.0/8"]
 TOML
   cat >"$work/host.toml" <<TOML
@@ -44,12 +45,8 @@ data_dir = "$work/host"
 device_dir = "$work/host-device"
 listen = "127.0.0.1:$hostport"
 advertised = "127.0.0.1:$hostport"
-trust_refresh_ms = 1000
 heartbeat_interval_ms = 1000
 TOML
-
-  fingerprint="$("$ilmek" community init --config "$work/registry.toml" --advertise-ip 127.0.0.1 2>/dev/null)"
-  [ ${#fingerprint} -eq 64 ] || fail "unexpected fingerprint: $fingerprint"
   profile="$work/registry/community.json"
 
   "$ilmek" registry serve --config "$work/registry.toml" 2>"$work/registry.log" &
@@ -57,24 +54,10 @@ TOML
   wait_for "registry" "(exec 3<>/dev/tcp/127.0.0.1/$control)"
 }
 
-# lib_enroll NAME ROLES [invite args...] -> prints the new peer id; identity stored in $work/NAME-device
-lib_enroll() {
-  local name="$1" roles="$2"; shift 2
-  "$ilmek" community invite --config "$work/registry.toml" --role "$roles" "$@" 2>/dev/null >"$work/$name.token"
-  "$ilmek" identity enroll --profile "$profile" --fingerprint "$fingerprint" \
-    --device "$work/$name-device" --name "$name" --token-file "$work/$name.token" 2>/dev/null | awk '{print $2}'
-}
-
-# lib_publisher NAMESPACE PUBLISHER_PEER HOST_PEER -> sets $publisher_id; key in $work/publisher.key
-lib_publisher() {
-  local namespace="$1" publisher_peer="$2" host_peer="$3" pubkey
-  pubkey="$("$ilmek" publisher keygen --out "$work/publisher.key" 2>/dev/null)"
-  publisher_id="$("$ilmek" community add-publisher --config "$work/registry.toml" --name "$namespace" 2>/dev/null)"
-  "$ilmek" community add-publisher-device --config "$work/registry.toml" --publisher "$publisher_id" --peer "$publisher_peer" 2>/dev/null
-  "$ilmek" community add-publisher-key --config "$work/registry.toml" --publisher "$publisher_id" --key "$pubkey" >/dev/null 2>&1
-  "$ilmek" community grant-namespace --config "$work/registry.toml" --publisher "$publisher_id" --namespace "$namespace" 2>/dev/null
-  "$ilmek" community grant-host --config "$work/registry.toml" --publisher "$publisher_id" --host "$host_peer" 2>/dev/null
-  "$ilmek" host trust-publisher --config "$work/host.toml" --key "$pubkey" 2>/dev/null
+# lib_join NAME -> prints the new device id; state stored in $work/NAME-device
+lib_join() {
+  local name="$1"
+  "$ilmek" join "$profile" --device "$work/$name-device" 2>/dev/null | awk '{print $2}'
 }
 
 lib_start_host() {
@@ -84,9 +67,10 @@ lib_start_host() {
 }
 
 # lib_publish_static SOURCE_DIR NAME ADDRESS_SLUG -> packs, installs, starts and publishes
+# (as the device in $work/publisher-device)
 lib_publish_static() {
   local source="$1" name="$2"
-  "$ilmek" app pack "$source" --key "$work/publisher.key" --out "$work/$name-pkg" --publisher-id "$publisher_id" >/dev/null 2>&1
+  "$ilmek" app pack "$source" --out "$work/$name-pkg" >/dev/null 2>&1
   "$ilmek" app install --config "$work/host.toml" "$work/$name-pkg" >/dev/null 2>&1
   "$ilmek" app start --config "$work/host.toml" "$3" 2>/dev/null
   wait_for "$name to run" "\"$ilmek\" app list --config \"$work/host.toml\" 2>/dev/null | grep -q 'state=running'"

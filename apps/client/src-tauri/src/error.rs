@@ -34,7 +34,6 @@ impl From<ClientError> for UiError {
                 ErrorCode::NotFound => "not_found",
                 ErrorCode::AppUnavailable => "app_unavailable",
                 ErrorCode::Unauthorized | ErrorCode::Forbidden => "forbidden",
-                ErrorCode::TrustStale => "trust_stale",
                 ErrorCode::RateLimited => "rate_limited",
                 _ => "server_error",
             });
@@ -43,10 +42,9 @@ impl From<ClientError> for UiError {
             ClientError::Cancelled => "cancelled",
             ClientError::Quota { .. } => "quota",
             ClientError::Integrity(_) | ClientError::Package(_) => "integrity",
-            ClientError::PublisherRevoked | ClientError::PeerRevoked => "revoked",
-            ClientError::TrustStale => "trust_stale",
-            ClientError::Tls(_) | ClientError::Session(_) => "unreachable",
+            ClientError::Connect(_) | ClientError::Session(_) => "unreachable",
             ClientError::Profile(_) => "profile_invalid",
+            ClientError::Discovery(_) => "no_node",
             _ => "unknown",
         })
     }

@@ -1,4 +1,4 @@
-//! Wall-clock port so lease, cache and trust logic is testable.
+//! Wall-clock port so lease and cache logic is testable.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

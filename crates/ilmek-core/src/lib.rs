@@ -1,9 +1,9 @@
-//! ILMEK/1 transport building blocks.
+//! ILMEK/1 transport building blocks (plain TCP, no authentication).
 
 pub mod clock;
+pub mod community;
+pub mod discovery;
 pub mod listener;
-pub mod peer;
+pub mod net;
 pub mod session;
-pub mod tls;
 pub mod transport;
-pub mod trust;

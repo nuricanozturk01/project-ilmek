@@ -21,19 +21,12 @@ pub enum SettingsError {
 #[serde(deny_unknown_fields)]
 pub struct Settings {
     pub data_dir: PathBuf,
-    pub control_listen: SocketAddr,
-    pub enroll_listen: SocketAddr,
-    /// Networks hosts may advertise endpoints in; empty means every address is refused.
+    pub listen: SocketAddr,
+    /// Networks hosts may advertise endpoints in; empty (the default) allows every address.
+    #[serde(default)]
     pub allowed_endpoints: Vec<String>,
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
-    /// How often the serving process re-reads revocations written by operator commands.
-    #[serde(default = "default_revocation_refresh_ms")]
-    pub revocation_refresh_ms: u64,
-}
-
-fn default_revocation_refresh_ms() -> u64 {
-    2000
 }
 
 fn default_max_connections() -> usize {
@@ -53,9 +46,9 @@ impl Settings {
         let settings: Self =
             toml::from_str(text).map_err(|e| SettingsError::Parse(e.to_string()))?;
         settings.networks()?;
-        if settings.max_connections == 0 || settings.revocation_refresh_ms == 0 {
+        if settings.max_connections == 0 {
             return Err(SettingsError::Parse(
-                "max_connections and revocation_refresh_ms must be positive".into(),
+                "max_connections must be positive".into(),
             ));
         }
         Ok(settings)

@@ -5,8 +5,6 @@ use thiserror::Error;
 /// Failure of a registry operation, mapped to a wire error code at the API edge.
 #[derive(Debug, Error)]
 pub enum RegistryError {
-    #[error("unauthorized")]
-    Unauthorized,
     #[error("forbidden: {0}")]
     Forbidden(&'static str),
     #[error("not found")]
@@ -21,8 +19,6 @@ pub enum RegistryError {
     OperationConflict,
     #[error("invalid request: {0}")]
     Invalid(&'static str),
-    #[error("signature invalid: {0}")]
-    SignatureInvalid(&'static str),
     #[error("cursor expired")]
     CursorExpired,
     #[error("rate limited; retry in {retry_after_ms} ms")]
@@ -43,7 +39,6 @@ impl RegistryError {
     #[must_use]
     pub fn code(&self) -> ErrorCode {
         match self {
-            Self::Unauthorized => ErrorCode::Unauthorized,
             Self::Forbidden(_) => ErrorCode::Forbidden,
             Self::NotFound => ErrorCode::NotFound,
             Self::NameConflict(_) => ErrorCode::NameConflict,
@@ -51,7 +46,6 @@ impl RegistryError {
             Self::VersionConflict(_) => ErrorCode::VersionConflict,
             Self::OperationConflict => ErrorCode::OperationConflict,
             Self::Invalid(_) => ErrorCode::InvalidMessage,
-            Self::SignatureInvalid(_) => ErrorCode::SignatureInvalid,
             Self::CursorExpired => ErrorCode::CursorExpired,
             Self::RateLimited { .. } => ErrorCode::RateLimited,
             Self::Store(_) | Self::Internal(_) => ErrorCode::Internal,

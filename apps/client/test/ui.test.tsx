@@ -29,9 +29,6 @@ const status = {
   peer_id: '01a1647f-de10-7e1a-8acf-c35e224c957c',
   registry: '10.77.10.1:47401',
   registry_reachable: true,
-  trust: 'fresh' as const,
-  certificate_expires_at_ms: Date.UTC(2026, 10, 20),
-  certificate_expires_soon: false,
 }
 
 const entry = {
@@ -88,27 +85,45 @@ beforeEach(() => {
 })
 
 describe('joining a community', () => {
-  it('sends the profile, fingerprint, token and device name, and never persists them in the page', async () => {
+  it('sends the profile and never persists it in the page', async () => {
     respond({ shell_state: { joined: false, status: null } })
     const user = userEvent.setup()
     renderApp()
 
     await user.type(await screen.findByLabelText('Topluluk profili (JSON)'), '{{"a":1}')
-    await user.type(screen.getByLabelText('CA parmak izi (SHA-256)'), 'abc123')
-    await user.type(screen.getByLabelText('Katılım kodu'), 'secret-token')
-    await user.type(screen.getByLabelText('Cihaz adı'), 'telefon')
-    await user.click(screen.getByRole('button', { name: 'Katıl' }))
+    await user.click(screen.getByRole('button', { name: 'Bul ve katıl' }))
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('shell_join', {
         profile: '{"a":1}',
-        fingerprint: 'abc123',
-        token: 'secret-token',
-        name: 'telefon',
+        registry: null,
       })
     })
     expect(window.localStorage.length).toBe(0)
-    expect(screen.getByLabelText('Katılım kodu')).toHaveAttribute('type', 'password')
+  })
+
+  it('finds the node by itself when nothing is typed', async () => {
+    respond({ shell_state: { joined: false, status: null } })
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(await screen.findByRole('button', { name: 'Bul ve katıl' }))
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('shell_join', { profile: null, registry: null })
+    })
+  })
+
+  it('says what to do when no node answers', async () => {
+    invoke.mockImplementation((command) =>
+      command === 'shell_state'
+        ? Promise.resolve({ joined: false, status: null })
+        : Promise.reject(failure('no_node')),
+    )
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(await screen.findByRole('button', { name: 'Bul ve katıl' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('düğümü bulunamadı')
   })
 
   it('explains a rejected profile in plain language', async () => {
@@ -120,16 +135,9 @@ describe('joining a community', () => {
     )
     const user = userEvent.setup()
     renderApp()
-    for (const [label, text] of [
-      ['Topluluk profili (JSON)', '{}'],
-      ['CA parmak izi (SHA-256)', 'x'],
-      ['Katılım kodu', 't'],
-      ['Cihaz adı', 'd'],
-    ] as const) {
-      await user.type(await screen.findByLabelText(label), text.replace('{', '{{'))
-    }
-    await user.click(screen.getByRole('button', { name: 'Katıl' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Profil veya parmak izi geçersiz')
+    await user.type(await screen.findByLabelText('Topluluk profili (JSON)'), '{{}')
+    await user.click(screen.getByRole('button', { name: 'Bul ve katıl' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Profil geçersiz')
   })
 })
 
@@ -226,11 +234,11 @@ describe('discovering and opening applications', () => {
 })
 
 describe('settings', () => {
-  it('shows status, warns when the certificate is about to expire and lists cached apps', async () => {
+  it('shows status and lists cached apps', async () => {
     respond({
       shell_state: {
         joined: true,
-        status: { ...status, certificate_expires_soon: true, trust: 'stale' },
+        status,
       },
       shell_cached: [{ address: 'app-id', version: '1.0.0-abc', bytes: 2048 }],
     })
@@ -238,13 +246,12 @@ describe('settings', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'Ayarlar' }))
 
-    expect(await screen.findByText('Eski; uzak erişim kapalı')).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('7 gün içinde bitiyor')
+    expect(await screen.findByText(/10\.77\.10\.1:47401/)).toBeInTheDocument()
     expect(await screen.findByText(/2 KiB/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Tanı bilgisini göster' }))
     expect(await screen.findByText('{"ok":true}')).toBeInTheDocument()
-    expect(screen.getByText('Anahtar, kod veya uygulama içeriği içermez.')).toBeInTheDocument()
+    expect(screen.getByText('Uygulama içeriği içermez.')).toBeInTheDocument()
   })
 
   it('is fully available in English', async () => {

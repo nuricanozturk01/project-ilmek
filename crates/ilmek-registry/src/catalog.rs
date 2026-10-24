@@ -1,16 +1,16 @@
 //! Names, hosts and leases (PROTOCOL.md §8.2, §8.3).
 
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::frame::MAX_BODY_LEN;
+use ilmek_protocol::wire::Name;
 use ilmek_protocol::wire::{
     AppRecord, AppUnregistered, AppsListed, AppsPage, Availability, Endpoint, HeartbeatAck,
-    HostHeartbeat, HostRegister, HostRegistered, ListApps, PeerRole, RecordResult, RegisterApp,
-    Resolve, Resolved, Token, UnregisterApp, UpdateApp, Version,
+    HostHeartbeat, HostRegister, HostRegistered, ListApps, RecordResult, RegisterApp, Resolve,
+    Resolved, UnregisterApp, UpdateApp, Version,
 };
-use ilmek_protocol::wire::{Hash, Name};
 use ilmek_store::Unsigned;
 use ilmek_store::rusqlite::{
     Connection, OptionalExtension, Row, Transaction, TransactionBehavior, params,
@@ -18,7 +18,6 @@ use ilmek_store::rusqlite::{
 
 use crate::error::RegistryError;
 use crate::operations::run_operation;
-use crate::peers::{Actor, actor};
 use crate::registry::Registry;
 use crate::snapshots::{Items, decode_cursor, encode_cursor};
 
@@ -30,11 +29,9 @@ const BODY_MARGIN: usize = 1024;
 
 const APP_SELECT: &str = "
 SELECT a.app_id, a.namespace, a.slug, a.publisher_id, a.server_id, h.ip, h.port, a.version,
-       a.manifest_hash, a.publisher_key_id, k.public_key, a.name, a.description, a.revision,
-       h.lease_expires_at_ms
+       a.manifest_hash, a.name, a.description, a.revision, h.lease_expires_at_ms
 FROM apps a
-JOIN hosts h ON h.server_id = a.server_id
-JOIN publisher_keys k ON k.key_id = a.publisher_key_id";
+JOIN hosts h ON h.server_id = a.server_id";
 
 struct RawApp {
     app_id: String,
@@ -46,8 +43,6 @@ struct RawApp {
     port: u16,
     version: String,
     manifest_hash: String,
-    key_id: String,
-    public_key: Vec<u8>,
     name: String,
     description: String,
     revision: u64,
@@ -65,12 +60,10 @@ fn raw_app(row: &Row<'_>) -> ilmek_store::rusqlite::Result<RawApp> {
         port: row.get(6)?,
         version: row.get(7)?,
         manifest_hash: row.get(8)?,
-        key_id: row.get(9)?,
-        public_key: row.get(10)?,
-        name: row.get(11)?,
-        description: row.get(12)?,
-        revision: row.get::<_, Unsigned>(13)?.0,
-        lease_expires_at_ms: row.get::<_, Unsigned>(14)?.0,
+        name: row.get(9)?,
+        description: row.get(10)?,
+        revision: row.get::<_, Unsigned>(11)?.0,
+        lease_expires_at_ms: row.get::<_, Unsigned>(12)?.0,
     })
 }
 
@@ -94,8 +87,6 @@ impl RawApp {
             },
             version: stored(self.version.parse())?,
             manifest_hash: stored(self.manifest_hash.parse())?,
-            publisher_key_id: stored(self.key_id.parse())?,
-            publisher_public_key: Token::new(self.public_key),
             name: stored(self.name.parse())?,
             description: stored(self.description.parse())?,
             revision: self.revision,
@@ -127,65 +118,52 @@ fn tx(connection: &mut Connection) -> Result<Transaction<'_>, RegistryError> {
     Ok(connection.transaction_with_behavior(TransactionBehavior::Immediate)?)
 }
 
-/// What a publisher device may do for one namespace, host and signing key.
-fn authorize_publish(
-    transaction: &Transaction<'_>,
-    actor: &Actor,
-    publisher_id: &str,
-    server_id: Uuid7,
-    key_id: &Hash,
-) -> Result<(), RegistryError> {
-    let is_device: bool = transaction.query_row(
-        "SELECT EXISTS (SELECT 1 FROM publisher_devices WHERE publisher_id = ?1 AND peer_id = ?2)",
-        params![publisher_id, actor.peer_id.to_string()],
+/// The application must point at a host that has registered.
+fn require_host(transaction: &Transaction<'_>, server_id: Uuid7) -> Result<(), RegistryError> {
+    let known: bool = transaction.query_row(
+        "SELECT EXISTS (SELECT 1 FROM hosts WHERE server_id = ?1)",
+        params![server_id.to_string()],
         |row| row.get(0),
     )?;
-    if !is_device {
-        return Err(RegistryError::Forbidden(
-            "this device does not publish for that name",
-        ));
-    }
-    let host_granted: bool = transaction.query_row(
-        "SELECT EXISTS (
-             SELECT 1 FROM publisher_hosts p JOIN hosts h ON h.server_id = p.server_id
-             WHERE p.publisher_id = ?1 AND p.server_id = ?2)",
-        params![publisher_id, server_id.to_string()],
-        |row| row.get(0),
-    )?;
-    if !host_granted {
-        return Err(RegistryError::Forbidden(
-            "host not available to this publisher",
-        ));
-    }
-    let key_state: Option<Option<i64>> = transaction
-        .query_row(
-            "SELECT revoked_at_ms FROM publisher_keys WHERE key_id = ?1 AND publisher_id = ?2",
-            params![key_id.to_string(), publisher_id],
-            |row| row.get(0),
-        )
-        .optional()?;
-    match key_state {
-        None => Err(RegistryError::SignatureInvalid("unknown publisher key")),
-        Some(Some(_)) => Err(RegistryError::SignatureInvalid("publisher key revoked")),
-        Some(None) => Ok(()),
+    if known {
+        Ok(())
+    } else {
+        Err(RegistryError::Invalid("host is not registered"))
     }
 }
 
-fn namespace_publisher(
+/// The first device to register in a namespace owns it; everyone else is refused.
+fn claim_namespace(
     transaction: &Transaction<'_>,
-    actor: &Actor,
+    peer: Uuid7,
     namespace: &Name,
 ) -> Result<String, RegistryError> {
-    transaction
+    let owner: Option<String> = transaction
         .query_row(
-            "SELECT n.publisher_id FROM namespaces n
-             JOIN publisher_devices d ON d.publisher_id = n.publisher_id
-             WHERE n.namespace = ?1 AND d.peer_id = ?2",
-            params![namespace.as_str(), actor.peer_id.to_string()],
+            "SELECT publisher_id FROM namespaces WHERE namespace = ?1",
+            params![namespace.as_str()],
             |row| row.get(0),
         )
-        .optional()?
-        .ok_or(RegistryError::Forbidden("namespace is not yours"))
+        .optional()?;
+    match owner {
+        Some(owner) if owner == peer.to_string() => Ok(owner),
+        Some(_) => Err(RegistryError::Forbidden("namespace is not yours")),
+        None => {
+            transaction.execute(
+                "INSERT INTO namespaces (namespace, publisher_id) VALUES (?1, ?2)",
+                params![namespace.as_str(), peer.to_string()],
+            )?;
+            Ok(peer.to_string())
+        }
+    }
+}
+
+fn require_owner(current: &StoredApp, peer: Uuid7) -> Result<(), RegistryError> {
+    if current.publisher_id == peer.to_string() {
+        Ok(())
+    } else {
+        Err(RegistryError::Forbidden("this application is not yours"))
+    }
 }
 
 struct StoredApp {
@@ -218,18 +196,16 @@ fn stored_app(transaction: &Transaction<'_>, app_id: Uuid7) -> Result<StoredApp,
 
 impl Registry {
     fn endpoint_allowed(&self, ip: Ipv4Addr) -> bool {
-        self.networks.iter().any(|network| network.contains(ip))
+        self.networks.is_empty() || self.networks.iter().any(|network| network.contains(ip))
     }
 
     pub(crate) async fn resolve(
         self: &Arc<Self>,
-        peer: Uuid7,
         request: Resolve,
     ) -> Result<Resolved, RegistryError> {
         let registry = Arc::clone(self);
         self.db
             .call(move |connection| {
-                actor(connection, peer)?;
                 let sql = format!(
                     "{APP_SELECT} WHERE a.namespace = ?1 AND a.slug = ?2 AND a.unregistered = 0"
                 );
@@ -260,7 +236,6 @@ impl Registry {
         let registry = Arc::clone(self);
         self.db
             .call(move |connection| {
-                actor(connection, peer)?;
                 let now = registry.clock.now_ms();
                 let (snapshot_id, offset, items) = match &request.cursor {
                     None => {
@@ -283,10 +258,7 @@ impl Registry {
                     query,
                     limit,
                     records,
-                } = items.as_ref()
-                else {
-                    return Err(RegistryError::CursorExpired);
-                };
+                } = items.as_ref();
                 if query != request.query.as_str() || *limit != request.limit {
                     return Err(RegistryError::Invalid(
                         "cursor does not match query and limit",
@@ -300,9 +272,19 @@ impl Registry {
     pub(crate) async fn host_register(
         self: &Arc<Self>,
         peer: Uuid7,
+        remote: Option<IpAddr>,
         request: HostRegister,
     ) -> Result<HostRegistered, RegistryError> {
-        if !self.endpoint_allowed(request.endpoint.ip) {
+        // A host that does not know its own address sends 0.0.0.0; the address it connected
+        // from is the one clients can reach it on.
+        let mut endpoint = request.endpoint;
+        if endpoint.ip.is_unspecified() {
+            let Some(IpAddr::V4(seen)) = remote else {
+                return Err(RegistryError::Invalid("the host address is unknown"));
+            };
+            endpoint.ip = seen;
+        }
+        if !self.endpoint_allowed(endpoint.ip) {
             return Err(RegistryError::Forbidden(
                 "endpoint is outside the allowed networks",
             ));
@@ -311,8 +293,6 @@ impl Registry {
         self.db
             .call(move |connection| {
                 let tx = tx(connection)?;
-                let caller = actor(&tx, peer)?;
-                caller.require(PeerRole::Host)?;
                 let now = registry.clock.now_ms();
                 let result = run_operation(
                     &tx,
@@ -342,8 +322,8 @@ impl Registry {
                                  lease_expires_at_ms = excluded.lease_expires_at_ms",
                             params![
                                 peer.to_string(),
-                                request.endpoint.ip.to_string(),
-                                request.endpoint.port,
+                                endpoint.ip.to_string(),
+                                endpoint.port,
                                 Unsigned(revision),
                                 Unsigned(now + LEASE_SECONDS * 1000)
                             ],
@@ -371,7 +351,6 @@ impl Registry {
         self.db
             .call(move |connection| {
                 let tx = tx(connection)?;
-                actor(&tx, peer)?.require(PeerRole::Host)?;
                 let Unsigned(revision) = tx
                     .query_row(
                         "SELECT revision FROM hosts WHERE server_id = ?1",
@@ -405,16 +384,8 @@ impl Registry {
         self.db
             .call(move |connection| {
                 let tx = tx(connection)?;
-                let caller = actor(&tx, peer)?;
-                caller.require(PeerRole::Publisher)?;
-                let publisher_id = namespace_publisher(&tx, &caller, &request.namespace)?;
-                authorize_publish(
-                    &tx,
-                    &caller,
-                    &publisher_id,
-                    request.server_id,
-                    &request.publisher_key_id,
-                )?;
+                require_host(&tx, request.server_id)?;
+                let publisher_id = claim_namespace(&tx, peer, &request.namespace)?;
                 let now = registry.clock.now_ms();
                 let result = run_operation(
                     &tx,
@@ -446,19 +417,12 @@ impl Registry {
         self.db
             .call(move |connection| {
                 let tx = tx(connection)?;
-                let caller = actor(&tx, peer)?;
-                caller.require(PeerRole::Publisher)?;
                 let current = stored_app(&tx, request.app_id)?;
                 if current.unregistered {
                     return Err(RegistryError::NotFound);
                 }
-                authorize_publish(
-                    &tx,
-                    &caller,
-                    &current.publisher_id,
-                    request.server_id,
-                    &request.publisher_key_id,
-                )?;
+                require_owner(&current, peer)?;
+                require_host(&tx, request.server_id)?;
                 let now = registry.clock.now_ms();
                 let result = run_operation(
                     &tx,
@@ -475,15 +439,14 @@ impl Registry {
                         check_version_progress(&current, &request)?;
                         tx.execute(
                             "UPDATE apps SET server_id = ?2, version = ?3, manifest_hash = ?4,
-                                 publisher_key_id = ?5, name = ?6, description = ?7,
-                                 revision = revision + 1, updated_at_ms = ?8
+                                 name = ?5, description = ?6,
+                                 revision = revision + 1, updated_at_ms = ?7
                              WHERE app_id = ?1",
                             params![
                                 request.app_id.to_string(),
                                 request.server_id.to_string(),
                                 request.version.to_string(),
                                 request.manifest_hash.to_string(),
-                                request.publisher_key_id.to_string(),
                                 request.name.as_str(),
                                 request.description.as_str(),
                                 Unsigned(now)
@@ -509,17 +472,8 @@ impl Registry {
         self.db
             .call(move |connection| {
                 let tx = tx(connection)?;
-                let caller = actor(&tx, peer)?;
-                caller.require(PeerRole::Publisher)?;
                 let current = stored_app(&tx, request.app_id)?;
-                let owned: bool = tx.query_row(
-                    "SELECT EXISTS (SELECT 1 FROM publisher_devices WHERE publisher_id = ?1 AND peer_id = ?2)",
-                    params![current.publisher_id, peer.to_string()],
-                    |row| row.get(0),
-                )?;
-                if !owned {
-                    return Err(RegistryError::Forbidden("this device does not publish that app"));
-                }
+                require_owner(&current, peer)?;
                 let now = registry.clock.now_ms();
                 let result = run_operation(
                     &tx,
@@ -584,7 +538,6 @@ fn claim_name(
     let server_id = request.server_id.to_string();
     let version = request.version.to_string();
     let manifest_hash = request.manifest_hash.to_string();
-    let key_id = request.publisher_key_id.to_string();
     let now = Unsigned(now_ms);
     match holder {
         Some((app_id, owner, true, revision))
@@ -592,7 +545,7 @@ fn claim_name(
         {
             transaction.execute(
                 "UPDATE apps SET server_id = ?2, version = ?3, manifest_hash = ?4,
-                     publisher_key_id = ?5, name = ?6, description = ?7, updated_at_ms = ?8,
+                     name = ?5, description = ?6, updated_at_ms = ?7,
                      unregistered = 0, revision = revision + 1
                  WHERE app_id = ?1",
                 params![
@@ -600,7 +553,6 @@ fn claim_name(
                     server_id,
                     version,
                     manifest_hash,
-                    key_id,
                     request.name.as_str(),
                     request.description.as_str(),
                     now
@@ -625,14 +577,13 @@ fn claim_name(
             }
             transaction.execute(
                 "INSERT INTO apps (app_id, namespace, slug, publisher_id, server_id, version,
-                     manifest_hash, publisher_key_id, name, description, revision, updated_at_ms)
-                 VALUES (?1, ?9, ?10, ?11, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8)",
+                     manifest_hash, name, description, revision, updated_at_ms)
+                 VALUES (?1, ?8, ?9, ?10, ?2, ?3, ?4, ?5, ?6, 1, ?7)",
                 params![
                     app_id,
                     server_id,
                     version,
                     manifest_hash,
-                    key_id,
                     request.name.as_str(),
                     request.description.as_str(),
                     now,

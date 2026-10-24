@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use ilmek_identity::PublisherKey;
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::{Hash, Name, Version};
 use ilmek_store::rusqlite::{Connection, OptionalExtension, Row, params};
@@ -146,45 +145,6 @@ impl Store {
         })
     }
 
-    pub async fn add_trusted_publisher(
-        &self,
-        key: &PublisherKey,
-        now_ms: u64,
-    ) -> Result<String, HostError> {
-        let (key_id, encoded) = (key.key_id(), key.to_base64url());
-        let stored_id = key_id.clone();
-        self.db
-            .call(move |c| {
-                c.execute(
-                    "INSERT OR IGNORE INTO trusted_publishers (key_id, public_key, added_at_ms)
-                     VALUES (?1, ?2, ?3)",
-                    params![stored_id, encoded, Unsigned(now_ms)],
-                )?;
-                Ok::<_, HostError>(())
-            })
-            .await?;
-        Ok(key_id)
-    }
-
-    pub async fn trusted_publisher(&self, key_id: Hash) -> Result<Option<PublisherKey>, HostError> {
-        let found: Option<String> = self
-            .db
-            .call(move |c| {
-                Ok::<_, HostError>(
-                    c.query_row(
-                        "SELECT public_key FROM trusted_publishers WHERE key_id = ?1",
-                        params![key_id.to_string()],
-                        |row| row.get(0),
-                    )
-                    .optional()?,
-                )
-            })
-            .await?;
-        found
-            .map(|text| corrupt(PublisherKey::from_base64url(&text), "trusted key"))
-            .transpose()
-    }
-
     pub async fn app(&self, app_id: Uuid7) -> Result<Option<AppRow>, HostError> {
         self.db
             .call(move |c| {
@@ -252,7 +212,7 @@ impl Store {
     ) -> Result<(), HostError> {
         self.db
             .call(move |c| {
-                let tx = c.transaction()?;
+                let tx = c.transaction_with_behavior(ilmek_store::rusqlite::TransactionBehavior::Immediate)?;
                 let taken: bool = tx.query_row(
                     "SELECT EXISTS (SELECT 1 FROM apps WHERE app_id = ?1 OR (namespace = ?2 AND slug = ?3))",
                     params![app.app_id.to_string(), app.namespace.as_str(), app.slug.as_str()],
@@ -298,7 +258,9 @@ impl Store {
     ) -> Result<(), HostError> {
         self.db
             .call(move |c| {
-                let tx = c.transaction()?;
+                let tx = c.transaction_with_behavior(
+                    ilmek_store::rusqlite::TransactionBehavior::Immediate,
+                )?;
                 insert_version(&tx, app_id, &version, now_ms)?;
                 tx.execute(
                     "UPDATE apps SET active_version = ?2, name = ?3 WHERE app_id = ?1",
@@ -469,7 +431,9 @@ impl Store {
     pub async fn remove_app(&self, app_id: Uuid7) -> Result<(), HostError> {
         self.db
             .call(move |c| {
-                let tx = c.transaction()?;
+                let tx = c.transaction_with_behavior(
+                    ilmek_store::rusqlite::TransactionBehavior::Immediate,
+                )?;
                 let id = app_id.to_string();
                 for table in ["status", "backends", "versions"] {
                     tx.execute(

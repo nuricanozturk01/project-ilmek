@@ -1,139 +1,103 @@
-# Network setup: NODE-A and NODE-B
+# Network setup
 
-> **Not yet applied to real hardware.** `ilmek network` is implemented and tested against a fake
-> machine (a scratch root directory and a recording command runner) and by running `plan` on a
-> development PC. `apply` has never run on a real node, no radio capability has been checked, and
-> no Wi-Fi link has been brought up. Treat the first real `apply` as an experiment: do it with
-> console access, as described below. Status per acceptance item is in
-> [TEST_REPORT](TEST_REPORT.md).
+İlmek needs **two or more computers that can reach each other over IP**. That is all. It does not
+configure Wi-Fi adapters, routes, DHCP or firewalls, and it does not need two Wi-Fi cards or an
+access-point-capable adapter. (The two-radio routing-node tooling of `main`, `ilmek network`, is
+not part of this branch.)
 
-## Target topology
+> **Status.** Everything in this file about *other machines* is **not tested**: this work was done
+> on one computer, with the node, hosts and clients as separate processes over `127.0.0.1`
+> (including UDP discovery and automatic joining). Commands for firewalls and hotspots below are
+> standard operating-system commands given as a starting point; they were not run here.
 
+## What has to be true
+
+| Need | Why |
+| --- | --- |
+| The machines share an IP network (same Wi-Fi, same switch, a phone hotspot…) | İlmek is TCP over IP |
+| Client machines can open TCP connections to the node on **47401** and **47402** | registry and application host |
+| Discovery: UDP **47400** reaches the node (broadcast on the same subnet) | so a device can find the node without being told |
+| IPv4 | addresses in the protocol are IPv4 |
+
+```mermaid
+flowchart LR
+    subgraph LAN["Any IP network: home Wi-Fi, switch, phone hotspot"]
+        direction LR
+        N["Linux: ilmek node<br/>UDP 47400 · TCP 47401 · TCP 47402"]
+        M["Mac: ilmek join / desktop client"]
+        X["Other machine: ilmek host start"]
+    end
+    M -- "probe, then TCP" --> N
+    X -- "probe, then TCP" --> N
 ```
- phones/PCs ~~Wi-Fi ILMEK-A~~ [wlan0 NODE-A wlan1] ~~Wi-Fi ILMEK-TRANSIT~~ [wlan1 NODE-B wlan0] ~~Wi-Fi ILMEK-B~~ phones/PCs
- 10.77.10.0/24                10.77.10.1  10.77.254.1/30   10.77.254.2  10.77.20.1               10.77.20.0/24
-```
 
-The addresses are the V1 reference plan from REQUIREMENTS §9 and live only in configuration
-(`configs/node-a.toml.example`, `configs/node-b.toml.example`); change them consistently if they
-collide with an existing network. NODE-A's second radio is an access point for the transit link and
-NODE-B's second radio is a station on it. There is no NAT and no default route: the İlmek networks
-are only reachable from each other. The registry sits on NODE-A (`10.77.10.1:47401`, enrollment on
-`:47402`); hosts are separate machines, for example `10.77.10.10` (HOST-1) and `10.77.20.10`
-(HOST-2) with DHCP reservations.
+## The first demo
 
-## Requirements on each node
-
-- Linux with `iproute2`, `nftables`, `systemd`, `dnsmasq`, `hostapd`; `wpa_supplicant` on a node
-  whose transit radio is a station.
-- **Two Wi-Fi adapters whose drivers support the roles in use.** Access-point mode is not provided
-  by every adapter. Check before anything else: `iw list` must show `AP` under
-  "Supported interface modes" for each radio used as an access point, and `iw dev` shows the
-  interface names. `ilmek doctor` collects this (read-only); it needs `iw` installed.
-- A regulatory domain (`country` in the node file). The tool will not generate an access point
-  without one.
-- Console or other out-of-band access to the node for the first apply.
-
-## Procedure
-
-1. **Inventory.** Run `ilmek doctor` on the node and record the output in
-   [HARDWARE_INVENTORY](HARDWARE_INVENTORY.md). Do not continue if an adapter cannot be an
-   access point.
-2. **Configuration.** Copy the example to `node.toml`; set interface names, channels, `country`,
-   DHCP range and MAC-based reservations. Create the passphrase files outside the configuration,
-   readable by root only (8–63 printable ASCII characters on the first line):
+1. **Linux machine (node).** Build and run `ilmek node` ([README](../README.md)). It prints
+   `node is running: registry 0.0.0.0:47401, application host 0.0.0.0:47402`.
+2. **Find its IP** (only needed if discovery does not work): `hostname -I` or `ip -4 addr`.
+3. **Firewall on the Linux machine.** If one is active, allow the ports (examples; adapt to your
+   system, not run here):
 
    ```sh
-   sudo install -d -m 700 /etc/ilmek/secrets
-   sudo install -m 600 /dev/stdin /etc/ilmek/secrets/user.pass      # type the passphrase, Ctrl-D
-   sudo install -m 600 /dev/stdin /etc/ilmek/secrets/transit.pass
+   sudo ufw allow 47400/udp && sudo ufw allow 47401:47402/tcp        # Ubuntu / Mint
+   sudo firewall-cmd --add-port=47400/udp --add-port=47401-47402/tcp # Fedora (add --permanent)
    ```
-3. **Review the plan** (changes nothing):
+
+4. **Mac (client).** Install the Rust toolchain, build the CLI, join:
 
    ```sh
-   ilmek network plan --config node.toml
+   cargo build -p ilmek-cli
+   target/debug/ilmek join                         # UDP discovery
+   target/debug/ilmek join --registry 192.168.1.10:47401   # or give the node's address
+   target/debug/ilmek resolve ilmek://nuri/forum
    ```
 
-   The plan lists every file it will write (path and mode), every command with its undo, what is
-   missing (`MISSING: hostapd is not installed` blocks `apply`), and notes such as NetworkManager
-   being present. Passphrases appear as `@PASSPHRASE@`; the real value is read from the file at
-   apply time and never printed, never put on a command line.
-4. **Apply** (root, with console access):
+   No other file or code has to be copied. macOS may ask whether the program may accept incoming
+   connections only for a *node or host* running on the Mac; a client does not need that.
 
-   ```sh
-   sudo ilmek network apply --config node.toml --yes
-   ```
+## How discovery works, and when it does not
 
-   Without `--yes` the plan is printed and nothing is changed. The command refuses to touch the
-   interface that carries the default route or your current SSH session unless you pass
-   `--allow-management-interface`; do not pass that over a remote connection. It prints the
-   snapshot ID when done.
-5. **Check** (see the verification list below).
-6. **Undo** if needed:
+A device with no stored state sends the datagram `ILMEK-DISCOVER/1` to `255.255.255.255:47400` and
+`127.0.0.1:47400` (every 500 ms for up to 4 s). The node answers with the community id, the
+registry's id and port; the registry address is the answer's source IP. The result is stored, so
+this happens once per device.
 
-   ```sh
-   sudo ilmek network status                     # lists snapshots and their phase
-   sudo ilmek network rollback                   # newest snapshot not yet rolled back
-   sudo ilmek network rollback --snapshot NODE-A-1760000000
-   ```
+It does **not** work when:
 
-## What `apply` changes
+- the machines are on different subnets (broadcast does not cross routers);
+- the network blocks client-to-client UDP (some guest Wi-Fi, "AP isolation");
+- the node's firewall drops UDP 47400.
 
-- Writes `/etc/ilmek/{hostapd-<if>.conf, wpa-<if>.conf, dnsmasq.conf, firewall.nft}` and
-  `/etc/sysctl.d/90-ilmek.conf`; secrets files are mode 600.
-- Writes systemd units `ilmek-hostapd-<if>`, `ilmek-wpa-<if>` (station), `ilmek-network`,
-  `ilmek-firewall`, `ilmek-dnsmasq` so the setup survives a reboot, and enables them.
-- Sets `net.ipv4.ip_forward=1` (the previous value is recorded and restored on rollback).
-- `ilmek-network.service` assigns the addresses and the static route to the other user network
-  (`ip route replace 10.77.20.0/24 via 10.77.254.2 dev wlan1` on NODE-A).
-- `dnsmasq` serves **DHCP only** (`port=0`, no DNS), on the user interface, with the node as the
-  router and the configured reservations. No fake "internet is available" answers are given.
-- If NetworkManager is present, a drop-in marks the two radios unmanaged and NetworkManager is
-  reloaded. **Anything NetworkManager was doing on those radios stops.**
-- Adds the nftables table `inet ilmek` and nothing else: from outside the İlmek subnets the İlmek
-  ports are dropped on input, and forwarding **through this node** is limited to İlmek TCP ports
-  and basic ICMP between the İlmek subnets (policy drop in that table's forward chain). Other
-  tables and rules are untouched. If the node must forward unrelated traffic, review this first.
+In those cases give the address: `ilmek join --registry IP:47401` (any command that needs a device
+accepts `--registry` for the first join), or in the desktop client type it in "Node address".
+If UDP 47400 is busy on the node, the node still runs but cannot be discovered; use
+`--discovery-port` on the node and `ILMEK_DISCOVERY_PORT` on every device.
 
-## How rollback works
+## Adding another application host
 
-Before each change `apply` records it in a snapshot directory (default
-`/var/lib/ilmek/network/<node>-<unix time>/`, mode 700): original contents of files that existed,
-created directories, and the undo command of each command. The snapshot is written *before* the
-change is made, so a crash half-way can still be rolled back. If any step fails, `apply` rolls back
-automatically and reports whether that succeeded. `rollback` continues past individual failures
-and lists them. It also saves `ip addr`, `ip route` and `nft list ruleset` output under `state/`
-for comparison.
-
-Manual fallback if the tool itself is unavailable (the files and units are those listed above):
+Any other machine can serve applications:
 
 ```sh
-sudo systemctl disable --now ilmek-dnsmasq ilmek-firewall ilmek-network ilmek-hostapd-wlan0 ilmek-hostapd-wlan1
-sudo nft delete table inet ilmek
-sudo rm /etc/systemd/system/ilmek-*.service /etc/sysctl.d/90-ilmek.conf /etc/ilmek/*.conf /etc/ilmek/firewall.nft
-sudo rm -f /etc/NetworkManager/conf.d/90-ilmek-unmanaged.conf
-sudo systemctl daemon-reload && sudo systemctl reload NetworkManager
-sudo sysctl -w net.ipv4.ip_forward=<previous value, see state/ip_forward.txt in the snapshot>
+ilmek host start            # finds the node, joins, registers itself, serves on TCP 47402
 ```
 
-## Verification checklist (to be run on the real nodes)
+The host sends `0.0.0.0:47402` as its address and the registry records the address the connection
+came from, so the host needs no address setting. Applications are then installed on that machine
+with the ordinary `ilmek app …` commands and published with `ilmek app publish` (the same machine
+or any joined device can publish).
 
-| Acceptance | Check | Command / observation |
-| --- | --- | --- |
-| A02 | both access networks hand out addresses | a client on ILMEK-A gets `10.77.10.x`, on ILMEK-B `10.77.20.x`, gateway = its node |
-| A03 | the transit path is really Wi-Fi | `iw dev wlan1 link` on NODE-B shows the NODE-A SSID and signal; no cable between nodes |
-| A04 | routing both ways | from HOST-1 `ping 10.77.20.10`, from HOST-2 `ping 10.77.10.10`; `ip route get` on each node |
-| A05 | no internet needed | WAN unplugged, mobile data off; applications still work |
-| A06 | no HTTP/WS fallback | packet capture on a node shows only TCP 47401/47402 carrying TLS, no HTTP |
-| A15 | transit loss | switch NODE-B's radio off; locally running services keep working, cross-network calls fail with a clear error |
+## Making a Linux machine its own Wi-Fi network (optional, not run)
 
-Connectivity at the İlmek layer: `ilmek diagnose ilmek://nuri/forum --device <device-dir>` checks
-trust snapshot, name resolution, host reachability and package download step by step.
+If there is no shared network at all, a Linux machine with one Wi-Fi adapter that supports access
+point mode can create one with NetworkManager (`nmcli device wifi hotspot ssid ILMEK password
+<8+ characters>`). The other computers join that Wi-Fi and use İlmek as above. Whether an adapter
+supports AP mode is hardware- and driver-dependent (`iw list`, look for `AP` under supported
+interface modes); this was not checked on any real hardware. The hotspot's DHCP gives the Linux
+machine its address (typically `10.42.0.1`).
 
-## Known limits
+## Not covered
 
-- Only the two-node plan is implemented. A third node, alternative routes and dynamic routing are
-  later work (REQUIREMENTS §9).
-- The tool does not decide which channel is quiet or whether two radios on one machine can run
-  concurrently; those are hardware facts a person has to confirm.
-- `apply` supports Linux with systemd only.
+Several nodes that route between separate networks, mesh, and any connection to the public
+internet are not implemented. The original two-node Wi-Fi design is documented in
+[REQUIREMENTS](REQUIREMENTS.md) and implemented on `main`.

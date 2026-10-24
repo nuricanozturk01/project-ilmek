@@ -65,7 +65,7 @@ async fn stack(permissions: Vec<Permission>, slug: &'static str) -> Stack {
     let community = Community::start().await;
     let owner = community.publisher("nuri").await;
     let (launcher, backends) = notes_launcher();
-    let host = start_host(&community, &owner, Arc::new(launcher)).await;
+    let host = start_host(&community, Arc::new(launcher)).await;
     let scratch = tempfile::tempdir().unwrap();
     let spec = PackageSpec {
         namespace: "nuri",
@@ -77,7 +77,7 @@ async fn stack(permissions: Vec<Permission>, slug: &'static str) -> Stack {
         permissions,
         files: files(),
     };
-    let package = build_package(scratch.path(), "app", &spec, &owner.signer);
+    let package = build_package(scratch.path(), "app", &spec);
     let installed = host.installer.install(&package).await.unwrap();
     host.store
         .set_backend(
@@ -116,21 +116,7 @@ async fn stack(permissions: Vec<Permission>, slug: &'static str) -> Stack {
     .unwrap();
 
     let client_root = tempfile::tempdir().unwrap();
-    let token = community
-        .registry
-        .create_invite(&ilmek_testing::invite(&[
-            ilmek_protocol::wire::PeerRole::Member,
-        ]))
-        .unwrap();
-    Client::join(
-        client_root.path(),
-        &community.profile.to_json().unwrap(),
-        &community.profile.ca_fingerprint(),
-        &token,
-        "test client",
-    )
-    .await
-    .unwrap();
+    Client::join(client_root.path(), &community.profile.to_json().unwrap()).unwrap();
     let sink = Arc::new(Collector::default());
     let client = Client::open(client_root.path()).unwrap();
     assert!(client.refresh().await.registry_reachable);

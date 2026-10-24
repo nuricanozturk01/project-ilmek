@@ -4,17 +4,15 @@ use std::collections::HashMap;
 use std::io::SeekFrom;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ilmek_core::session::{Handler, Reply};
-use ilmek_package::{ASSETS_DIR, MANIFEST_FILE, SIGNATURE_FILE};
+use ilmek_package::{ASSETS_DIR, MANIFEST_FILE};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::digest::payload_hash;
 use ilmek_protocol::ipc::{IpcCall, IpcMessage, IpcSubscribe};
 use ilmek_protocol::manifest::{DEFAULT_MAX_TOTAL_BYTES, Manifest, Permission};
 use ilmek_protocol::wire::{
     AppCall, AppResult, AssetChunk, AssetEnd, AssetInfo, ErrorCode, EventAck, EventAcked, GetAsset,
-    GetManifest, ManifestInfo, Message, Payload, Subscribe, SubscriptionRef, Token, Version,
+    GetManifest, ManifestInfo, Message, Payload, Subscribe, SubscriptionRef, Version,
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
@@ -150,23 +148,13 @@ impl Inner {
                 "manifest hash differs",
             ));
         }
-        let manifest = self.manifest_of(request.app_id, &row)?;
         let bytes = std::fs::read(row.directory.join(MANIFEST_FILE))
             .map_err(|_| Failure::new(ErrorCode::Internal, "package files are unreadable"))?;
-        let signature = std::fs::read_to_string(row.directory.join(SIGNATURE_FILE))
-            .ok()
-            .and_then(|text| URL_SAFE_NO_PAD.decode(text.trim()).ok())
-            .ok_or(Failure::new(
-                ErrorCode::Internal,
-                "package signature is unreadable",
-            ))?;
         let message = Message::Manifest(Payload {
             data: ManifestInfo {
                 app_id: request.app_id,
                 version: request.version,
                 manifest_hash: row.manifest_hash,
-                publisher_key_id: manifest.publisher_key_id,
-                signature: Token::new(signature),
             },
             body: bytes,
         });
@@ -317,15 +305,7 @@ impl Inner {
 
     async fn app_call(&self, request: Payload<AppCall>, reply: &Reply) -> Outcome {
         let Payload { data, body } = request;
-        let principal = reply
-            .session()
-            .peer
-            .as_ref()
-            .map(|p| p.id)
-            .ok_or(Failure::new(
-                ErrorCode::Unauthorized,
-                "no authenticated peer",
-            ))?;
+        let principal = reply.session().peer_id;
         let link = self
             .backend_for(data.app_id, data.client_app_version, Permission::AppCall)
             .await?;
@@ -393,10 +373,7 @@ impl Inner {
 
     async fn subscribe(self: &Arc<Self>, request: Subscribe, reply: Reply) -> Outcome {
         let session = reply.session();
-        let principal = session.peer.as_ref().map(|p| p.id).ok_or(Failure::new(
-            ErrorCode::Unauthorized,
-            "no authenticated peer",
-        ))?;
+        let principal = session.peer_id;
         let link = self
             .backend_for(
                 request.app_id,

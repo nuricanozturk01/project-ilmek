@@ -12,23 +12,17 @@ name = "ilmek"
 path = "src/main.rs"
 
 [dependencies]
-base64.workspace = true
 clap.workspace = true
 ilmek-client.workspace = true
 ilmek-core.workspace = true
 ilmek-host.workspace = true
-ilmek-identity.workspace = true
-ilmek-network.workspace = true
 ilmek-package.workspace = true
 ilmek-protocol.workspace = true
 ilmek-registry.workspace = true
 ilmek-store.workspace = true
-serde.workspace = true
 serde_json.workspace = true
-time.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "io-std", "io-util", "fs"] }
 tokio-util.workspace = true
-tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]

@@ -1,8 +1,7 @@
-# Registry (runs on NODE-A in the reference plan; any reachable machine works).
+# Registry. `ilmek node` writes a file like this for you (<home>/registry.toml); use this one with
+# `ilmek registry serve --config` (a registry without an application host).
 data_dir = "/var/lib/ilmek/registry"
-control_listen = "10.77.10.1:47401"   # mTLS
-enroll_listen = "10.77.10.1:47402"    # server-auth TLS + single-use token, enrollment only
-# Networks hosts may advertise endpoints in; empty refuses every address.
-allowed_endpoints = ["10.77.10.0/24", "10.77.20.0/24"]
+listen = "0.0.0.0:47401"
+# Networks hosts may advertise endpoints in. Leave empty (or remove) to allow every address.
+allowed_endpoints = []
 max_connections = 128
-revocation_refresh_ms = 2000

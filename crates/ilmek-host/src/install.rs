@@ -6,7 +6,6 @@ use std::sync::Arc;
 use ilmek_core::clock::Clock;
 use ilmek_package::{Package, PackageLimits, copy_package, verify_dir};
 use ilmek_protocol::Uuid7;
-use ilmek_protocol::strict_json::{Profile, parse_object_with};
 use ilmek_protocol::wire::{Hash, Version};
 
 use crate::error::HostError;
@@ -74,7 +73,7 @@ impl Installer {
 
     /// Installs an application that is not on this host yet.
     pub async fn install(&self, package_dir: &Path) -> Result<Installed, HostError> {
-        let staged = self.stage(package_dir).await?;
+        let staged = self.stage(package_dir)?;
         let outcome = self.install_staged(&staged).await;
         staged.discard();
         outcome
@@ -112,7 +111,7 @@ impl Installer {
     /// Verifies and activates a newer version of an installed application. The running
     /// version is untouched unless every check passes.
     pub async fn update(&self, package_dir: &Path) -> Result<Installed, HostError> {
-        let staged = self.stage(package_dir).await?;
+        let staged = self.stage(package_dir)?;
         let outcome = self.update_staged(&staged).await;
         staged.discard();
         outcome
@@ -224,19 +223,12 @@ impl Installer {
     }
 
     /// Copies the package into a private staging directory and verifies the copy.
-    async fn stage(&self, package_dir: &Path) -> Result<Staged, HostError> {
-        let key_id = declared_key_id(package_dir)?;
-        let key = self
-            .store
-            .trusted_publisher(key_id)
-            .await?
-            .ok_or_else(|| HostError::UntrustedPublisher(key_id.to_string()))?;
-
+    fn stage(&self, package_dir: &Path) -> Result<Staged, HostError> {
         let root = self.staging_root();
         std::fs::create_dir_all(&root).map_err(|e| HostError::io(&root, e))?;
         let staging = root.join(Uuid7::generate().to_string());
         copy_package(package_dir, &staging)?;
-        match verify_dir(&staging, &key, None, self.limits) {
+        match verify_dir(&staging, None, self.limits) {
             Ok(package) => Ok(Staged { package }),
             Err(error) => {
                 let _ = std::fs::remove_dir_all(&staging);
@@ -285,24 +277,6 @@ impl Staged {
             changed,
         }
     }
-}
-
-/// Reads the claimed publisher key id so the right trusted key can verify the package.
-/// Nothing else in the manifest is believed until the signature has been checked.
-fn declared_key_id(package_dir: &Path) -> Result<Hash, HostError> {
-    let path = package_dir.join(ilmek_package::MANIFEST_FILE);
-    let metadata = std::fs::metadata(&path).map_err(|e| HostError::io(&path, e))?;
-    if metadata.len() > ilmek_protocol::manifest::MAX_MANIFEST_BYTES as u64 {
-        return Err(HostError::Invalid("manifest too large"));
-    }
-    let bytes = std::fs::read(&path).map_err(|e| HostError::io(&path, e))?;
-    let object = parse_object_with(&bytes, Profile::Body)
-        .map_err(|_| HostError::Invalid("manifest is not valid JSON"))?;
-    object
-        .get("publisher_key_id")
-        .and_then(|value| value.as_str())
-        .and_then(|text| text.parse().ok())
-        .ok_or(HostError::Invalid("manifest has no publisher_key_id"))
 }
 
 fn remove_dir_if_present(path: &Path) -> Result<(), HostError> {

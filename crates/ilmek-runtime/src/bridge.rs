@@ -73,16 +73,10 @@ impl Failure {
             };
         }
         let (code, message, unknown) = match error {
-            ClientError::TrustStale => ("TRUST_STALE", "trust information is out of date", false),
-            ClientError::PeerRevoked => (
-                "PEER_REVOKED",
-                "the server's certificate was revoked",
-                false,
-            ),
             ClientError::Session(SessionError::Timeout) => {
                 ("TIMEOUT", "no answer; the outcome is unknown", true)
             }
-            ClientError::Session(_) | ClientError::Tls(_) => {
+            ClientError::Session(_) | ClientError::Connect(_) => {
                 ("APP_UNAVAILABLE", "the server could not be reached", true)
             }
             _ => ("INTERNAL", "unexpected failure", false),

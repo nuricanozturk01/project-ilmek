@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, PoisonError};
 
 use ilmek_protocol::Uuid7;
-use ilmek_protocol::wire::{AppRecord, Cursor, TrustEntry};
+use ilmek_protocol::wire::{AppRecord, Cursor};
 
 use crate::error::RegistryError;
 
@@ -14,12 +14,6 @@ pub(crate) enum Items {
         query: String,
         limit: u64,
         records: Vec<AppRecord>,
-    },
-    Trust {
-        limit: u64,
-        revision: u64,
-        generated_at_ms: u64,
-        entries: Vec<TrustEntry>,
     },
 }
 

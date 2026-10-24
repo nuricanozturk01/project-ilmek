@@ -13,7 +13,6 @@ function describeFailure(error) {
     INVALID_MESSAGE: 'Girdiğiniz bilgi geçerli değil.',
     NOT_FOUND: 'Konu bulunamadı.',
     APP_UNAVAILABLE: 'Forum sunucusu şu anda çalışmıyor.',
-    TRUST_STALE: 'Topluluk güven bilgisi eski; kayıt sunucusuna erişim gerekiyor.',
   }
   return known[error.code] ?? `Hata: ${error.code}`
 }

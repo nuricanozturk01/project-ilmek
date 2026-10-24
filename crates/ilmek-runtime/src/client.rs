@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ilmek_client::{
-    AppClient, Connector, Device, PackageCache, Progress, RegistryClient, Resolver, Source, enroll,
+    AppClient, Connector, Device, PackageCache, Progress, RegistryClient, Resolver, Source,
     fetch_package,
 };
 use ilmek_core::clock::{Clock, SystemClock};
-use ilmek_core::trust::Freshness;
-use ilmek_identity::CommunityProfile;
+use ilmek_core::community::CommunityProfile;
+use ilmek_core::discovery::{DISCOVERY_PORT, discover_at, discover_on};
 use ilmek_protocol::address::Address;
 use ilmek_protocol::wire::{Availability, Cursor};
 use serde::{Deserialize, Serialize};
@@ -18,11 +18,18 @@ use crate::events::EventSink;
 use crate::session::{AppSession, SessionParts};
 use crate::storage::AppStorage;
 
+/// The UDP port nodes answer on: 47400, or `$ILMEK_DISCOVERY_PORT`.
+fn discovery_port() -> u16 {
+    std::env::var("ILMEK_DISCOVERY_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DISCOVERY_PORT)
+}
+
 /// Highest package runtime version this client understands.
 const RUNTIME_VERSION: ilmek_protocol::wire::Version = ilmek_protocol::wire::Version::new(1, 0, 0);
 const DEFAULT_CACHE_QUOTA: u64 = 512 * 1024 * 1024;
 const HISTORY_LIMIT: usize = 100;
-const EXPIRY_WARNING_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Status {
@@ -30,9 +37,6 @@ pub struct Status {
     pub peer_id: String,
     pub registry: String,
     pub registry_reachable: bool,
-    pub trust: &'static str,
-    pub certificate_expires_at_ms: u64,
-    pub certificate_expires_soon: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -65,13 +69,12 @@ struct History {
     bookmarks: Vec<String>,
 }
 
-/// The user-facing facade over enrollment, discovery, downloading and opening applications.
+/// The user-facing facade over joining, discovery, downloading and opening applications.
 pub struct Client {
     root: PathBuf,
     connector: Arc<Connector>,
     resolver: Resolver,
     cache: PackageCache,
-    clock: Arc<dyn Clock>,
 }
 
 impl std::fmt::Debug for Client {
@@ -88,21 +91,34 @@ impl Client {
         Device::exists(&root.join("device"))
     }
 
-    /// Joins a community. The fingerprint must come from the administrator over a trusted
-    /// channel; a profile that does not match it is refused.
-    pub async fn join(
-        root: &Path,
-        profile_json: &[u8],
-        fingerprint: &str,
-        token: &str,
-        device_name: &str,
-    ) -> Result<(), RuntimeError> {
+    /// Joins a community from the profile file its registry wrote.
+    pub fn join(root: &Path, profile_json: &[u8]) -> Result<(), RuntimeError> {
         let profile =
             CommunityProfile::from_json(profile_json).map_err(ilmek_client::Error::from)?;
-        profile
-            .verify_fingerprint(fingerprint)
-            .map_err(ilmek_client::Error::from)?;
-        enroll(&profile, token, device_name, &root.join("device")).await?;
+        Device::join(&profile, &root.join("device"))?;
+        Ok(())
+    }
+
+    /// Joins by looking for a node on the local network (or at `registry`, if given).
+    pub async fn join_auto(
+        root: &Path,
+        registry: Option<std::net::SocketAddrV4>,
+    ) -> Result<(), RuntimeError> {
+        let wait = std::time::Duration::from_secs(4);
+        let port = discovery_port();
+        let profile = match registry {
+            Some(address) => {
+                let mut found = discover_at(*address.ip(), port, wait)
+                    .await
+                    .map_err(ilmek_client::Error::from)?;
+                found.registry = address;
+                found
+            }
+            None => discover_on(port, wait)
+                .await
+                .map_err(ilmek_client::Error::from)?,
+        };
+        Device::join(&profile, &root.join("device"))?;
         Ok(())
     }
 
@@ -112,19 +128,14 @@ impl Client {
 
     pub fn open_with_clock(root: &Path, clock: Arc<dyn Clock>) -> Result<Self, RuntimeError> {
         let device = Device::load(&root.join("device"))?;
-        let connector = Arc::new(Connector::new(device, Arc::clone(&clock))?);
-        let resolver = Resolver::new(
-            Arc::clone(&connector),
-            Arc::clone(&clock),
-            Some(root.join("names.json")),
-        );
+        let connector = Arc::new(Connector::new(device));
+        let resolver = Resolver::new(Arc::clone(&connector), clock, Some(root.join("names.json")));
         let cache = PackageCache::new(root.join("cache"), DEFAULT_CACHE_QUOTA);
         Ok(Self {
             root: root.to_path_buf(),
             connector,
             resolver,
             cache,
-            clock,
         })
     }
 
@@ -133,36 +144,25 @@ impl Client {
         &self.connector
     }
 
-    /// Contacts the registry and refreshes the revocation list; returns the resulting status.
+    /// Contacts the registry and returns the resulting status.
     pub async fn refresh(&self) -> Status {
-        let reachable = self.refresh_trust().await;
-        self.status(reachable)
-    }
-
-    async fn refresh_trust(&self) -> bool {
-        let Ok(registry) = RegistryClient::connect(&self.connector).await else {
-            return false;
+        let reachable = match RegistryClient::connect(&self.connector).await {
+            Ok(registry) => {
+                registry.close().await;
+                true
+            }
+            Err(_) => false,
         };
-        let refreshed = registry.refresh_trust(self.connector.trust()).await.is_ok();
-        registry.close().await;
-        refreshed
+        self.status(reachable)
     }
 
     fn status(&self, registry_reachable: bool) -> Status {
         let device = self.connector.device();
-        let remaining = device.expires_at_ms.saturating_sub(self.clock.now_ms());
         Status {
             community_id: device.profile.community_id.to_string(),
             peer_id: device.peer_id.to_string(),
-            registry: device.profile.registry_control.to_string(),
+            registry: device.profile.registry.to_string(),
             registry_reachable,
-            trust: match self.connector.trust().freshness() {
-                Freshness::Fresh => "fresh",
-                Freshness::Stale => "stale",
-                Freshness::Missing => "missing",
-            },
-            certificate_expires_at_ms: device.expires_at_ms,
-            certificate_expires_soon: remaining < EXPIRY_WARNING_MS,
         }
     }
 
@@ -211,11 +211,6 @@ impl Client {
         cancel: &CancellationToken,
     ) -> Result<(Arc<AppSession>, Source), RuntimeError> {
         let address: Address = address.parse()?;
-        // Trust is refreshed on demand: a client that was just started has none yet, and a
-        // stale one would make every remote operation fail with TRUST_STALE.
-        if self.connector.trust().freshness() != Freshness::Fresh {
-            self.refresh_trust().await;
-        }
         let resolution = self.resolver.resolve(&address).await?;
         let record = resolution.record;
         let package =
@@ -390,8 +385,6 @@ impl Client {
         serde_json::to_string_pretty(&serde_json::json!({
             "community_id": status.community_id,
             "registry": status.registry,
-            "trust": status.trust,
-            "certificate_expires_at_ms": status.certificate_expires_at_ms,
             "cached_apps": self.cached_apps().len(),
             "storage_bytes": self.storage_usage(),
             "os": std::env::consts::OS,

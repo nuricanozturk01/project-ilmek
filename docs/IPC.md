@@ -5,7 +5,7 @@ explains how `ilmek-host` and the Rust SDK `ilmek-app-sdk` implement it, with th
 application author needs. It adds no wire format: if this file and §16 differ, §16 wins.
 
 The IPC is **local**, not a network service: loopback only, a random port, byte framing identical
-to ILMEK/1 (PROTOCOL.md §5) but without TLS, with `IPC_*` message types that are rejected on the
+to ILMEK/1 (PROTOCOL.md §5), with `IPC_*` message types that are rejected on the
 network endpoint (test: `ipc_types_are_not_network_messages`,
 `network_and_ipc_vocabularies_do_not_overlap`).
 
@@ -37,14 +37,14 @@ receives; `db` is the shared `ilmek_store::Database`.
 
 For each network `APP_CALL` the host checks the session, the application, the permission and the
 hash of the exact body, then sends `IPC_CALL` — the `APP_CALL` fields plus `principal_id`,
-**filled in by the host from the client's certificate**. Inside the backend process the SDK checks
+**filled in by the host from the `client_id` the client declared in HELLO** (not verified in this branch). Inside the backend process the SDK checks
 the method table and turns the message into:
 
 ```rust
 pub struct CallContext {
     pub app_id: Uuid7,
     pub method: Method,
-    pub principal_id: Uuid7,        // authenticated by the host; never trust the body for identity
+    pub principal_id: Uuid7,        // attached by the host (declared by the client, not verified); never take identity from the body
     pub client_app_version: Version,
     pub operation_id: Option<Uuid7>,
     pub payload_hash: Hash,         // host-verified hash of the exact request body

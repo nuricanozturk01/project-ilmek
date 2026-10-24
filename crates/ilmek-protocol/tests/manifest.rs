@@ -10,7 +10,7 @@ const FIXTURE: &str = include_str!("../../../tests/protocol/fixtures/wire_exampl
 
 #[derive(Deserialize)]
 struct Fixtures {
-    signature_example: Example,
+    manifest_example: Example,
 }
 
 #[derive(Deserialize)]
@@ -23,7 +23,7 @@ const HASH: &str = "7377d7cda5afbb05ab3537a24f6ddbad0dad35186a616fe6f12dd62c138d
 fn base() -> Value {
     serde_json::from_str::<Fixtures>(FIXTURE)
         .unwrap()
-        .signature_example
+        .manifest_example
         .manifest_utf8
         .parse()
         .unwrap()

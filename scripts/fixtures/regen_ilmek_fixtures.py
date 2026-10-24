@@ -10,6 +10,11 @@ Only identifiers change; field layout, limits and the (public, test-only) Ed2551
 seed are kept. Output is deterministic (Ed25519 signatures are deterministic).
 
 Usage: python3 -I scripts/fixtures/regen_ilmek_fixtures.py LEGACY.json OUT.json
+
+NOT USABLE ON feat/simple-no-security: that branch changed the message schema (HELLO client_id,
+no signature or publisher_key_id) and edited tests/protocol/fixtures/wire_examples.ilmek.json by
+hand-scripted patch (docs/decisions/0005-simple-no-security.md). Running this script would
+produce the `main` schema and break the protocol tests, so it refuses to run on this branch.
 """
 import hashlib
 import json
@@ -19,6 +24,8 @@ import sys
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 import base64
+
+sys.exit("refusing to run: the fixtures of this branch use a different schema (see the docstring)")
 
 MAGIC = b"ILM1"
 CALL_PREFIX = b"ILMEK-CALL-V1\x00"

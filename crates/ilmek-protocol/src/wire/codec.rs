@@ -5,10 +5,10 @@ use thiserror::Error;
 
 use super::data::{
     AppCall, AppResult, AppUnregistered, AppsListed, AssetChunk, AssetEnd, AssetInfo, Cancel,
-    CancelAck, Drain, Empty, Enroll, Enrolled, ErrorData, Event, EventAck, EventAcked, GetAsset,
-    GetManifest, GetTrust, Goodbye, HeartbeatAck, Hello, HelloAck, HostHeartbeat, HostRegister,
-    HostRegistered, ListApps, ManifestInfo, Nonce, RecordResult, RegisterApp, Resolve, Resolved,
-    Subscribe, Subscribed, SubscriptionRef, TrustPage, UnregisterApp, UpdateApp,
+    CancelAck, Drain, Empty, ErrorData, Event, EventAck, EventAcked, GetAsset, GetManifest,
+    Goodbye, HeartbeatAck, Hello, HelloAck, HostHeartbeat, HostRegister, HostRegistered, ListApps,
+    ManifestInfo, Nonce, RecordResult, RegisterApp, Resolve, Resolved, Subscribe, Subscribed,
+    SubscriptionRef, UnregisterApp, UpdateApp,
 };
 use crate::frame::{Frame, FrameError};
 use crate::ids::Uuid7;
@@ -105,8 +105,6 @@ catalog! {
         Goodbye(Goodbye) = Goodbye,
         GoodbyeAck(Empty) = GoodbyeAck,
         Drain(Drain) = Drain,
-        Enroll(Enroll) = Enroll,
-        Enrolled(Enrolled) = Enrolled,
         Resolve(Resolve) = Resolve,
         Resolved(Resolved) = Resolved,
         ListApps(ListApps) = ListApps,
@@ -120,7 +118,6 @@ catalog! {
         AppUnregistered(AppUnregistered) = AppUnregistered,
         UpdateApp(UpdateApp) = UpdateApp,
         AppUpdated(RecordResult) = AppUpdated,
-        GetTrust(GetTrust) = GetTrust,
         GetManifest(GetManifest) = GetManifest,
         Subscribe(Subscribe) = Subscribe,
         Subscribed(Subscribed) = Subscribed,
@@ -137,7 +134,6 @@ catalog! {
     }
     body {
         AppsListed(AppsListed) = AppsListed, json_body: true,
-        TrustPage(TrustPage) = TrustPage, json_body: true,
         Manifest(ManifestInfo) = Manifest, json_body: false,
         AppCall(AppCall) = AppCall, json_body: true,
         AppResult(AppResult) = AppResult, json_body: true,

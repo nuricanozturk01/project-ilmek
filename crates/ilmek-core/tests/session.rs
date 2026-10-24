@@ -1,14 +1,12 @@
 #![expect(clippy::unwrap_used, reason = "panicking helpers are fine in tests")]
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ilmek_core::clock::SystemClock;
-use ilmek_core::peer::PeerCredentials;
 use ilmek_core::session::{
-    ClientError, ClientParams, ClientSession, ConnectionParams, Handler, PeerGate, Reply,
-    ServerSessionConfig, SessionEnd, Verdict, serve_connection,
+    ClientError, ClientParams, ClientSession, ConnectionParams, Handler, Reply,
+    ServerSessionConfig, SessionEnd, serve_connection,
 };
 use ilmek_core::transport::{FrameReader, Priority, spawn_writer};
 use ilmek_protocol::Uuid7;
@@ -122,34 +120,11 @@ async fn stream_asset(get: &GetAsset, reply: &Reply) {
     let _ = reply.finish(&Message::AssetEnd(end)).await;
 }
 
-fn peer() -> PeerCredentials {
-    PeerCredentials {
-        id: Uuid7::generate(),
-        serial: "01".into(),
-    }
-}
-
-struct SwitchGate(AtomicBool);
-
-impl PeerGate for SwitchGate {
-    fn check(&self, _peer: Option<&PeerCredentials>) -> Verdict {
-        if self.0.load(Ordering::Relaxed) {
-            Verdict::Deny {
-                code: ErrorCode::Forbidden,
-                close: true,
-            }
-        } else {
-            Verdict::Allow
-        }
-    }
-}
-
 struct Fixture {
     client: ClientSession,
     server: JoinHandle<SessionEnd>,
     app: Uuid7,
     shutdown: CancellationToken,
-    deny: Arc<SwitchGate>,
 }
 
 fn config(community: Uuid7, server_id: Uuid7) -> ServerSessionConfig {
@@ -167,14 +142,11 @@ async fn connect(mode: Mode, tune: impl FnOnce(&mut ServerSessionConfig)) -> Fix
     let mut cfg = config(community, server_id);
     tune(&mut cfg);
     let (near_end, far_end) = duplex(256 * 1024);
-    let deny = Arc::new(SwitchGate(AtomicBool::new(false)));
     let shutdown = CancellationToken::new();
     let params = ConnectionParams {
-        peer: Some(peer()),
         remote_ip: None,
         config: Arc::new(cfg),
         handler: Arc::new(TestHandler),
-        gate: Arc::clone(&deny) as Arc<dyn PeerGate>,
         shutdown: shutdown.clone(),
     };
     let server = tokio::spawn(serve_connection(far_end, params));
@@ -183,7 +155,7 @@ async fn connect(mode: Mode, tune: impl FnOnce(&mut ServerSessionConfig)) -> Fix
         ClientParams {
             mode,
             community_id: community,
-            expected_server_id: server_id,
+            client_id: Uuid7::generate(),
             expected_role: ServerRole::Host,
             client_name: "test".into(),
             client_version: Version::new(1, 0, 0),
@@ -197,7 +169,6 @@ async fn connect(mode: Mode, tune: impl FnOnce(&mut ServerSessionConfig)) -> Fix
         server,
         app: Uuid7::generate(),
         shutdown,
-        deny,
     }
 }
 
@@ -255,11 +226,9 @@ async fn app_call_before_hello_is_rejected_and_the_connection_ends() {
     let community = Uuid7::generate();
     let (client_io, server_io) = duplex(64 * 1024);
     let params = ConnectionParams {
-        peer: Some(peer()),
         remote_ip: None,
         config: Arc::new(config(community, Uuid7::generate())),
         handler: Arc::new(TestHandler),
-        gate: Arc::new(SwitchGate(AtomicBool::new(false))),
         shutdown: CancellationToken::new(),
     };
     let server = tokio::spawn(serve_connection(server_io, params));
@@ -285,37 +254,6 @@ async fn app_call_before_hello_is_rejected_and_the_connection_ends() {
     assert_eq!(error.code, ErrorCode::InvalidMessage);
     assert_eq!(header.request_id, request_id);
     assert_eq!(server.await.unwrap(), SessionEnd::ProtocolViolation);
-}
-
-#[tokio::test]
-async fn client_refuses_a_server_with_a_different_identity() {
-    let community = Uuid7::generate();
-    let (client_io, server_io) = duplex(64 * 1024);
-    let params = ConnectionParams {
-        peer: Some(peer()),
-        remote_ip: None,
-        config: Arc::new(config(community, Uuid7::generate())),
-        handler: Arc::new(TestHandler),
-        gate: Arc::new(SwitchGate(AtomicBool::new(false))),
-        shutdown: CancellationToken::new(),
-    };
-    tokio::spawn(serve_connection(server_io, params));
-
-    let error = ClientSession::open(
-        client_io,
-        ClientParams {
-            mode: Mode::Control,
-            community_id: community,
-            expected_server_id: Uuid7::generate(),
-            expected_role: ServerRole::Host,
-            client_name: "test".into(),
-            client_version: Version::new(1, 0, 0),
-            request_timeout: Duration::from_secs(1),
-        },
-    )
-    .await
-    .unwrap_err();
-    assert!(matches!(error, ClientError::Protocol(_)), "{error:?}");
 }
 
 #[tokio::test]
@@ -474,45 +412,6 @@ async fn a_second_transfer_on_one_bulk_connection_is_refused() {
         remote_code(second.next().await.unwrap_err()),
         ErrorCode::ResourceExhausted
     );
-}
-
-#[tokio::test]
-async fn revoking_a_peer_ends_idle_sessions_and_rejects_new_requests() {
-    let fx = connect(Mode::Control, |cfg| {
-        cfg.gate_interval = Duration::from_millis(50);
-    })
-    .await;
-    assert!(
-        fx.client
-            .request(&call(fx.app, "echo", b"{}"))
-            .await
-            .is_ok()
-    );
-
-    fx.deny.0.store(true, Ordering::Relaxed);
-    assert_eq!(
-        timeout(Duration::from_secs(2), fx.server)
-            .await
-            .unwrap()
-            .unwrap(),
-        SessionEnd::Revoked
-    );
-}
-
-#[tokio::test]
-async fn revocation_is_applied_to_the_very_next_request() {
-    let fx = connect(Mode::Control, |cfg| {
-        cfg.gate_interval = Duration::from_hours(1);
-    })
-    .await;
-    fx.deny.0.store(true, Ordering::Relaxed);
-    let error = fx
-        .client
-        .request(&call(fx.app, "echo", b"{}"))
-        .await
-        .unwrap_err();
-    assert_eq!(remote_code(error), ErrorCode::Forbidden);
-    assert_eq!(fx.server.await.unwrap(), SessionEnd::Revoked);
 }
 
 #[tokio::test]

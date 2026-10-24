@@ -43,19 +43,20 @@ pub(crate) async fn shell_state(shell: State<'_, Shell>) -> UiResult<ShellState>
 #[tauri::command]
 pub(crate) async fn shell_join(
     shell: State<'_, Shell>,
-    profile: String,
-    fingerprint: String,
-    token: String,
-    name: String,
+    profile: Option<String>,
+    registry: Option<String>,
 ) -> UiResult<()> {
-    Client::join(
-        &shell.root,
-        profile.as_bytes(),
-        fingerprint.trim(),
-        token.trim(),
-        name.trim(),
-    )
-    .await?;
+    let profile = profile.as_deref().map(str::trim).filter(|p| !p.is_empty());
+    let registry = registry.as_deref().map(str::trim).filter(|r| !r.is_empty());
+    if let Some(profile) = profile {
+        Client::join(&shell.root, profile.as_bytes())?;
+    } else {
+        let registry = registry
+            .map(str::parse::<std::net::SocketAddrV4>)
+            .transpose()
+            .map_err(|_| UiError::new("invalid_input"))?;
+        Client::join_auto(&shell.root, registry).await?;
+    }
     shell.reset_client();
     Ok(())
 }

@@ -57,7 +57,6 @@ pub async fn publish(
                     server_id: host_server_id,
                     version: manifest.version,
                     manifest_hash: version.manifest_hash,
-                    publisher_key_id: manifest.publisher_key_id,
                     name: manifest.name.clone(),
                     description: manifest.description.clone(),
                 })
@@ -73,7 +72,6 @@ pub async fn publish(
                     server_id: host_server_id,
                     version: manifest.version,
                     manifest_hash: version.manifest_hash,
-                    publisher_key_id: manifest.publisher_key_id,
                     name: manifest.name.clone(),
                     description: manifest.description.clone(),
                 })

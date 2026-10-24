@@ -1,92 +1,61 @@
 # Operations
 
-Running the registry and hosts as services, where their data lives, backing up and restoring, and
+Running a node and extra hosts as services, where their data lives, backing up and restoring, and
 diagnosing problems.
 
 > **What has and has not been run.** Every `ilmek` command below was run as a normal user in the
-> loopback scripts. The systemd units in `deploy/systemd/` pass `systemd-analyze verify` but have
-> **never been started as services**, so the installation procedure for them is *not executed*
-> and may need adjustment on a real machine. Backup and restore (A22) *was* executed end to end
-> against live processes.
+> loopback scripts and tests (`scripts/smoke/*`, `crates/ilmek-cli/tests/node_flow.rs`). The
+> systemd units in `deploy/systemd/` were **never started as services and never checked with
+> `systemd-analyze`**, so the installation procedure for them is *not executed* and may need
+> adjustment on a real machine. Backup and restore *was* executed end to end against live
+> processes.
 
 ## Layout
 
-| Item | Path (suggested; all configurable) |
+Everything lives under one directory, `$ILMEK_HOME` (default `~/.ilmek`; `/var/lib/ilmek` for the
+service).
+
+| Item | Path |
 | --- | --- |
-| Binary | `/usr/local/bin/ilmek` |
-| Configuration | `/etc/ilmek/registry.toml`, `/etc/ilmek/host.toml` (examples in `configs/`) |
-| Registry data | `/var/lib/ilmek/registry`: `registry.db`, `ca.crt.der`, `ca.key.der`, `registry.crt.der`, `registry.key.der`, `community.json` |
-| Host data | `/var/lib/ilmek/host`: `host.db`, `apps/<app_id>/versions/<version>/` (immutable), `apps/<app_id>/data/` (application data, `app.db`), `apps/<app_id>/logs/`, `apps/<app_id>/backups/`, `staging/` |
-| Host device identity | `/var/lib/ilmek/host-device` (private key, owner-only) |
-| Network snapshots | `/var/lib/ilmek/network/<node>-<unix time>/` (root only) |
-| Service user | `ilmek` (no login; registry and host run as it, **never as root**) |
+| Binary | `/usr/local/bin/ilmek` (your choice) |
+| Node configuration | `<home>/registry.toml`, `<home>/host.toml`; written on the first `ilmek node`, edit them afterwards |
+| Registry data | `<home>/registry/`: `registry.db`, `community.json` |
+| Host data | `<home>/host/`: `host.db`, `apps/<app_id>/versions/<version>/` (immutable), `apps/<app_id>/data/` (application data, `app.db`), `apps/<app_id>/logs/`, `apps/<app_id>/backups/`, `staging/` |
+| Device state (this machine as a client or publisher) | `<home>/device/`: `profile.json`, `device.id`, name cache |
+| Host's own device state | `<home>/host-device/` |
+| Package cache of `ilmek fetch` | `<home>/cache/` |
 
-The registry and host data directories must be on a persistent local disk. The registry is the
-single authority of the community; there is no replica.
+The data directories must be on a persistent local disk. The registry is the single authority of
+the community; there is no replica.
 
-## Install a registry or host as a service (not executed)
+## Run a node
+
+```sh
+ilmek node                    # foreground; Ctrl-C shuts down in order
+ilmek node --local-only       # listens on 127.0.0.1 only (no other device can connect)
+ilmek node --registry-port 5000 --host-port 5001 --discovery-port 5002
+```
+
+The first run creates the community and the configuration files; the port flags only apply when
+those files are written. Afterwards `registry.toml` / `host.toml` decide, and the node announces the
+port it actually listens on, so editing a port there and restarting is enough (a test covers it).
+
+### As a service (not executed)
 
 ```sh
 cargo build --release -p ilmek-cli
 sudo install -m 755 target/release/ilmek /usr/local/bin/ilmek
-sudo install -m 644 deploy/systemd/ilmek-sysusers.conf  /usr/lib/sysusers.d/ilmek.conf
-sudo install -m 644 deploy/systemd/ilmek-tmpfiles.conf  /usr/lib/tmpfiles.d/ilmek.conf
+sudo install -m 644 deploy/systemd/ilmek-sysusers.conf /usr/lib/sysusers.d/ilmek.conf
+sudo install -m 644 deploy/systemd/ilmek-tmpfiles.conf /usr/lib/tmpfiles.d/ilmek.conf
 sudo systemd-sysusers && sudo systemd-tmpfiles --create
-sudo install -m 644 deploy/systemd/ilmek-registry.service /etc/systemd/system/    # registry machine
-sudo install -m 644 deploy/systemd/ilmek-host.service     /etc/systemd/system/    # host machine
+sudo install -m 644 deploy/systemd/ilmek-node.service /etc/systemd/system/   # the node
+sudo systemctl daemon-reload && sudo systemctl enable --now ilmek-node
 ```
 
-**Registry machine.** Copy `configs/registry.toml.example` to `/etc/ilmek/registry.toml` and set
-the listen addresses and `allowed_endpoints` (networks hosts may advertise). Create the community
-as the service user, write down the printed CA fingerprint, then start:
-
-```sh
-sudo -u ilmek ilmek community init --config /etc/ilmek/registry.toml --advertise-ip 10.77.10.1
-sudo systemctl daemon-reload && sudo systemctl enable --now ilmek-registry
-```
-
-`--advertise-ip` becomes the registry certificate's IP SAN; clients refuse the registry at any
-other address. Hand `community.json` and the fingerprint to new devices (the fingerprint on a
-separate channel from the file is better).
-
-**Host machine.** Copy `configs/host.toml.example` to `/etc/ilmek/host.toml`; `advertised` must be
-the address clients can reach (the host refuses an unspecified address). The registry
-administrator issues a host token for this machine's IP, and the host enrolls and starts:
-
-```sh
-# on the registry machine
-sudo -u ilmek ilmek community invite --config /etc/ilmek/registry.toml --role member,host --server-ip 10.77.10.10 > host.token
-# on the host machine (copy host.token, community.json and the fingerprint over)
-sudo -u ilmek ilmek identity enroll --profile community.json --fingerprint <64 hex> \
-     --device /var/lib/ilmek/host-device --name host-1 --token-file host.token
-sudo systemctl enable --now ilmek-host
-```
-
-Applications are then installed and published with `ilmek app …` ([APP_DEVELOPMENT](APP_DEVELOPMENT.md)).
-Backend executables must be readable and executable by the `ilmek` user and outside `/home`
-(the unit sets `ProtectHome=yes`).
-
-## Certificates expire after 30 days
-
-Devices and hosts: 30 days from enrollment. The registry's own certificate: 30 days unless
-`community init --identity-days` set another value. There is no automatic renewal. Put a reminder
-in your calendar, or you will find out when everything fails with `CertificateExpired`.
-
-```sh
-# registry certificate (run as the service user, then restart)
-sudo -u ilmek ilmek community reissue-identity --config /etc/ilmek/registry.toml --advertise-ip 10.77.10.1
-sudo systemctl restart ilmek-registry
-
-# a device or host: the administrator issues a renewal token bound to the existing identity
-ilmek community invite --config registry.toml --role member,host --server-ip 10.77.10.10 --bound-peer <peer id> > renew.token
-ilmek identity enroll --profile community.json --fingerprint <hex> --device <new dir> --token-file renew.token
-```
-
-Renewal keeps the peer ID, so names and grants stay. The enrollment endpoint needs no client
-certificate, so a bound token should also recover a device whose certificate has already expired
-(not tested with a truly expired certificate). A revoked or unknown peer cannot renew.
-Covered by software tests (`crates/ilmek-registry/tests/renewal.rs`); waiting out a real 30 days
-has not been done.
+On an additional machine use `ilmek-host.service` (`ilmek host start`) instead. Backend
+executables must be readable and executable by the `ilmek` user and outside `/home` (the unit sets
+`ProtectHome=yes`). Both units set `ILMEK_HOME=/var/lib/ilmek`; run the `ilmek app …` commands with
+the same variable (`sudo -u ilmek env ILMEK_HOME=/var/lib/ilmek ilmek app list`).
 
 ## Backup and restore
 
@@ -95,71 +64,64 @@ is consistent (WAL included); everything else is copied byte for byte; every fil
 manifest; logs, earlier backups and staging areas are excluded.
 
 ```sh
-ilmek backup registry --config /etc/ilmek/registry.toml --out /backup/registry-$(date +%F) [--include-keys]
-ilmek backup host     --config /etc/ilmek/host.toml     --out /backup/host-$(date +%F)
+ilmek backup registry --out /backup/registry-$(date +%F)
+ilmek backup host     --out /backup/host-$(date +%F)
 ilmek backup verify   --dir /backup/host-2026-10-23         # reads only; also checks SQLite integrity
 ```
 
+(`--config` selects another `registry.toml` / `host.toml`; the default is the file in `<home>`.)
+
 - The output directory must not exist (nothing is ever overwritten); it is assembled aside and
   renamed into place, so an interrupted run leaves no finished-looking backup.
-- Private keys (`*.key.der`) are **not** copied unless you pass `--include-keys`. Without them a
-  restored registry cannot issue certificates or serve; with them the backup is as sensitive as the
-  CA itself: keep it encrypted and apart from ordinary log archives. The host device identity
-  (`host-device/`) is not part of a host backup; re-enroll the host instead, or copy that directory
-  separately like a key.
 - Each file is consistent; the set of files is not a single atomic snapshot. For a host with busy
-  applications, stop the host first if you need all applications at exactly the same instant.
+  applications, stop it first if you need all applications at exactly the same instant.
+- The device state directories (`device/`, `host-device/`) are not part of a backup. They only
+  hold the profile and a random id; a lost one is replaced by joining again, but the node then sees
+  a new device (a host registers as a new host; namespaces stay with the old id).
 
 Restore into a **new or empty** data directory (the command refuses anything else):
 
 ```sh
-sudo systemctl stop ilmek-host
-sudo mv /var/lib/ilmek/host /var/lib/ilmek/host.broken
-sudo -u ilmek ilmek backup restore-host --config /etc/ilmek/host.toml --from /backup/host-2026-10-23
-sudo systemctl start ilmek-host
-# registry: the same with `restore-registry`; copy the key files back first if the backup had none
+mv ~/.ilmek/host ~/.ilmek/host.broken
+ilmek backup restore-host --from /backup/host-2026-10-23
 ```
 
 The backup is verified (hashes, SQLite integrity, safe paths) before anything is written; data is
 assembled in a sibling directory and renamed, so a failed restore leaves the target untouched.
-Exercise: `scripts/smoke/backup-restore.sh` backs up a live registry and a host running the forum
-with data, creates more data, destroys both data directories, restores, restarts, and checks that
-the state equals the backup point and the application accepts writes (result in
-[TEST_REPORT](TEST_REPORT.md), A22). Restore a backup at least once before you depend on it.
+`scripts/smoke/backup-restore.sh` backs up a live registry and a host running the forum with data,
+creates more data, destroys both data directories, restores, restarts, and checks that the state
+equals the backup point and the application accepts writes (result in [TEST_REPORT](TEST_REPORT.md)).
+Restore a backup at least once before you depend on it.
 
 ## Upgrading
 
 Take a backup first. Databases migrate forward only at start-up, and a database written by a newer
-build is refused by an older one — so going back to an old binary after a migration means
-restoring the pre-upgrade backup. Replace `/usr/local/bin/ilmek`, restart the service. Backends are
-separate executables; the host copies `app.db` aside when it starts a backend whose version
-differs from the last one it started.
+build is refused by an older one. Going back to an old binary after a migration means restoring the
+pre-upgrade backup. Replace the binary and restart. This branch's registry/host schemas and wire
+format are **not compatible with `main`**: do not point it at data created there.
 
 ## Diagnosing
 
 ```sh
-ilmek doctor                                        # read-only: OS, CPU/RAM, interfaces, routes, iw, rfkill, USB/PCI
-ilmek diagnose ilmek://nuri/forum --device <device> # trust snapshot → resolve → host reachable → package
-ilmek resolve  ilmek://nuri/forum --device <device> # what the registry says, and where it came from
-ilmek app list --config /etc/ilmek/host.toml        # state, pid, restarts per application
-journalctl -u ilmek-registry -u ilmek-host -f
+ilmek whoami                                  # this device's id and registry
+ilmek diagnose ilmek://nuri/forum             # device → registry → name → host → package
+ilmek resolve  ilmek://nuri/forum             # what the registry says
+ilmek app list                                # state, pid, restarts per application (on the host)
 ```
 
 Host and backend logs for an application are in `apps/<app_id>/logs/` (rotated at 1 MiB, 3 files
-kept). Logs carry request IDs, error classes, durations and sizes, not tokens, keys or bodies.
+kept). Logs carry request IDs, error classes, durations and sizes, not bodies.
 
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
-| `CertificateExpired` / TLS alert on every connection | a 30-day certificate ran out (device, host or registry) | renew as above |
-| `TRUST_STALE` | the device or host could not reach the registry for more than 24 h | restore connectivity to the registry; it refreshes automatically |
-| `diagnose`: name resolves, `Availability: Stale` | the host's lease lapsed (host down, or cannot reach the registry) | start the host / check its route to the registry |
+| `no node found` on `ilmek join` | different subnet, UDP blocked, node not running, firewall | `ilmek join --registry IP:47401`; open UDP 47400 / TCP 47401-47402 on the node |
+| `TCP connection failed` / timed out | wrong address, node down, firewall | check `ilmek node` is running; test `nc -vz IP 47401` |
+| `diagnose`: name resolves, `Availability: Stale` | the host's lease lapsed (host down, or cannot reach the registry) | start the host / check its route to the node |
 | `APP_UNAVAILABLE` | that application's backend is stopped, crashing or abandoned | `app list`; `app restart`; read its log |
-| `FORBIDDEN` after it worked | the device was revoked, or the publisher key/grant removed | `community peers`; re-enroll with a new token |
-| enrollment refused | token used, expired (15 min default) or wrong CA fingerprint | issue a new token; check the fingerprint |
-| host refuses to start: advertised address | `advertised` is unspecified or not IPv4 | set the real address |
-| install refused | publisher key not trusted on this host, version not newer, or hash/signature mismatch | `host trust-publisher`; fix the package |
+| `FORBIDDEN` on publish | the namespace or app was first registered by another device id | publish from that device, or pick another namespace |
+| `publishing failed: … host is not registered` | the host has not yet registered with the registry | wait a few seconds (the command retries for 30 s) |
 | `RESOURCE_EXHAUSTED` | per-application queue or in-flight limit, or connection limit | tune `app_max_inflight`, `app_queue_depth`, `max_connections` |
+| `database is locked` | should not occur (write transactions are `IMMEDIATE`); report it with the command that caused it | — |
 
-With the registry down, already-resolved names keep working from the client's cache and existing
-hosts stay reachable until the 24 h trust window ends; new name resolution and publishing do not
-work (REQUIREMENTS §12 and tests `names_resolve_from_the_cache_while_the_registry_is_down…`).
+With the registry down, already-resolved names keep working from the client's cache for up to 24
+hours; new name resolution and publishing do not work.

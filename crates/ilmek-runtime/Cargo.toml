@@ -8,11 +8,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-getrandom.workspace = true
 ilmek-client.workspace = true
 ilmek-core.workspace = true
-ilmek-identity.workspace = true
-ilmek-package.workspace = true
 ilmek-protocol.workspace = true
 ilmek-store.workspace = true
 serde.workspace = true
@@ -25,7 +22,6 @@ tracing.workspace = true
 [dev-dependencies]
 ilmek-testing.workspace = true
 ilmek-host.workspace = true
-ilmek-registry.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
 

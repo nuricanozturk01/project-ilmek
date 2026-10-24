@@ -28,7 +28,6 @@ macro_rules! message_types {
 message_types! {
     Hello => "HELLO", HelloAck => "HELLO_ACK", Ping => "PING", Pong => "PONG",
     Goodbye => "GOODBYE", GoodbyeAck => "GOODBYE_ACK", Drain => "DRAIN",
-    Enroll => "ENROLL", Enrolled => "ENROLLED",
     Resolve => "RESOLVE", Resolved => "RESOLVED",
     ListApps => "LIST_APPS", AppsListed => "APPS_LISTED",
     HostRegister => "HOST_REGISTER", HostRegistered => "HOST_REGISTERED",
@@ -36,7 +35,6 @@ message_types! {
     RegisterApp => "REGISTER_APP", AppRegistered => "APP_REGISTERED",
     UnregisterApp => "UNREGISTER_APP", AppUnregistered => "APP_UNREGISTERED",
     UpdateApp => "UPDATE_APP", AppUpdated => "APP_UPDATED",
-    GetTrust => "GET_TRUST", TrustPage => "TRUST_PAGE",
     GetManifest => "GET_MANIFEST", Manifest => "MANIFEST",
     AppCall => "APP_CALL", AppResult => "APP_RESULT",
     Subscribe => "SUBSCRIBE", Subscribed => "SUBSCRIBED", Event => "EVENT",

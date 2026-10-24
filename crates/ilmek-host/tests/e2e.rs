@@ -172,7 +172,7 @@ async fn data_survives_a_host_restart_and_the_dedupe_record_with_it() {
     let (launcher, _handles) = ilmek_testing::notes_launcher();
     let port = ilmek_testing::free_port();
     let settings = ilmek_host::Settings::parse(&format!(
-        "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\ntrust_refresh_ms = 300\nheartbeat_interval_ms = 300\n",
+        "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nheartbeat_interval_ms = 300\n",
         data_dir.display(),
         device_dir.display()
     ))

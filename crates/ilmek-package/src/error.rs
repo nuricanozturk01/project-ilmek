@@ -1,4 +1,3 @@
-use ilmek_identity::PublisherError;
 use ilmek_protocol::manifest::ManifestError;
 use thiserror::Error;
 
@@ -11,12 +10,6 @@ pub enum PackageError {
     },
     #[error("manifest hash differs from the expected {expected}")]
     ManifestHash { expected: String },
-    #[error("{0}")]
-    Signature(#[from] PublisherError),
-    #[error("signature file is not valid base64url")]
-    SignatureEncoding,
-    #[error("manifest names publisher key {manifest}, but {actual} was used to verify")]
-    KeyMismatch { manifest: String, actual: String },
     #[error(transparent)]
     Manifest(#[from] ManifestError),
     #[error("`{0}` is not a regular file or directory (links and special files are refused)")]

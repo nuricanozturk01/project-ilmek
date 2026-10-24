@@ -6,8 +6,8 @@ mod server;
 
 pub use client::{ClientError, ClientParams, ClientSession, ResponseStream};
 pub use server::{
-    ConnectionParams, Handler, PeerGate, Reply, ReplyError, ServerSessionConfig, SessionEnd,
-    SessionInfo, Verdict, serve_connection,
+    ConnectionParams, Handler, Reply, ReplyError, ServerSessionConfig, SessionEnd, SessionInfo,
+    serve_connection,
 };
 
 use ilmek_protocol::wire::{ErrorCode, ErrorData, Header, Message};

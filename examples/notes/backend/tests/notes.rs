@@ -23,7 +23,7 @@ async fn notes() -> Notes {
     let community = Community::start().await;
     let owner = community.publisher("nuri").await;
     let (launcher, _handles) = backend_launcher(MIGRATIONS, NotesBackend::new);
-    let host = start_host(&community, &owner, Arc::new(launcher)).await;
+    let host = start_host(&community, Arc::new(launcher)).await;
     let scratch = tempfile::tempdir().unwrap();
     let spec = PackageSpec {
         namespace: "nuri",
@@ -35,7 +35,7 @@ async fn notes() -> Notes {
         permissions: vec![Permission::AppCall],
         files: vec![("index.html", b"<html></html>".to_vec())],
     };
-    let package = build_package(scratch.path(), "notes", &spec, &owner.signer);
+    let package = build_package(scratch.path(), "notes", &spec);
     let installed = host.installer.install(&package).await.unwrap();
     host.store
         .set_backend(

@@ -1,19 +1,12 @@
 #![expect(clippy::unwrap_used, reason = "panicking helpers are fine in tests")]
 
-use std::net::SocketAddr;
-use std::time::Duration;
-
 use ilmek_client::{Error, RegistryClient};
-use ilmek_core::session::{ClientParams, ClientSession};
-use ilmek_core::tls::{ServerTarget, TlsClient};
-use ilmek_identity::DeviceKey;
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::{
-    AppRecord, Availability, Endpoint, Enroll, ErrorCode, Hash, Message, Mode, PeerRole,
-    RegisterApp, ServerRole, Token, UnregisterApp, UpdateApp, Version,
+    AppRecord, Availability, Endpoint, ErrorCode, Hash, RegisterApp, UnregisterApp, UpdateApp,
+    Version,
 };
-use ilmek_registry::InviteRequest;
-use ilmek_testing::{Community, LOOPBACK, Member, Owner, invite};
+use ilmek_testing::{Community, LOOPBACK, Member, Owner};
 
 fn hash(n: u8) -> Hash {
     Hash::from_bytes([n; 32])
@@ -28,7 +21,6 @@ fn register(p: &Owner, host: Uuid7, slug: &str, version: Version) -> RegisterApp
         server_id: host,
         version,
         manifest_hash: hash(1),
-        publisher_key_id: p.key_id.parse().unwrap(),
         name: slug.parse().unwrap(),
         description: "d".parse().unwrap(),
     }
@@ -42,7 +34,6 @@ fn update_of(record: &AppRecord, version: Version, manifest: Hash) -> UpdateApp 
         server_id: record.server_id,
         version,
         manifest_hash: manifest,
-        publisher_key_id: record.publisher_key_id,
         name: record.name.clone(),
         description: record.description.clone(),
     }
@@ -66,38 +57,6 @@ async fn host_ready(community: &Community) -> (Member, Endpoint) {
     (host, endpoint)
 }
 
-async fn raw_enroll_session(community: &Community) -> ClientSession {
-    let tls = TlsClient::new(None, community.profile.ca_der()).unwrap();
-    let target = ServerTarget {
-        address: SocketAddr::V4(community.profile.registry_enroll),
-        server_id: community.profile.registry_id,
-    };
-    let connection = tls.connect(target).await.unwrap();
-    ClientSession::open(
-        connection.stream,
-        ClientParams {
-            mode: Mode::Enroll,
-            community_id: community.profile.community_id,
-            expected_server_id: community.profile.registry_id,
-            expected_role: ServerRole::Registry,
-            client_name: "raw".into(),
-            client_version: Version::new(1, 0, 0),
-            request_timeout: Duration::from_secs(5),
-        },
-    )
-    .await
-    .unwrap()
-}
-
-fn enroll_message(operation: Uuid7, token: &str, csr: &[u8]) -> Message {
-    Message::Enroll(Enroll {
-        operation_id: operation,
-        token: token.parse().unwrap(),
-        display_name: "raw".parse().unwrap(),
-        csr_der: Token::new(csr.to_vec()),
-    })
-}
-
 fn code_of(error: &Error) -> ErrorCode {
     error
         .remote_code()
@@ -105,7 +64,7 @@ fn code_of(error: &Error) -> ErrorCode {
 }
 
 #[tokio::test]
-async fn enrolled_device_can_use_the_registry_and_unknown_names_are_not_found() {
+async fn a_joined_device_can_use_the_registry_and_unknown_names_are_not_found() {
     let community = Community::start().await;
     let member = community.member().await;
     let registry = registry_of(&member).await;
@@ -118,111 +77,11 @@ async fn enrolled_device_can_use_the_registry_and_unknown_names_are_not_found() 
 }
 
 #[tokio::test]
-async fn a_lost_enrollment_reply_can_be_replayed_but_not_altered() {
-    let community = Community::start().await;
-    let token = community
-        .registry
-        .create_invite(&invite(&[PeerRole::Member]))
-        .unwrap();
-    let csr = DeviceKey::generate().unwrap().csr_der().unwrap();
-    let operation = Uuid7::generate();
-
-    let first = raw_enroll_session(&community)
-        .await
-        .request(&enroll_message(operation, &token, &csr))
-        .await
-        .unwrap();
-    let again = raw_enroll_session(&community)
-        .await
-        .request(&enroll_message(operation, &token, &csr))
-        .await
-        .unwrap();
-    assert_eq!(
-        first, again,
-        "a replay must return the very same certificate"
-    );
-
-    let other_csr = DeviceKey::generate().unwrap().csr_der().unwrap();
-    let altered = raw_enroll_session(&community)
-        .await
-        .request(&enroll_message(operation, &token, &other_csr))
-        .await;
-    assert!(
-        matches!(altered, Err(ilmek_core::session::ClientError::Remote(e)) if e.code == ErrorCode::Unauthorized)
-    );
-}
-
-#[tokio::test]
-async fn tokens_are_single_use_and_expire() {
-    let community = Community::start().await;
-    let token = community
-        .registry
-        .create_invite(&invite(&[PeerRole::Member]))
-        .unwrap();
-    let csr = DeviceKey::generate().unwrap().csr_der().unwrap();
-    raw_enroll_session(&community)
-        .await
-        .request(&enroll_message(Uuid7::generate(), &token, &csr))
-        .await
-        .unwrap();
-
-    let reuse = raw_enroll_session(&community)
-        .await
-        .request(&enroll_message(Uuid7::generate(), &token, &csr))
-        .await;
-    assert!(
-        matches!(reuse, Err(ilmek_core::session::ClientError::Remote(e)) if e.code == ErrorCode::Unauthorized)
-    );
-
-    let fresh = community
-        .registry
-        .create_invite(&invite(&[PeerRole::Member]))
-        .unwrap();
-    community.clock.advance_ms(16 * 60 * 1000);
-    let late = raw_enroll_session(&community)
-        .await
-        .request(&enroll_message(Uuid7::generate(), &fresh, &csr))
-        .await;
-    assert!(
-        matches!(late, Err(ilmek_core::session::ClientError::Remote(e)) if e.code == ErrorCode::Unauthorized)
-    );
-}
-
-#[tokio::test]
-async fn repeated_bad_tokens_are_rate_limited() {
-    let community = Community::start().await;
-    let csr = DeviceKey::generate().unwrap().csr_der().unwrap();
-    let mut last = None;
-    for _ in 0..7 {
-        let attempt = raw_enroll_session(&community)
-            .await
-            .request(&enroll_message(
-                Uuid7::generate(),
-                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                &csr,
-            ))
-            .await;
-        last = Some(attempt);
-    }
-    assert!(
-        matches!(last, Some(Err(ilmek_core::session::ClientError::Remote(e))) if e.code == ErrorCode::RateLimited && e.retry_after_ms.is_some())
-    );
-}
-
-#[tokio::test]
 async fn only_the_namespace_owner_can_publish_update_or_unregister() {
     let community = Community::start().await;
     let (host, _) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
     let rival = community.publisher("ece").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
-    community
-        .registry
-        .grant_host(rival.id, host.peer_id)
-        .unwrap();
 
     let record = registry_of(&owner.member)
         .await
@@ -261,76 +120,10 @@ async fn only_the_namespace_owner_can_publish_update_or_unregister() {
 }
 
 #[tokio::test]
-async fn publishing_needs_the_publisher_role_a_granted_host_and_a_valid_key() {
-    let community = Community::start().await;
-    let (host, _) = host_ready(&community).await;
-    let owner = community.publisher("nuri").await;
-
-    let registry = registry_of(&owner.member).await;
-    let ungranted = register(&owner, host.peer_id, "forum", Version::new(1, 0, 0));
-    assert_eq!(
-        code_of(&registry.register_app(ungranted).await.unwrap_err()),
-        ErrorCode::Forbidden
-    );
-
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
-    let mut wrong_key = register(&owner, host.peer_id, "forum", Version::new(1, 0, 0));
-    wrong_key.publisher_key_id = hash(7);
-    assert_eq!(
-        code_of(&registry.register_app(wrong_key).await.unwrap_err()),
-        ErrorCode::SignatureInvalid
-    );
-
-    let plain = community.member().await;
-    let plain_registry = registry_of(&plain).await;
-    let attempt = register(&owner, host.peer_id, "forum", Version::new(1, 0, 0));
-    assert_eq!(
-        code_of(&plain_registry.register_app(attempt).await.unwrap_err()),
-        ErrorCode::Forbidden
-    );
-
-    let endpoint = Endpoint {
-        ip: LOOPBACK,
-        port: 1,
-    };
-    assert_eq!(
-        code_of(
-            &plain_registry
-                .host_register(Uuid7::generate(), endpoint, 0)
-                .await
-                .unwrap_err()
-        ),
-        ErrorCode::Forbidden,
-        "only the host role may register endpoints"
-    );
-    let outside = Endpoint {
-        ip: "8.8.8.8".parse().unwrap(),
-        port: 47401,
-    };
-    assert_eq!(
-        code_of(
-            &registry_of(&host)
-                .await
-                .host_register(Uuid7::generate(), outside, 1)
-                .await
-                .unwrap_err()
-        ),
-        ErrorCode::Forbidden
-    );
-}
-
-#[tokio::test]
 async fn names_are_unique_and_a_tombstone_stays_reserved_for_its_owner() {
     let community = Community::start().await;
     let (host, _) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
     let registry = registry_of(&owner.member).await;
 
     let first = register(&owner, host.peer_id, "forum", Version::new(1, 0, 0));
@@ -379,10 +172,6 @@ async fn concurrent_duplicate_writes_commit_once_and_conflicting_reuse_is_refuse
     let community = Community::start().await;
     let (host, _) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
     let a = registry_of(&owner.member).await;
     let b = registry_of(&owner.member).await;
 
@@ -411,10 +200,6 @@ async fn updates_check_revision_and_never_roll_a_version_back() {
     let community = Community::start().await;
     let (host, _) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
     let registry = registry_of(&owner.member).await;
     let record = registry
         .register_app(register(
@@ -464,10 +249,6 @@ async fn availability_follows_the_host_lease() {
     let community = Community::start().await;
     let (host, endpoint) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
     let registry = registry_of(&owner.member).await;
     let record = registry
         .register_app(register(
@@ -504,10 +285,6 @@ async fn paging_uses_a_fixed_snapshot_expires_and_belongs_to_one_caller() {
     let community = Community::start().await;
     let (host, _) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
     let registry = registry_of(&owner.member).await;
     for slug in ["a1", "a2", "a3", "a4", "a5"] {
         registry
@@ -567,84 +344,10 @@ async fn paging_uses_a_fixed_snapshot_expires_and_belongs_to_one_caller() {
 }
 
 #[tokio::test]
-async fn a_revoked_device_is_cut_off_and_its_certificate_is_published() {
-    let community = Community::start().await;
-    let victim = community.member().await;
-    let observer = community.member().await;
-    let live = registry_of(&victim).await;
-    assert!(live.list_apps("", 1, None).await.is_ok());
-
-    community.registry.revoke_peer(victim.peer_id).unwrap();
-    tokio::time::sleep(Duration::from_millis(300)).await;
-
-    let after = live.list_apps("", 1, None).await;
-    assert!(
-        after.is_err(),
-        "the open session must not survive revocation"
-    );
-    assert!(
-        RegistryClient::connect(&victim.connector).await.is_err(),
-        "new sessions are refused"
-    );
-
-    let registry = registry_of(&observer).await;
-    registry
-        .refresh_trust(observer.connector.trust())
-        .await
-        .unwrap();
-    let serial = victim_serial(&victim);
-    assert!(observer.connector.trust().certificate_revoked(&serial));
-    assert!(observer.connector.trust().revision().unwrap() >= 2);
-}
-
-fn victim_serial(member: &Member) -> String {
-    ilmek_identity::certificate_serial_hex(&member.connector.device().identity.chain_der[0])
-        .unwrap()
-}
-
-#[tokio::test]
-async fn a_revoked_publisher_key_is_rejected_and_listed_in_the_trust_snapshot() {
-    let community = Community::start().await;
-    let (host, _) = host_ready(&community).await;
-    let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
-    community
-        .registry
-        .revoke_publisher_key(&owner.key_id)
-        .unwrap();
-
-    let registry = registry_of(&owner.member).await;
-    let error = registry
-        .register_app(register(
-            &owner,
-            host.peer_id,
-            "forum",
-            Version::new(1, 0, 0),
-        ))
-        .await
-        .unwrap_err();
-    assert_eq!(code_of(&error), ErrorCode::SignatureInvalid);
-
-    registry
-        .refresh_trust(owner.member.connector.trust())
-        .await
-        .unwrap();
-    let key: Hash = owner.key_id.parse().unwrap();
-    assert!(owner.member.connector.trust().publisher_key_revoked(&key));
-}
-
-#[tokio::test]
 async fn state_survives_a_registry_restart() {
     let mut community = Community::start().await;
     let (host, _) = host_ready(&community).await;
     let owner = community.publisher("nuri").await;
-    community
-        .registry
-        .grant_host(owner.id, host.peer_id)
-        .unwrap();
     let request = register(&owner, host.peer_id, "forum", Version::new(1, 0, 0));
     let before = registry_of(&owner.member)
         .await
@@ -668,14 +371,68 @@ async fn state_survives_a_registry_restart() {
 }
 
 #[tokio::test]
-async fn host_invites_without_an_address_and_empty_roles_are_refused() {
+async fn apps_need_a_registered_host_and_endpoints_must_be_in_allowed_networks() {
     let community = Community::start().await;
-    let no_ip = InviteRequest {
-        roles: vec![PeerRole::Host],
-        bound_peer: None,
-        server_ip: None,
-        ttl_seconds: None,
+    let owner = community.publisher("nuri").await;
+    let registry = registry_of(&owner.member).await;
+
+    let unknown_host = register(&owner, Uuid7::generate(), "forum", Version::new(1, 0, 0));
+    assert_eq!(
+        code_of(&registry.register_app(unknown_host).await.unwrap_err()),
+        ErrorCode::InvalidMessage
+    );
+
+    let host = community.host(LOOPBACK).await;
+    let outside = Endpoint {
+        ip: "8.8.8.8".parse().unwrap(),
+        port: 47401,
     };
-    assert!(community.registry.create_invite(&no_ip).is_err());
-    assert!(community.registry.create_invite(&invite(&[])).is_err());
+    assert_eq!(
+        code_of(
+            &registry_of(&host)
+                .await
+                .host_register(Uuid7::generate(), outside, 0)
+                .await
+                .unwrap_err()
+        ),
+        ErrorCode::Forbidden
+    );
+}
+
+#[tokio::test]
+async fn a_host_that_sends_0_0_0_0_is_recorded_under_the_address_it_connected_from() {
+    let community = Community::start().await;
+    let host = community.host(LOOPBACK).await;
+    let owner = community.publisher("nuri").await;
+    registry_of(&host)
+        .await
+        .host_register(
+            Uuid7::generate(),
+            Endpoint {
+                ip: "0.0.0.0".parse().unwrap(),
+                port: 47402,
+            },
+            0,
+        )
+        .await
+        .unwrap();
+
+    let registry = registry_of(&owner.member).await;
+    let record = registry
+        .register_app(register(
+            &owner,
+            host.peer_id,
+            "forum",
+            Version::new(1, 0, 0),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        record.endpoint,
+        Endpoint {
+            ip: LOOPBACK,
+            port: 47402
+        },
+        "the connection came from loopback, so that is what was recorded"
+    );
 }

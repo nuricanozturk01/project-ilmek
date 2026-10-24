@@ -12,8 +12,6 @@ pub enum HostError {
     UnknownApp,
     #[error("no such version")]
     UnknownVersion,
-    #[error("publisher key {0} is not trusted by this host; add it with `trust-publisher`")]
-    UntrustedPublisher(String),
     #[error("{0}")]
     Conflict(&'static str),
     #[error("invalid input: {0}")]

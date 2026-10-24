@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use ilmek_core::clock::Clock;
 use ilmek_core::session::ClientError;
-use ilmek_core::trust::Freshness;
 use ilmek_protocol::address::Address;
 use ilmek_protocol::wire::{AppRecord, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -110,10 +109,8 @@ impl Resolver {
                 Err(error)
             }
             Err(error) if is_unreachable(&error) => {
-                let usable = cached.filter(|e| {
-                    now.saturating_sub(e.fetched_at_ms) <= MAX_OFFLINE_AGE_MS
-                        && self.connector.trust().freshness() == Freshness::Fresh
-                });
+                let usable =
+                    cached.filter(|e| now.saturating_sub(e.fetched_at_ms) <= MAX_OFFLINE_AGE_MS);
                 usable.map_or(Err(error), |entry| {
                     Ok(Resolution {
                         record: entry.record,
@@ -164,7 +161,7 @@ impl Resolver {
 
 /// `true` for failures that mean "could not ask", as opposed to "was told no".
 fn is_unreachable(error: &Error) -> bool {
-    matches!(error, Error::Tls(_))
+    matches!(error, Error::Connect(_))
         || matches!(
             error,
             Error::Session(ClientError::Timeout | ClientError::Closed | ClientError::Transport(_))

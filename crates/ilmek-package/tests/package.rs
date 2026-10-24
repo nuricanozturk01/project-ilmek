@@ -2,7 +2,6 @@
 
 use std::fs;
 
-use ilmek_identity::{PublisherError, PublisherKey, PublisherSigner};
 use ilmek_package::{PackageError, PackageLimits, copy_package, init_app, pack, verify_dir};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::Hash;
@@ -12,7 +11,6 @@ struct Built {
     _root: TempDir,
     source: std::path::PathBuf,
     package: std::path::PathBuf,
-    signer: PublisherSigner,
 }
 
 fn build() -> Built {
@@ -28,24 +26,17 @@ fn build() -> Built {
     fs::create_dir_all(source.join("assets/js")).unwrap();
     fs::write(source.join("assets/js/app.js"), "console.log('hi')").unwrap();
     fs::write(source.join("assets/style.css"), "body{}").unwrap();
-    let signer = PublisherSigner::generate().unwrap();
     let package = root.path().join("pkg");
-    pack(&source, &signer, &package).unwrap();
+    pack(&source, &package).unwrap();
     Built {
         _root: root,
         source,
         package,
-        signer,
     }
 }
 
 fn verify(built: &Built) -> Result<ilmek_package::Package, PackageError> {
-    verify_dir(
-        &built.package,
-        &built.signer.public_key(),
-        None,
-        PackageLimits::default(),
-    )
+    verify_dir(&built.package, None, PackageLimits::default())
 }
 
 #[test]
@@ -78,14 +69,10 @@ fn a_packed_package_verifies_and_lists_every_file_sorted() {
 fn packing_the_same_source_twice_gives_identical_manifest_bytes() {
     let built = build();
     let again = built.package.with_file_name("pkg2");
-    pack(&built.source, &built.signer, &again).unwrap();
+    pack(&built.source, &again).unwrap();
     assert_eq!(
         fs::read(built.package.join("manifest.json")).unwrap(),
         fs::read(again.join("manifest.json")).unwrap()
-    );
-    assert_eq!(
-        fs::read(built.package.join("manifest.sig")).unwrap(),
-        fs::read(again.join("manifest.sig")).unwrap()
     );
 }
 
@@ -128,49 +115,13 @@ fn symlinks_cannot_smuggle_files_in() {
 }
 
 #[test]
-fn tampered_manifests_wrong_keys_and_bad_signature_files_are_rejected() {
-    let built = build();
-    let manifest = built.package.join("manifest.json");
-    let mut bytes = fs::read(&manifest).unwrap();
-    bytes.push(b' ');
-    fs::write(&manifest, bytes).unwrap();
-    assert!(matches!(
-        verify(&built),
-        Err(PackageError::Signature(PublisherError::BadSignature))
-    ));
-
-    let built = build();
-    let stranger = PublisherSigner::generate().unwrap().public_key();
-    let result = verify_dir(&built.package, &stranger, None, PackageLimits::default());
-    assert!(matches!(
-        result,
-        Err(PackageError::Signature(PublisherError::BadSignature))
-    ));
-
-    let built = build();
-    fs::write(built.package.join("manifest.sig"), "!!!not base64!!!").unwrap();
-    assert!(matches!(
-        verify(&built),
-        Err(PackageError::SignatureEncoding)
-    ));
-
-    let built = build();
-    fs::write(built.package.join("manifest.sig"), "AAAA").unwrap();
-    assert!(matches!(
-        verify(&built),
-        Err(PackageError::Signature(PublisherError::SignatureLength))
-    ));
-}
-
-#[test]
 fn a_pinned_manifest_hash_must_match() {
     let built = build();
     let good = verify(&built).unwrap().manifest_hash;
-    let key: PublisherKey = built.signer.public_key();
-    assert!(verify_dir(&built.package, &key, Some(good), PackageLimits::default()).is_ok());
+    assert!(verify_dir(&built.package, Some(good), PackageLimits::default()).is_ok());
     let wrong = Hash::from_bytes([1; 32]);
     assert!(matches!(
-        verify_dir(&built.package, &key, Some(wrong), PackageLimits::default()),
+        verify_dir(&built.package, Some(wrong), PackageLimits::default()),
         Err(PackageError::ManifestHash { .. })
     ));
 }
@@ -181,7 +132,7 @@ fn packing_rejects_unsafe_names_and_refuses_to_overwrite() {
     fs::write(built.source.join("assets/CON.txt"), "x").unwrap();
     let out = built.package.with_file_name("bad");
     assert!(matches!(
-        pack(&built.source, &built.signer, &out),
+        pack(&built.source, &out),
         Err(PackageError::Source(_))
     ));
     assert!(
@@ -191,7 +142,7 @@ fn packing_rejects_unsafe_names_and_refuses_to_overwrite() {
 
     fs::remove_file(built.source.join("assets/CON.txt")).unwrap();
     assert!(matches!(
-        pack(&built.source, &built.signer, &built.package),
+        pack(&built.source, &built.package),
         Err(PackageError::DestinationExists(_))
     ));
 }
@@ -202,7 +153,7 @@ fn the_package_limit_is_enforced_when_verifying() {
     let tiny = PackageLimits {
         max_total_bytes: 10,
     };
-    let result = verify_dir(&built.package, &built.signer.public_key(), None, tiny);
+    let result = verify_dir(&built.package, None, tiny);
     assert!(matches!(result, Err(PackageError::Manifest(_))));
 }
 
@@ -211,15 +162,23 @@ fn copies_are_complete_and_never_overwrite() {
     let built = build();
     let target = built.package.with_file_name("copy");
     copy_package(&built.package, &target).unwrap();
-    verify_dir(
-        &target,
-        &built.signer.public_key(),
-        None,
-        PackageLimits::default(),
-    )
-    .unwrap();
+    verify_dir(&target, None, PackageLimits::default()).unwrap();
     assert!(matches!(
         copy_package(&built.package, &target),
         Err(PackageError::DestinationExists(_))
+    ));
+}
+
+#[test]
+fn a_changed_manifest_no_longer_matches_the_pinned_hash() {
+    let built = build();
+    let good = verify(&built).unwrap().manifest_hash;
+    let manifest = built.package.join("manifest.json");
+    let mut bytes = fs::read(&manifest).unwrap();
+    bytes.push(b' ');
+    fs::write(&manifest, bytes).unwrap();
+    assert!(matches!(
+        verify_dir(&built.package, Some(good), PackageLimits::default()),
+        Err(PackageError::ManifestHash { .. })
     ));
 }

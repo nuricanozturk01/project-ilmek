@@ -12,14 +12,12 @@ ilmek-app-sdk.workspace = true
 ilmek-client.workspace = true
 ilmek-core.workspace = true
 ilmek-host.workspace = true
-ilmek-identity.workspace = true
 ilmek-package.workspace = true
 ilmek-protocol.workspace = true
 ilmek-registry.workspace = true
 ilmek-store.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-time.workspace = true
 tokio = { workspace = true, features = ["net", "time", "sync", "rt", "macros"] }
 
 [lints]

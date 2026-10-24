@@ -25,7 +25,6 @@ pub struct Empty {}
 pub enum Mode {
     Control,
     Bulk,
-    Enroll,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,15 +32,6 @@ pub enum Mode {
 pub enum ServerRole {
     Registry,
     Host,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PeerRole {
-    Member,
-    Publisher,
-    Host,
-    Admin,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,7 +70,6 @@ pub enum Availability {
 pub enum ErrorCode {
     Unauthorized,
     Forbidden,
-    TrustStale,
     NotFound,
     NameConflict,
     RevisionConflict,
@@ -98,7 +87,6 @@ pub enum ErrorCode {
     CursorExpired,
     SlowConsumer,
     HashMismatch,
-    SignatureInvalid,
     Cancelled,
     CannotCancel,
     Timeout,
@@ -110,6 +98,8 @@ pub enum ErrorCode {
 #[serde(deny_unknown_fields)]
 pub struct Hello {
     pub version: u64,
+    /// Who the client says it is. Nothing verifies this (no authentication in this build).
+    pub client_id: Uuid7,
     pub mode: Mode,
     pub client_name: Text<64>,
     pub client_version: Version,
@@ -150,27 +140,6 @@ pub struct Drain {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Enroll {
-    pub operation_id: Uuid7,
-    pub token: Token,
-    pub display_name: Text<80>,
-    pub csr_der: Token,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Enrolled {
-    pub peer_id: Uuid7,
-    pub certificate_der: Token,
-    pub chain_der: Vec<Token>,
-    pub roles: Vec<PeerRole>,
-    pub registry_endpoint: Endpoint,
-    pub registry_id: Uuid7,
-    pub expires_at_ms: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct AppRecord {
     pub community_id: Uuid7,
     pub namespace: Name,
@@ -181,8 +150,6 @@ pub struct AppRecord {
     pub endpoint: Endpoint,
     pub version: Version,
     pub manifest_hash: Hash,
-    pub publisher_key_id: Hash,
-    pub publisher_public_key: Token,
     pub name: Text<128>,
     pub description: Text<2048>,
     pub revision: u64,
@@ -267,7 +234,6 @@ pub struct RegisterApp {
     pub server_id: Uuid7,
     pub version: Version,
     pub manifest_hash: Hash,
-    pub publisher_key_id: Hash,
     pub name: Text<128>,
     pub description: Text<2048>,
 }
@@ -281,7 +247,6 @@ pub struct UpdateApp {
     pub server_id: Uuid7,
     pub version: Version,
     pub manifest_hash: Hash,
-    pub publisher_key_id: Hash,
     pub name: Text<128>,
     pub description: Text<2048>,
 }
@@ -310,46 +275,6 @@ pub struct AppUnregistered {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct GetTrust {
-    pub limit: u64,
-    #[serde(deserialize_with = "present")]
-    pub cursor: Option<Cursor>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrustPage {
-    pub snapshot_id: Uuid7,
-    pub revision: u64,
-    pub generated_at_ms: u64,
-    #[serde(deserialize_with = "present")]
-    pub next_cursor: Option<Cursor>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TrustKind {
-    Certificate,
-    PublisherKey,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrustEntry {
-    pub kind: TrustKind,
-    pub value: String,
-    pub revoked_at_ms: u64,
-}
-
-/// Body of `TRUST_PAGE`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrustEntries {
-    pub entries: Vec<TrustEntry>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct GetManifest {
     pub app_id: Uuid7,
     pub version: Version,
@@ -362,8 +287,6 @@ pub struct ManifestInfo {
     pub app_id: Uuid7,
     pub version: Version,
     pub manifest_hash: Hash,
-    pub publisher_key_id: Hash,
-    pub signature: Token,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

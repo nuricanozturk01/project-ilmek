@@ -14,17 +14,14 @@ step "build"
 
 step "community, host, publisher"
 lib_start_community
-host_peer="$(lib_enroll host member,host --server-ip 127.0.0.1)"
-pub_peer="$(lib_enroll publisher member,publisher)"
-lib_publisher nuri "$pub_peer" "$host_peer"
+lib_join host >/dev/null
+lib_join publisher >/dev/null
 lib_start_host
 
 step "client device"
 client_root="$work/client"
 mkdir -p "$client_root"
-"$ilmek" community invite --config "$work/registry.toml" --role member 2>/dev/null >"$work/client.token"
-"$ilmek" identity enroll --profile "$profile" --fingerprint "$fingerprint" \
-  --device "$client_root/device" --name probe-client --token-file "$work/client.token" >/dev/null 2>&1
+"$ilmek" join "$profile" --device "$client_root/device" >/dev/null 2>&1
 
 step "canary listener on 127.0.0.1:18080"
 python3 -I "$root/scripts/e2e/canary.py" 18080 "$work/canary.log" &

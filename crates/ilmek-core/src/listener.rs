@@ -1,4 +1,4 @@
-//! TCP accept loop: TLS, connection cap and graceful shutdown (PROTOCOL.md §7).
+//! TCP accept loop: connection cap and graceful shutdown (PROTOCOL.md §7).
 
 use std::sync::Arc;
 
@@ -7,17 +7,14 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
-use crate::session::{ConnectionParams, Handler, PeerGate, ServerSessionConfig, serve_connection};
-use crate::tls::TlsServer;
+use crate::session::{ConnectionParams, Handler, ServerSessionConfig, serve_connection};
 
-/// Reference limit for concurrent TLS connections on one listener.
+/// Reference limit for concurrent connections on one listener.
 pub const DEFAULT_MAX_CONNECTIONS: usize = 128;
 
 pub struct ListenerParams<H> {
-    pub tls: TlsServer,
     pub session: Arc<ServerSessionConfig>,
     pub handler: Arc<H>,
-    pub gate: Arc<dyn PeerGate>,
     pub max_connections: usize,
 }
 
@@ -35,7 +32,6 @@ pub async fn serve_listener<H: Handler>(
     params: ListenerParams<H>,
     shutdown: CancellationToken,
 ) {
-    let tls = Arc::new(params.tls);
     let slots = Arc::new(Semaphore::new(params.max_connections));
     let mut sessions = JoinSet::new();
 
@@ -52,24 +48,17 @@ pub async fn serve_listener<H: Handler>(
             drop(tcp);
             continue;
         };
-        let tls = Arc::clone(&tls);
         let session = Arc::clone(&params.session);
         let handler = Arc::clone(&params.handler);
-        let gate = Arc::clone(&params.gate);
         let shutdown = shutdown.clone();
         sessions.spawn(async move {
-            let Ok(accepted) = tls.accept(tcp).await else {
-                return;
-            };
             let connection = ConnectionParams {
-                peer: accepted.peer,
                 remote_ip: Some(remote.ip()),
                 config: session,
                 handler,
-                gate,
                 shutdown,
             };
-            serve_connection(accepted.stream, connection).await;
+            serve_connection(tcp, connection).await;
             drop(slot);
         });
     }

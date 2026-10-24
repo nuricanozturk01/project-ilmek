@@ -36,42 +36,27 @@ fn json_body<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, RegistryError> {
 
 impl Handler for RegistryService {
     async fn handle(&self, request: Message, reply: Reply) {
-        let registry = &self.registry;
+        let peer = reply.session().peer_id;
         let remote = reply.session().remote_ip;
-        let Some(peer) = reply.session().peer.as_ref().map(|p| p.id) else {
-            // Enrollment connections carry no certificate; only ENROLL is reachable there.
-            let outcome = match request {
-                Message::Enroll(enroll) => {
-                    registry.enroll(remote, enroll).await.map(Message::Enrolled)
-                }
-                _ => Err(RegistryError::Invalid(
-                    "message not valid on this connection",
-                )),
-            };
-            return finish(&reply, outcome).await;
-        };
-        let outcome = dispatch(registry, peer, request).await;
-        finish(&reply, outcome).await;
+        let outcome = dispatch(&self.registry, peer, remote, request).await;
+        let message = outcome.unwrap_or_else(|error| {
+            if matches!(error, RegistryError::Store(_) | RegistryError::Internal(_)) {
+                tracing::error!(error = ?error, "registry request failed internally");
+            }
+            error_message(&error)
+        });
+        let _ = reply.finish(&message).await;
     }
-}
-
-async fn finish(reply: &Reply, outcome: Result<Message, RegistryError>) {
-    let message = outcome.unwrap_or_else(|error| {
-        if matches!(error, RegistryError::Store(_) | RegistryError::Internal(_)) {
-            tracing::error!(error = ?error, "registry request failed internally");
-        }
-        error_message(&error)
-    });
-    let _ = reply.finish(&message).await;
 }
 
 async fn dispatch(
     registry: &Arc<Registry>,
     peer: Uuid7,
+    remote: Option<std::net::IpAddr>,
     request: Message,
 ) -> Result<Message, RegistryError> {
     Ok(match request {
-        Message::Resolve(r) => Message::Resolved(registry.resolve(peer, r).await?),
+        Message::Resolve(r) => Message::Resolved(registry.resolve(r).await?),
         Message::ListApps(r) => {
             let (data, page) = registry.list_apps(peer, r).await?;
             Message::AppsListed(Payload {
@@ -79,19 +64,14 @@ async fn dispatch(
                 body: json_body(&page)?,
             })
         }
-        Message::HostRegister(r) => Message::HostRegistered(registry.host_register(peer, r).await?),
+        Message::HostRegister(r) => {
+            Message::HostRegistered(registry.host_register(peer, remote, r).await?)
+        }
         Message::HostHeartbeat(r) => Message::HeartbeatAck(registry.host_heartbeat(peer, r).await?),
         Message::RegisterApp(r) => Message::AppRegistered(registry.register_app(peer, r).await?),
         Message::UpdateApp(r) => Message::AppUpdated(registry.update_app(peer, r).await?),
         Message::UnregisterApp(r) => {
             Message::AppUnregistered(registry.unregister_app(peer, r).await?)
-        }
-        Message::GetTrust(r) => {
-            let (data, page) = registry.get_trust(peer, r).await?;
-            Message::TrustPage(Payload {
-                data,
-                body: json_body(&page)?,
-            })
         }
         _ => return Err(RegistryError::Invalid("message not served by the registry")),
     })

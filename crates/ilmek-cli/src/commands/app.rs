@@ -10,8 +10,8 @@ use ilmek_protocol::Uuid7;
 use ilmek_protocol::address::Address;
 use ilmek_protocol::wire::Version;
 
-use super::{connect_device, publisher::load_signer, uuid};
-use crate::cli::{App, HostConfig};
+use super::{connect_device, host_config, uuid};
+use crate::cli::{App, DeviceOpt, HostConfig};
 use crate::error::{CliError, CliResult, Context};
 use crate::output::{line, note};
 
@@ -22,7 +22,7 @@ struct HostHandle {
 }
 
 fn open(config: &HostConfig) -> CliResult<HostHandle> {
-    let settings = Settings::load(&config.config).context("host configuration")?;
+    let settings = Settings::load(&host_config(config)).context("host configuration")?;
     std::fs::create_dir_all(&settings.data_dir).context("cannot create the data directory")?;
     let store = Store::open(&settings.database_path()).context("cannot open the host database")?;
     let installer = Installer::new(
@@ -67,13 +67,12 @@ pub(crate) async fn run(command: App) -> CliResult {
             namespace,
             slug,
             publisher_id,
-        } => scaffold(&dir, &namespace, &slug, &publisher_id),
+        } => scaffold(&dir, &namespace, &slug, publisher_id.as_deref()),
         App::Pack {
             source,
-            key,
             out,
             publisher_id,
-        } => package(&source, &key, &out, publisher_id.as_deref()),
+        } => package(&source, &out, publisher_id.as_deref()),
         App::Install { host, package } => install(&host, &package).await,
         App::Update { host, package } => update(&host, &package).await,
         App::Rollback { host, app, version } => {
@@ -114,12 +113,21 @@ pub(crate) async fn run(command: App) -> CliResult {
     }
 }
 
-fn scaffold(dir: &std::path::Path, namespace: &str, slug: &str, publisher_id: &str) -> CliResult {
+fn scaffold(
+    dir: &std::path::Path,
+    namespace: &str,
+    slug: &str,
+    publisher_id: Option<&str>,
+) -> CliResult {
+    let publisher_id = match publisher_id {
+        Some(text) => uuid(text, "publisher id")?,
+        None => Uuid7::generate(),
+    };
     let spec = init_app(
         dir,
         namespace.parse().context("namespace")?,
         slug.parse().context("slug")?,
-        uuid(publisher_id, "publisher id")?,
+        publisher_id,
     )
     .context("cannot create the project")?;
     note(&format!(
@@ -132,16 +140,14 @@ fn scaffold(dir: &std::path::Path, namespace: &str, slug: &str, publisher_id: &s
 
 fn package(
     source: &std::path::Path,
-    key: &std::path::Path,
     out: &std::path::Path,
     publisher_id: Option<&str>,
 ) -> CliResult {
-    let signer = load_signer(key)?;
     let mut spec = AppSpec::load(&source.join("app.toml")).context("cannot read app.toml")?;
     if let Some(id) = publisher_id {
         spec.publisher_id = uuid(id, "publisher id")?;
     }
-    let packed = pack_spec(spec, source, &signer, out).context("packing failed")?;
+    let packed = pack_spec(spec, source, out).context("packing failed")?;
     note(&format!(
         "Packed {} files into {}",
         packed.manifest.files.len(),
@@ -229,14 +235,27 @@ async fn set_backend(
         .context("cannot save the backend")
 }
 
-async fn publish_app(host: &HostConfig, app: &str, device: &std::path::Path) -> CliResult {
+async fn publish_app(host: &HostConfig, app: &str, device: &DeviceOpt) -> CliResult {
     let handle = open(host)?;
     let id = find(&handle, app).await?;
     let host_device = Device::load(&handle.settings.device_dir).context("host device identity")?;
     let publisher = connect_device(device).await?;
-    let record = publish(&publisher, &handle.store, id, host_device.peer_id)
-        .await
-        .context("publishing failed")?;
+    // A host that has only just started may not have registered with the registry yet.
+    let started = std::time::Instant::now();
+    let record = loop {
+        match publish(&publisher, &handle.store, id, host_device.peer_id).await {
+            Ok(record) => break record,
+            Err(ilmek_host::PublishError::Registry(error))
+                if error
+                    .remote()
+                    .is_some_and(|r| r.message.as_str().contains("host is not registered"))
+                    && started.elapsed() < std::time::Duration::from_secs(30) =>
+            {
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            }
+            Err(error) => return Err(CliError::new(format!("publishing failed: {error}"))),
+        }
+    };
     line(&format!(
         "ilmek://{}/{} revision {} version {}",
         record.namespace, record.slug, record.revision, record.version
@@ -252,7 +271,7 @@ async fn desire(host: &HostConfig, app: &str, desired: Desired, restart: bool) -
         .set_desired(id, desired, restart)
         .await
         .context("cannot change the desired state")?;
-    note("Recorded. A running `ilmek host serve` applies it within a second.");
+    note("Recorded. A running node or host applies it within a second.");
     Ok(())
 }
 

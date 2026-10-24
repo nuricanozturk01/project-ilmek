@@ -85,13 +85,12 @@ async fn a_backend_that_keeps_dying_is_abandoned_until_restarted_by_hand() {
     let community = ilmek_testing::Community::start().await;
     let owner = community.publisher("nuri").await;
     let launcher = InProcessLauncher::new(|_| tokio::spawn(async {}));
-    let host = ilmek_testing::start_host(&community, &owner, Arc::new(launcher)).await;
+    let host = ilmek_testing::start_host(&community, Arc::new(launcher)).await;
     let scratch = tempfile::tempdir().unwrap();
     let package = ilmek_testing::build_package(
         scratch.path(),
         "doomed",
         &notes_spec(&owner, Uuid7::generate(), Version::new(1, 0, 0)),
-        &owner.signer,
     );
     let installed = host.installer.install(&package).await.unwrap();
     host.store
@@ -383,7 +382,7 @@ async fn a_forged_payload_hash_and_unknown_apps_are_refused() {
     let (_, record) = deploy(&world.host, &world.owner, &package, true).await;
     let member = world.member().await;
     let session = member
-        .connect_host(world.host.address, record.server_id, Mode::Control)
+        .connect_host(world.host.address, Mode::Control)
         .await
         .unwrap();
 
@@ -452,99 +451,6 @@ async fn events_reach_subscribers_and_the_per_session_limit_holds() {
     held[0].unsubscribe().await.unwrap();
     held[0].unsubscribe().await.unwrap();
     app.subscribe("notes.events", None).await.unwrap();
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_host_with_stale_trust_refuses_work_with_trust_stale() {
-    let world = world().await;
-    let package = world.package(
-        "notes",
-        &notes_spec(&world.owner, Uuid7::generate(), Version::new(1, 0, 0)),
-    );
-    let (_, record) = deploy(&world.host, &world.owner, &package, true).await;
-    let own_clock = Arc::new(ManualClock::starting_now());
-    let member = Arc::new(world.community.member_with_clock(own_clock).await.connector);
-    let app = no_retry(client_for(&member, &record));
-    app.read("notes.list", b"{}").await.unwrap();
-
-    let mut community = world.community;
-    community.running.take().unwrap().shutdown().await;
-    community.clock.advance_ms(25 * 60 * 60 * 1000);
-    tokio::time::sleep(Duration::from_millis(700)).await;
-
-    let error = app.read("notes.list", b"{}").await.unwrap_err();
-    assert_eq!(remote(&error), Some(ErrorCode::TrustStale));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_client_whose_own_trust_is_stale_does_not_even_connect() {
-    let world = world().await;
-    let package = world.package(
-        "notes",
-        &notes_spec(&world.owner, Uuid7::generate(), Version::new(1, 0, 0)),
-    );
-    let (_, record) = deploy(&world.host, &world.owner, &package, true).await;
-    let clock = Arc::new(ManualClock::starting_now());
-    let member = Arc::new(
-        world
-            .community
-            .member_with_clock(Arc::clone(&clock))
-            .await
-            .connector,
-    );
-    clock.advance_ms(25 * 60 * 60 * 1000);
-
-    let error = no_retry(client_for(&member, &record))
-        .read("notes.list", b"{}")
-        .await
-        .unwrap_err();
-    assert!(matches!(error, Error::TrustStale), "{error:?}");
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn revoked_members_and_revoked_hosts_are_shut_out() {
-    let world = world().await;
-    let package = world.package(
-        "notes",
-        &notes_spec(&world.owner, Uuid7::generate(), Version::new(1, 0, 0)),
-    );
-    let (_, record) = deploy(&world.host, &world.owner, &package, true).await;
-
-    let victim = world.community.member().await;
-    let victim_id = victim.peer_id;
-    let victim_connector = Arc::new(victim.connector);
-    let app = no_retry(client_for(&victim_connector, &record));
-    app.read("notes.list", b"{}").await.unwrap();
-
-    world.community.registry.revoke_peer(victim_id).unwrap();
-    eventually("the host to learn about the revocation", || async {
-        app.read("notes.list", b"{}").await.is_err()
-    })
-    .await;
-    let again = no_retry(client_for(&victim_connector, &record))
-        .read("notes.list", b"{}")
-        .await
-        .unwrap_err();
-    assert!(
-        again.remote_code() == Some(ErrorCode::Unauthorized) || again.outcome_unknown(),
-        "{again:?}"
-    );
-
-    let observer = world.member().await;
-    world
-        .community
-        .registry
-        .revoke_peer(world.host.peer_id)
-        .unwrap();
-    let registry = ilmek_client::RegistryClient::connect(&observer)
-        .await
-        .unwrap();
-    registry.refresh_trust(observer.trust()).await.unwrap();
-    let error = no_retry(client_for(&observer, &record))
-        .read("notes.list", b"{}")
-        .await
-        .unwrap_err();
-    assert!(matches!(error, Error::PeerRevoked), "{error:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -634,13 +540,7 @@ async fn names_resolve_from_the_cache_while_the_registry_is_down_but_only_for_kn
     );
     deploy(&world.host, &world.owner, &hello, false).await;
     let clock = Arc::new(ManualClock::starting_now());
-    let member = Arc::new(
-        world
-            .community
-            .member_with_clock(Arc::clone(&clock))
-            .await
-            .connector,
-    );
+    let member = Arc::new(world.community.member().await.connector);
     let resolver = Resolver::new(Arc::clone(&member), clock.clone(), None);
     let known: Address = "ilmek://nuri/merhaba".parse().unwrap();
     let unknown: Address = "ilmek://nuri/hic-yok".parse().unwrap();
@@ -665,7 +565,7 @@ async fn names_resolve_from_the_cache_while_the_registry_is_down_but_only_for_kn
     clock.advance_ms(25 * 60 * 60 * 1000);
     assert!(
         resolver.resolve(&known).await.is_err(),
-        "after 24 hours without trust the cache is not enough"
+        "after 24 hours the cached name is not used any more"
     );
 }
 
@@ -696,10 +596,7 @@ async fn a_stalled_bulk_transfer_does_not_delay_the_control_connection() {
     let member = world.member().await;
     let address = SocketAddr::new(record.endpoint.ip.into(), record.endpoint.port);
 
-    let bulk = member
-        .connect_host(address, record.server_id, Mode::Bulk)
-        .await
-        .unwrap();
+    let bulk = member.connect_host(address, Mode::Bulk).await.unwrap();
     let mut stream = bulk
         .open_stream(&Message::GetAsset(GetAsset {
             app_id: record.app_id,
@@ -719,10 +616,7 @@ async fn a_stalled_bulk_transfer_does_not_delay_the_control_connection() {
     // Stop reading: the host's writer for the bulk connection fills up and blocks.
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    let control = member
-        .connect_host(address, record.server_id, Mode::Control)
-        .await
-        .unwrap();
+    let control = member.connect_host(address, Mode::Control).await.unwrap();
     let started = Instant::now();
     let reply = control
         .request(&Message::GetManifest(GetManifest {
@@ -787,14 +681,10 @@ async fn asset_requests_that_disagree_with_the_manifest_are_refused() {
     };
     let refused = |request: GetAsset| {
         let member = &member;
-        let record = &record;
         async move {
             // A refused transfer ends the bulk connection's single transfer slot, so each case
             // uses its own connection.
-            let bulk = member
-                .connect_host(address, record.server_id, Mode::Bulk)
-                .await
-                .unwrap();
+            let bulk = member.connect_host(address, Mode::Bulk).await.unwrap();
             let mut stream = bulk.open_stream(&Message::GetAsset(request)).await.unwrap();
             match stream.next().await {
                 Err(ClientError::Remote(data)) => data.code,
@@ -837,10 +727,7 @@ async fn asset_requests_that_disagree_with_the_manifest_are_refused() {
     );
 
     // The same request, unmodified, is served.
-    let bulk = member
-        .connect_host(address, record.server_id, Mode::Bulk)
-        .await
-        .unwrap();
+    let bulk = member.connect_host(address, Mode::Bulk).await.unwrap();
     let mut stream = bulk.open_stream(&Message::GetAsset(good)).await.unwrap();
     assert!(matches!(
         stream.next().await.unwrap(),

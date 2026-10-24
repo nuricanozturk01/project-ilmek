@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use ilmek_core::clock::{Clock, SystemClock};
 
-/// A clock tests can move forward. It starts at the real time so certificates stay valid.
+/// A clock tests can move forward. It starts at the real time.
 #[derive(Debug)]
 pub struct ManualClock(AtomicU64);
 

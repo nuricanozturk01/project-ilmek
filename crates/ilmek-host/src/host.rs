@@ -4,9 +4,8 @@ use std::sync::Arc;
 use ilmek_client::{Connector, Device};
 use ilmek_core::clock::Clock;
 use ilmek_core::listener::{ListenerParams, serve_listener};
-use ilmek_core::session::{PeerGate, ServerSessionConfig};
-use ilmek_core::tls::TlsServer;
-use ilmek_protocol::wire::{Endpoint, PeerRole, ServerRole};
+use ilmek_core::session::ServerSessionConfig;
+use ilmek_protocol::wire::{Endpoint, ServerRole};
 use tokio::net::TcpListener;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
@@ -59,16 +58,8 @@ impl Host {
 
         let device =
             Device::load(&settings.device_dir).map_err(|e| HostError::Device(e.to_string()))?;
-        if !device.roles.contains(&PeerRole::Host) {
-            return Err(HostError::Device(
-                "this device was not enrolled with the host role".into(),
-            ));
-        }
         let community_id = device.profile.community_id;
-        let connector = Arc::new(
-            Connector::new(device, Arc::clone(&clock))
-                .map_err(|e| HostError::Device(e.to_string()))?,
-        );
+        let connector = Arc::new(Connector::new(device));
         let env = Arc::new(Env {
             store: store.clone(),
             settings: settings.clone(),
@@ -109,8 +100,6 @@ impl Host {
         let listener = TcpListener::bind(self.settings.listen).await?;
         let local_addr = listener.local_addr()?;
         let device = self.connector.device();
-        let tls = TlsServer::mutual(&device.identity, device.profile.ca_der())
-            .map_err(|e| io::Error::other(e.to_string()))?;
         let session = Arc::new(ServerSessionConfig::new(
             device.peer_id,
             ServerRole::Host,
@@ -118,23 +107,20 @@ impl Host {
             Arc::clone(&self.clock),
         ));
         let params = ListenerParams {
-            tls,
             session,
             handler: Arc::new(self.service.clone()),
-            gate: Arc::clone(self.connector.trust()) as Arc<dyn PeerGate>,
             max_connections: self.settings.max_connections,
         };
 
         let shutdown = CancellationToken::new();
         let mut tasks = JoinSet::new();
         tasks.spawn(serve_listener(listener, params, shutdown.clone()));
-        let advertised = self.settings.advertised;
+        let advertised = self.settings.advertised();
         let std::net::IpAddr::V4(ip) = advertised.ip() else {
             return Err(io::Error::other("advertised address must be IPv4"));
         };
         let cadence = registry_link::Cadence {
             heartbeat: std::time::Duration::from_millis(self.settings.heartbeat_interval_ms),
-            trust: std::time::Duration::from_millis(self.settings.trust_refresh_ms),
         };
         tasks.spawn(registry_link::maintain(
             Arc::clone(&self.connector),

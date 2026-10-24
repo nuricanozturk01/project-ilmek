@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use ilmek_core::clock::SystemClock;
 use ilmek_host::{HostError, Installer, Store};
-use ilmek_identity::PublisherSigner;
 use ilmek_package::{init_app, pack};
 use ilmek_protocol::Uuid7;
 use ilmek_protocol::wire::Version;
@@ -16,24 +15,16 @@ struct Env {
     root: TempDir,
     installer: Installer,
     store: Store,
-    signer: PublisherSigner,
     publisher_id: Uuid7,
     app_id: Uuid7,
 }
 
 impl Env {
-    async fn new(trust: bool) -> Self {
+    fn new() -> Self {
         let root = tempdir().unwrap();
         let data = root.path().join("host");
         fs::create_dir_all(&data).unwrap();
         let store = Store::open(&data.join("host.db")).unwrap();
-        let signer = PublisherSigner::generate().unwrap();
-        if trust {
-            store
-                .add_trusted_publisher(&signer.public_key(), 1)
-                .await
-                .unwrap();
-        }
         let installer =
             Installer::new(data, store.clone(), 10 * 1024 * 1024, Arc::new(SystemClock));
         let publisher_id = Uuid7::generate();
@@ -41,13 +32,12 @@ impl Env {
             root,
             installer,
             store,
-            signer,
             publisher_id,
             app_id: Uuid7::generate(),
         }
     }
 
-    /// Builds a signed package of `version` whose index.html says `text`.
+    /// Builds a package of `version` whose index.html says `text`.
     fn package(&self, name: &str, version: Version, text: &str) -> PathBuf {
         let source = self.root.path().join(format!("src-{name}"));
         let mut spec = init_app(
@@ -62,7 +52,7 @@ impl Env {
         fs::write(source.join("app.toml"), spec.to_toml().unwrap()).unwrap();
         fs::write(source.join("assets/index.html"), text).unwrap();
         let out = self.root.path().join(format!("pkg-{name}"));
-        pack(&source, &self.signer, &out).unwrap();
+        pack(&source, &out).unwrap();
         out
     }
 }
@@ -78,7 +68,7 @@ async fn active(env: &Env) -> Version {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn install_activates_a_verified_package_and_is_idempotent() {
-    let env = Env::new(true).await;
+    let env = Env::new();
     let pkg = env.package("v1", Version::new(1, 0, 0), "<html>v1</html>");
     let first = env.installer.install(&pkg).await.unwrap();
     assert!(first.changed);
@@ -98,19 +88,8 @@ async fn install_activates_a_verified_package_and_is_idempotent() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_untrusted_publisher_cannot_install() {
-    let env = Env::new(false).await;
-    let pkg = env.package("v1", Version::new(1, 0, 0), "<html>v1</html>");
-    assert!(matches!(
-        env.installer.install(&pkg).await,
-        Err(HostError::UntrustedPublisher(_))
-    ));
-    assert!(env.store.apps().await.unwrap().is_empty());
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn a_tampered_package_is_rejected_and_leaves_nothing_behind() {
-    let env = Env::new(true).await;
+    let env = Env::new();
     let pkg = env.package("v1", Version::new(1, 0, 0), "<html>v1</html>");
     fs::write(pkg.join("assets/index.html"), "<html>evil</html>").unwrap();
 
@@ -125,7 +104,7 @@ async fn a_tampered_package_is_rejected_and_leaves_nothing_behind() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_failed_update_never_disturbs_the_active_version() {
-    let env = Env::new(true).await;
+    let env = Env::new();
     env.installer
         .install(&env.package("v1", Version::new(1, 0, 0), "<html>v1</html>"))
         .await
@@ -134,26 +113,6 @@ async fn a_failed_update_never_disturbs_the_active_version() {
     let tampered = env.package("v2", Version::new(2, 0, 0), "<html>v2</html>");
     fs::write(tampered.join("assets/index.html"), "<html>tampered</html>").unwrap();
     assert!(env.installer.update(&tampered).await.is_err());
-    assert_eq!(active(&env).await, Version::new(1, 0, 0));
-
-    let stranger = PublisherSigner::generate().unwrap();
-    let foreign_src = env.root.path().join("foreign-src");
-    let mut spec = init_app(
-        &foreign_src,
-        "nuri".parse().unwrap(),
-        "forum".parse().unwrap(),
-        env.publisher_id,
-    )
-    .unwrap();
-    spec.app_id = env.app_id;
-    spec.version = Version::new(3, 0, 0);
-    fs::write(foreign_src.join("app.toml"), spec.to_toml().unwrap()).unwrap();
-    let foreign = env.root.path().join("foreign");
-    pack(&foreign_src, &stranger, &foreign).unwrap();
-    assert!(matches!(
-        env.installer.update(&foreign).await,
-        Err(HostError::UntrustedPublisher(_))
-    ));
     assert_eq!(active(&env).await, Version::new(1, 0, 0));
 
     env.installer
@@ -165,7 +124,7 @@ async fn a_failed_update_never_disturbs_the_active_version() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn updates_must_move_forward_keep_identity_and_rollback_is_explicit() {
-    let env = Env::new(true).await;
+    let env = Env::new();
     env.installer
         .install(&env.package("v2", Version::new(2, 0, 0), "<html>v2</html>"))
         .await
@@ -203,7 +162,7 @@ async fn updates_must_move_forward_keep_identity_and_rollback_is_explicit() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn removal_keeps_data_unless_purge_is_explicit() {
-    let env = Env::new(true).await;
+    let env = Env::new();
     env.installer
         .install(&env.package("v1", Version::new(1, 0, 0), "<html>v1</html>"))
         .await
@@ -245,7 +204,7 @@ async fn removal_keeps_data_unless_purge_is_explicit() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn start_up_cleanup_removes_staging_and_orphan_version_directories() {
-    let env = Env::new(true).await;
+    let env = Env::new();
     env.installer
         .install(&env.package("v1", Version::new(1, 0, 0), "<html>v1</html>"))
         .await

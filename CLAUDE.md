@@ -140,3 +140,14 @@ The final handoff must contain:
 Do not describe stubs, mocked flows, unexecuted tests, or inaccessible hardware as complete. Do not claim production readiness, perfect security, or guaranteed performance without supporting evidence. Completion is determined by the specification's acceptance criteria.
 
 When asked to begin implementation, read the required files, establish the current repository state, present a short execution plan, and immediately start the first implementation step. Continue through available work rather than returning only recommendations.
+
+## Explanation series (`açıklama/`)
+
+When the user says "açıklamaya devam et", "devam et", "başla" about the explanation documents, continue the series in `açıklama/`. Do not start new implementation work.
+
+1. Read `açıklama/açıklama_plan.md` first. The `next:` line in its code block names the document to write. Never guess the next document from memory.
+2. Follow that plan file for the document's topic, source files, structure and the accuracy rules (read every assigned source file fully before writing; cite `file:line`; label claims `[KOD]`, `[ÇALIŞTIRILDI]`, `[BELGE]`, `[TEST EDİLMEDİ]`, `[YORUM]`; no invented output; audit pass after writing).
+3. Write the document in Turkish under `açıklama/` with the exact file name from the plan.
+4. After each document, update `açıklama_plan.md`: `prev:` = the document written before this one, `now:` = the document just written, `next:` = the following document in the plan table; also update the progress table.
+5. Change the plan itself (document list, coverage table) only by editing the plan file first.
+6. Report briefly what was written, any code/doc inconsistencies found, and what `next:` is now. Write one document per request unless told otherwise.
