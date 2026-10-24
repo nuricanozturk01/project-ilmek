@@ -4,13 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Merhaba</title>
+  <link rel="stylesheet" href="ilmek-ui.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
+  <main class="hero">
+    <span class="logo big" aria-hidden="true">İ</span>
     <h1>Merhaba, İlmek!</h1>
-    <p>Bu sayfa internet olmadan, yalnızca yerel ağdaki bir bilgisayardan geldi.</p>
-    <button id="count" type="button">Tıklama sayısı: <span id="n">0</span></button>
+    <p class="lead">Bu sayfa internet olmadan, yalnızca yerel ağdaki bir bilgisayardan geldi.</p>
+    <div class="card pad counter">
+      <p class="meta">Tıklama sayısı</p>
+      <p id="n" class="count" aria-live="polite">0</p>
+      <button id="count" class="btn primary" type="button">Say</button>
+    </div>
   </main>
   <script src="app.js"></script>
 </body>

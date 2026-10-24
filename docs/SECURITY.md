@@ -47,27 +47,37 @@ not run for a stranger, because anybody can publish an application whose backend
 ## Application pages (untrusted HTML/JS)
 
 Removing network security does not make application pages trusted. The page can only reach the
-network through the SDK bridge. In the desktop client it is served from a custom protocol with:
+network through the SDK bridge. In the desktop client it runs in a sandboxed `<iframe>` of the shell (opaque origin: no cookies,
+no web storage, no access to the shell's DOM or commands) and is served from a custom scheme with:
 
 ```
-Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self';
-  img-src 'self' data: blob:; font-src 'self'; media-src 'self'; connect-src ipc: http://ipc.localhost;
+Content-Security-Policy: default-src 'none'; script-src ilmekapp: http://ilmekapp.localhost;
+  style-src …; img-src … data: blob:; font-src …; media-src …; connect-src 'none';
   frame-src 'none'; child-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none';
-  frame-ancestors 'none'
+  frame-ancestors tauri://localhost http://tauri.localhost http://localhost:1420;
+  sandbox allow-scripts allow-forms
 X-Content-Type-Options: nosniff   Cache-Control: no-store   Referrer-Policy: no-referrer
-Cross-Origin-Resource-Policy: same-origin
+Cross-Origin-Resource-Policy: cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=(), clipboard-read=()
 ```
 
-(`ipc:` / `ipc.localhost` is the WebView-internal channel to the native runtime, not a network
-destination.) The page receives only its own verified files. The bridge has **no field** for an
+Resources are allowed by scheme, not `'self'`: in a sandboxed document WebKit takes `'self'` to be
+the opaque origin and blocked the page's own files (observed). CORP had to become `cross-origin`
+for the same reason (an opaque origin is never "same-origin"). Consequence: a page could ask for
+files of *another currently open* application's package by its host name; those are static package
+files, never data. The only channel out is `postMessage` to the shell, which relays a request only
+for the frame it came from. `window.confirm`/`alert` do not work in the sandbox (apps confirm in
+place). The page receives only its own verified files. The bridge has **no field** for an
 application ID, host, address or file path, so a page cannot name another application or an
 arbitrary destination. A package only gets the capabilities its manifest declares: `app.call`,
 `app.subscribe`, `storage.local`. Limits: 200 000 bytes per call input, 1–60 s call timeout,
 storage values up to 256 KiB and 5 MiB per application, scoped by community, device and application.
 
 Verified in earlier work on `main` with `scripts/e2e/isolation-probe.sh` (Linux / WebKitGTK only,
-29 checks per hostile probe). **That script was not re-run on this branch**; the unit tests of the
+29 checks per hostile probe) for the **old one-window-per-app model**. **That script was not re-run
+and no longer matches the iframe model**; hostile-page behaviour in the iframe is covered only by
+SDK unit tests (forged replies from other sources are ignored) and a UI test (only the frame's own
+messages are relayed). The CSP/SDK route are unit-tested (`crates/ilmek-runtime/tests`, 15 tests); the unit tests of the
 bridge and content policy (`crates/ilmek-runtime/tests`, 14 tests) pass. Not verified at all:
 Windows (WebView2), macOS (WKWebView), Android WebView.
 

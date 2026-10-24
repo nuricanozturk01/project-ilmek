@@ -51,8 +51,12 @@ export interface History {
 }
 
 export interface Opened {
+  /** Names the application's session in the shell; the frame's messages are routed by it. */
   label: string
+  title: string
   stale: boolean
+  /** What the application's frame loads. */
+  url: string
 }
 
 export interface TransferProgress {
@@ -90,12 +94,42 @@ export const shell = {
   history: () => call<History>('shell_history'),
   bookmark: (address: string, on: boolean) => call<null>('shell_bookmark', { address, on }),
   diagnostics: () => call<string>('shell_diagnostics'),
+  /** Records the application tab `label` as the one on screen, or (`null`) a shell page. */
+  showTab: (label: string | null) => call<null>('shell_show_tab', { label }),
+  closeTab: (label: string) => call<null>('shell_close_tab', { label }),
+  /** Relays an application page's request to that tab's session. */
+  bridge: (label: string, request: unknown) => call<unknown>('shell_bridge', { label, request }),
+  /** `ilmek://` addresses the program was started or handed since the last call. */
+  pending: () => call<string[]>('shell_pending'),
+}
+
+export function onTabDiscarded(handler: (label: string) => void): Promise<() => void> {
+  return listen<string>('tab-discarded', (event) => {
+    handler(event.payload)
+  })
+}
+
+export function onOpenPending(handler: () => void): Promise<() => void> {
+  return listen<null>('open-pending', () => {
+    handler()
+  })
 }
 
 export function onTransferProgress(
   handler: (progress: TransferProgress) => void,
 ): Promise<() => void> {
   return listen<TransferProgress>('transfer-progress', (event) => {
+    handler(event.payload)
+  })
+}
+
+export interface AppEvent {
+  label: string
+  json: string
+}
+
+export function onAppEvent(handler: (event: AppEvent) => void): Promise<() => void> {
+  return listen<AppEvent>('app-event', (event) => {
     handler(event.payload)
   })
 }

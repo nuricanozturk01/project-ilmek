@@ -25,22 +25,19 @@ fn refuse(status: StatusCode) -> Response<Cow<'static, [u8]>> {
         .unwrap_or_else(|_| Response::new(Cow::Borrowed(&b""[..])))
 }
 
-/// A request is served only if the window that made it owns a session whose private host name
-/// matches the URL. Another window, or another application's host name, gets 403.
+/// A request is served only if its private host name belongs to an open session; any other host
+/// name gets 403. The host name is derived from the application id, so two tabs of one application
+/// share it (they serve the same package); the bridge tells tabs apart by frame, not by host.
 pub(crate) fn handle(
     ctx: UriSchemeContext<'_, Wry>,
     request: Request<Vec<u8>>,
 ) -> Response<Cow<'static, [u8]>> {
     let shell = ctx.app_handle().state::<Shell>();
-    let Some(session) = shell.session(ctx.webview_label()) else {
-        tracing::debug!(label = ctx.webview_label(), uri = %request.uri(), "no session for this window");
+    let uri = request.uri();
+    let Some(session) = uri.host().and_then(|host| shell.session_by_host(host)) else {
+        tracing::debug!(uri = %uri, "no open session for this host name");
         return refuse(StatusCode::FORBIDDEN);
     };
-    let uri = request.uri();
-    if uri.host() != Some(session.host_name().as_str()) {
-        tracing::debug!(uri = %uri, "request for another application's host name");
-        return refuse(StatusCode::FORBIDDEN);
-    }
     let target = uri
         .path_and_query()
         .map_or("/", tauri::http::uri::PathAndQuery::as_str);

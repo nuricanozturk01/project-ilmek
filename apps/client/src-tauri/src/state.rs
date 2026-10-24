@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Instant;
 
 use ilmek_runtime::{AppSession, Client};
 use tauri::{AppHandle, Manager};
@@ -26,6 +27,13 @@ pub(crate) struct Shell {
     sessions: Mutex<HashMap<String, Arc<AppSession>>>,
     transfers: Mutex<HashMap<String, CancellationToken>>,
     window_counter: AtomicU64,
+    /// When each live application tab was last the visible one.
+    last_shown: Mutex<HashMap<String, Instant>>,
+    /// The visible application tab, if the current tab is one.
+    shown: Mutex<Option<String>>,
+    /// `ilmek://` addresses handed to the program (links, command line) that the UI has not
+    /// picked up yet.
+    pending: Mutex<Vec<String>>,
 }
 
 impl Shell {
@@ -36,7 +44,81 @@ impl Shell {
             sessions: Mutex::new(HashMap::new()),
             transfers: Mutex::new(HashMap::new()),
             window_counter: AtomicU64::new(1),
+            last_shown: Mutex::new(HashMap::new()),
+            shown: Mutex::new(None),
+            pending: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Records which application tab is on screen (`None`: a shell page is).
+    pub(crate) fn set_shown(&self, label: Option<&str>) {
+        *self.shown.lock().unwrap_or_else(PoisonError::into_inner) = label.map(str::to_owned);
+        if let Some(label) = label {
+            self.last_shown
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .insert(label.to_owned(), Instant::now());
+        }
+    }
+
+    pub(crate) fn shown(&self) -> Option<String> {
+        self.shown
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    pub(crate) fn forget_tab(&self, label: &str) {
+        self.last_shown
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(label);
+        let mut shown = self.shown.lock().unwrap_or_else(PoisonError::into_inner);
+        if shown.as_deref() == Some(label) {
+            *shown = None;
+        }
+    }
+
+    /// Live tabs that are not on screen, least recently shown first, with how long ago.
+    pub(crate) fn background_tabs(&self) -> Vec<(String, std::time::Duration)> {
+        let shown = self.shown();
+        let seen = self
+            .last_shown
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let mut tabs: Vec<(String, std::time::Duration)> = self
+            .sessions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .keys()
+            .filter(|label| shown.as_deref() != Some(label.as_str()))
+            .map(|label| {
+                let idle = seen
+                    .get(label)
+                    .map_or(std::time::Duration::MAX, Instant::elapsed);
+                (label.clone(), idle)
+            })
+            .collect();
+        tabs.sort_by_key(|(_, idle)| std::cmp::Reverse(*idle));
+        tabs
+    }
+
+    pub(crate) fn live_tabs(&self) -> usize {
+        self.sessions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .len()
+    }
+
+    pub(crate) fn queue_address(&self, address: String) {
+        self.pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(address);
+    }
+
+    pub(crate) fn take_pending(&self) -> Vec<String> {
+        std::mem::take(&mut *self.pending.lock().unwrap_or_else(PoisonError::into_inner))
     }
 
     /// The opened client, loading the stored device identity on first use.
@@ -75,12 +157,14 @@ impl Shell {
             .cloned()
     }
 
-    pub(crate) fn has_sessions(&self) -> bool {
-        !self
-            .sessions
+    /// The session whose private host name is `host` (how the content scheme tells tabs apart).
+    pub(crate) fn session_by_host(&self, host: &str) -> Option<Arc<AppSession>> {
+        self.sessions
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .is_empty()
+            .values()
+            .find(|session| session.host_name() == host)
+            .cloned()
     }
 
     pub(crate) fn remove_session(&self, label: &str) -> Option<Arc<AppSession>> {

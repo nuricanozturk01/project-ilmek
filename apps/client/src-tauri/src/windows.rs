@@ -1,63 +1,72 @@
-use std::sync::Arc;
+//! Application tabs. The shell UI is the only webview; each open application is a sandboxed frame
+//! inside it (see `ilmek-runtime` for the page policy). What lives here is the tab *session*
+//! lifecycle: which tab is on screen, and giving up background tabs to save memory.
 
-use ilmek_runtime::AppSession;
-use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::time::Duration;
 
-use crate::error::UiError;
+use tauri::{AppHandle, Emitter, Manager};
+
 use crate::state::Shell;
 
-/// Opens an application in its own window. The window has its own label, so the bridge and the
-/// content scheme can tell it apart from every other window.
-pub(crate) fn open_app_window(
-    app: &AppHandle,
-    label: &str,
-    session: &Arc<AppSession>,
-) -> Result<(), UiError> {
-    let url = session
-        .start_url()
-        .parse()
-        .map_err(|_| UiError::new("window_failed"))?;
-    let guard = Arc::clone(session);
-    let title = session.manifest().name.to_string();
+/// At most this many application tabs keep a live session and frame; showing one more discards
+/// the one that has been in the background the longest.
+pub(crate) const MAX_LIVE_TABS: usize = 4;
+/// A background tab untouched for this long is discarded (its tab stays; reopening reloads it
+/// from the verified package cache).
+pub(crate) const IDLE_LIMIT: Duration = Duration::from_mins(10);
 
-    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::CustomProtocol(url))
-        .title(title)
-        .inner_size(960.0, 720.0)
-        .initialization_script(session.bootstrap_script())
-        .on_navigation(move |target| guard.allows_navigation(target.as_str()))
-        .on_new_window(|_, _| NewWindowResponse::Deny);
+/// Records which application tab is on screen (`None`: a shell page is).
+pub(crate) fn show_tab(app: &AppHandle, label: Option<&str>) {
+    app.state::<Shell>().set_shown(label);
+}
 
-    let window = builder.build().map_err(|error| {
-        tracing::error!(%error, "could not create the application window");
-        UiError::new("window_failed")
-    })?;
+/// Ends an application tab's session. The UI removes the frame itself.
+pub(crate) fn close_tab(app: &AppHandle, label: &str) {
+    let shell = app.state::<Shell>();
+    if let Some(session) = shell.remove_session(label) {
+        session.close();
+    }
+    shell.forget_tab(label);
+}
 
-    let handle = app.clone();
-    let closing = label.to_owned();
-    window.on_window_event(move |event| {
-        if matches!(event, tauri::WindowEvent::Destroyed) {
-            let shell = handle.state::<Shell>();
-            if let Some(session) = shell.remove_session(&closing) {
-                session.close();
-            }
-            if !shell.has_sessions() {
-                wipe_web_data(&handle);
+/// Gives a background tab's memory back; the UI keeps the tab and reloads it when it is chosen.
+pub(crate) fn discard_tab(app: &AppHandle, label: &str) {
+    close_tab(app, label);
+    let _ = app.emit("tab-discarded", label);
+}
+
+/// Keeps at most [`MAX_LIVE_TABS`] live tabs, never touching the visible one or `keep`.
+pub(crate) fn enforce_limit(app: &AppHandle, keep: &str) {
+    let shell = app.state::<Shell>();
+    while shell.live_tabs() > MAX_LIVE_TABS {
+        let Some((oldest, _)) = shell
+            .background_tabs()
+            .into_iter()
+            .find(|(label, _)| label != keep)
+        else {
+            return;
+        };
+        discard_tab(app, &oldest);
+    }
+}
+
+/// Every half minute, discards background tabs that have not been looked at for [`IDLE_LIMIT`].
+pub(crate) fn start_idle_sweeper(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(30));
+        loop {
+            tick.tick().await;
+            let idle: Vec<String> = app
+                .state::<Shell>()
+                .background_tabs()
+                .into_iter()
+                .filter(|(_, idle)| *idle >= IDLE_LIMIT)
+                .map(|(label, _)| label)
+                .collect();
+            for label in idle {
+                discard_tab(&app, &label);
             }
         }
     });
-    Ok(())
-}
-
-/// Web storage (localStorage, IndexedDB, cookies) is keyed by origin alone, which here means by
-/// application id, and would outlive the session, the community and the identity. Applications
-/// are told to use the SDK's scoped storage, so the WebView's own data is wiped when no
-/// application is open and again at start-up.
-pub(crate) fn wipe_web_data(app: &AppHandle) {
-    let Some(main) = app.get_webview_window("main") else {
-        return;
-    };
-    if let Err(error) = main.clear_all_browsing_data() {
-        tracing::warn!(%error, "could not clear the WebView's stored data");
-    }
 }

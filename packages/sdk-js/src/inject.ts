@@ -1,54 +1,84 @@
 import { createSdk, type Runtime } from './sdk.js'
 import type { BridgeEvent, BridgeRequest } from './types.js'
 
-interface TauriInternals {
-  invoke(command: string, args: unknown): Promise<unknown>
-}
-
 interface Bootstrap {
   id: string
   version: string
   path: string
 }
 
-/** The page globals the native shell prepares before this script runs. */
+interface MessageLike {
+  source: unknown
+  data: unknown
+}
+
+/** What this script needs of the page it runs in. The page is always a sandboxed frame of the shell. */
 interface ShellWindow {
-  __TAURI_INTERNALS__?: TauriInternals
   __ILMEK_BOOTSTRAP__?: Bootstrap
-  __ilmekDeliver?: (json: string) => void
+  parent?: { postMessage(message: unknown, targetOrigin: string): void }
+  addEventListener(type: 'message', listener: (event: MessageLike) => void): void
   ilmek?: unknown
 }
 
-/** Installs `window.ilmek` once; later attempts by page scripts cannot replace it. */
-export function install(target: ShellWindow): void {
-  const internals = target.__TAURI_INTERNALS__
+interface Pending {
+  resolve(response: unknown): void
+}
+
+function isMessage(data: unknown): data is Record<string, unknown> {
+  return typeof data === 'object' && data !== null && (data as { ilmek?: unknown }).ilmek === 1
+}
+
+/**
+ * Installs `window.ilmek` once; later attempts by page scripts cannot replace it.
+ *
+ * The page cannot reach the network or any native command. Its only channel is
+ * `postMessage` to the parent (the shell), and it believes only messages whose source is that
+ * parent. The shell decides which application a request belongs to by which frame sent it.
+ */
+export function install(target: ShellWindow & object): void {
   const bootstrap = target.__ILMEK_BOOTSTRAP__
-  if (internals === undefined || bootstrap === undefined) return
+  const shell = target.parent
+  if (bootstrap === undefined || shell === undefined || shell === (target as unknown)) return
   delete target.__ILMEK_BOOTSTRAP__
 
+  const pending = new Map<string, Pending>()
+  let counter = 0
   let sink: (event: BridgeEvent) => void = () => undefined
+
+  target.addEventListener('message', (event) => {
+    if (event.source !== shell || !isMessage(event.data)) return
+    const message = event.data
+    if (typeof message.event === 'string') {
+      sink(JSON.parse(message.event) as BridgeEvent)
+      return
+    }
+    if (typeof message.id !== 'string') return
+    const waiting = pending.get(message.id)
+    if (waiting === undefined) return
+    pending.delete(message.id)
+    waiting.resolve(message.response)
+  })
+
   const runtime: Runtime = {
     transport: {
-      request: (message: BridgeRequest) => internals.invoke('ilmek_bridge', { request: message }),
+      request: (request: BridgeRequest) =>
+        new Promise<unknown>((resolve) => {
+          counter += 1
+          const id = `r${String(counter)}`
+          pending.set(id, { resolve })
+          shell.postMessage({ ilmek: 1, id, request }, '*')
+        }),
     },
     setEventSink: (next) => {
       sink = next
     },
   }
-  const sdk = createSdk(runtime, bootstrap)
 
-  Object.defineProperty(target, '__ilmekDeliver', {
-    value: (json: string) => {
-      sink(JSON.parse(json) as BridgeEvent)
-    },
-    writable: false,
-    configurable: false,
-  })
   Object.defineProperty(target, 'ilmek', {
-    value: Object.freeze(sdk),
+    value: Object.freeze(createSdk(runtime, bootstrap)),
     writable: false,
     configurable: false,
   })
 }
 
-install(globalThis as unknown as ShellWindow)
+install(globalThis)

@@ -360,7 +360,7 @@ async fn the_bootstrap_script_carries_the_verified_identity_and_the_sdk() {
     let script = session.bootstrap_script();
     assert!(script.starts_with("window.__ILMEK_BOOTSTRAP__ = {"));
     assert!(script.contains(&session.record().app_id.to_string()));
-    assert!(script.contains("ilmek_bridge"));
+    assert!(script.contains("postMessage"));
     assert!(session.host_name().starts_with("app-"));
 }
 
@@ -540,4 +540,27 @@ async fn cache_and_data_are_listed_and_removable() {
         !report.contains("BEGIN") && !report.contains("token"),
         "diagnostics must hold no secrets"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn html_loads_the_sdk_first_and_the_sdk_route_is_served_with_the_policy() {
+    let stack = stack(all_permissions(), "notlar").await;
+    let session = open(&stack, "notlar").await;
+
+    let entry = session.serve("/");
+    let html = String::from_utf8(entry.body).expect("utf-8 html");
+    let tag = format!("<script src=\"{}\"></script>", ilmek_runtime::SDK_PATH);
+    assert_eq!(html.matches(&tag).count(), 1, "{html}");
+    let script_at = html.find(&tag).expect("tag");
+    if let Some(own) = html.find("<script") {
+        assert!(script_at <= own, "the SDK must come before page scripts");
+    }
+
+    let sdk = session.serve(ilmek_runtime::SDK_PATH);
+    assert_eq!(sdk.status, 200);
+    assert!(String::from_utf8_lossy(&sdk.body).starts_with("window.__ILMEK_BOOTSTRAP__ = {"));
+    assert!(sdk.headers.iter().any(|(name, value)| {
+        name.eq_ignore_ascii_case("content-security-policy")
+            && value == ilmek_runtime::CONTENT_SECURITY_POLICY
+    }));
 }

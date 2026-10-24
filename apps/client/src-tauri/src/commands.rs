@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use ilmek_runtime::{CachedApp, CatalogPage, Client, Response, Status};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State, Webview};
+use tauri::{AppHandle, Emitter, State};
 
 use crate::error::UiError;
 use crate::sink::WindowSink;
@@ -85,7 +85,9 @@ struct TransferProgress {
 #[derive(Serialize)]
 pub(crate) struct Opened {
     label: String,
+    title: String,
     stale: bool,
+    url: String,
 }
 
 #[tauri::command]
@@ -98,13 +100,16 @@ pub(crate) async fn shell_open(
     open_address(&app, &shell, &address, &transfer_id).await
 }
 
-/// Resolves, downloads, verifies and opens `address` in a new window.
+/// Resolves, downloads, verifies and prepares `address` as an application tab: a session and the
+/// URL of the frame the UI puts it in.
 pub(crate) async fn open_address(
     app: &AppHandle,
     shell: &Shell,
     address: &str,
     transfer_id: &str,
 ) -> UiResult<Opened> {
+    let started = std::time::Instant::now();
+    tracing::debug!(address, "opening an application");
     let client = client(shell)?;
     let label = shell.next_label();
     let sink = Arc::new(WindowSink {
@@ -133,13 +138,17 @@ pub(crate) async fn open_address(
         )
         .await;
     shell.end_transfer(transfer_id);
+    tracing::debug!(address, elapsed = ?started.elapsed(), ok = opened.is_ok(), "application fetched");
 
     let (session, source) = opened?;
     shell.add_session(&label, Arc::clone(&session));
-    windows::open_app_window(app, &label, &session)?;
+    windows::enforce_limit(app, &label);
+    tracing::debug!(address, "application tab ready");
     Ok(Opened {
         label,
+        title: session.manifest().name.to_string(),
         stale: source == ilmek_client::Source::StaleCache,
+        url: session.start_url(),
     })
 }
 
@@ -183,24 +192,32 @@ pub(crate) fn shell_diagnostics(shell: State<'_, Shell>) -> UiResult<String> {
     Ok(client(&shell)?.diagnostics())
 }
 
+/// Shows the application tab `label`, or (`None`) lets a shell page show.
 #[tauri::command]
-pub(crate) fn shell_close_app(app: AppHandle, label: String) {
-    if let Some(window) = app.get_webview_window(&label) {
-        let _ = window.close();
-    }
+pub(crate) fn shell_show_tab(app: AppHandle, label: Option<String>) {
+    windows::show_tab(&app, label.as_deref());
 }
 
-/// The only command application pages may call. The application is identified by the calling
-/// window's label, which the page cannot choose or change.
 #[tauri::command]
-pub(crate) async fn ilmek_bridge(
-    webview: Webview,
+pub(crate) fn shell_close_tab(app: AppHandle, label: String) {
+    windows::close_tab(&app, &label);
+}
+
+/// `ilmek://` addresses the program was started with or handed since the UI last asked.
+#[tauri::command]
+pub(crate) fn shell_pending(shell: State<'_, Shell>) -> Vec<String> {
+    shell.take_pending()
+}
+
+/// Relays a request of an application page to that tab's session. Called only by the shell UI,
+/// which knows the tab from the frame the message came from; pages have no command access.
+#[tauri::command]
+pub(crate) async fn shell_bridge(
     shell: State<'_, Shell>,
+    label: String,
     request: serde_json::Value,
 ) -> UiResult<Response> {
-    let session = shell
-        .session(webview.label())
-        .ok_or(UiError::new("forbidden"))?;
+    let session = shell.session(&label).ok_or(UiError::new("forbidden"))?;
     let operation = request
         .get("op")
         .and_then(serde_json::Value::as_str)

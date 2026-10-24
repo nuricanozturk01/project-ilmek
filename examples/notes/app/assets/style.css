@@ -1,14 +1,1 @@
-:root { color-scheme: light dark; --accent: #2f6fed; }
-* { box-sizing: border-box; }
-body { font: 16px/1.5 system-ui, sans-serif; margin: 0 auto; padding: 0 0.75rem 3rem; max-width: 56rem; }
-header { display: flex; justify-content: space-between; align-items: baseline; }
-main { display: grid; grid-template-columns: 14rem 1fr; gap: 1rem; }
-@media (max-width: 40rem) { main { grid-template-columns: 1fr; } }
-ul { list-style: none; padding: 0; }
-li button { all: unset; display: block; width: 100%; padding: 0.4rem; cursor: pointer; }
-li button:focus-visible, button:focus-visible { outline: 2px solid var(--accent); }
-form { display: grid; gap: 0.75rem; }
-input, textarea, button { font: inherit; padding: 0.5rem; }
-.row { display: flex; gap: 0.5rem; }
-#notice:empty { display: none; }
-#notice { grid-column: 1 / -1; padding: 0.75rem; background: color-mix(in srgb, #d9534f 20%, transparent); border-radius: 0.4rem; }
+#notes { max-height: 60vh; overflow: auto; border-top: 1px solid var(--line); }

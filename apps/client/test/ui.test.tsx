@@ -54,7 +54,9 @@ function respond(overrides: Record<string, unknown> = {}) {
       shell_catalog: { entries: [entry], next_cursor: null },
       shell_history: { visited: ['ilmek://nuri/merhaba'], bookmarks: [] },
       shell_cached: [],
-      shell_open: { label: 'app-1', stale: false },
+      shell_open: { label: 'app-1', title: 'Forum', stale: false, url: 'ilmekapp://app-1/index.html' },
+      shell_pending: [],
+      shell_show_tab: null,
       shell_cancel: null,
       shell_bookmark: null,
       shell_join: null,
@@ -160,6 +162,49 @@ describe('discovering and opening applications', () => {
     })
   })
 
+  it('shows the application in a sandboxed frame and relays only that frame\'s requests', async () => {
+    respond({
+      shell_bridge: { ok: true, result: 'connected' },
+    })
+    const user = userEvent.setup()
+    renderApp()
+    const card = (await screen.findByText('Ortak forum')).closest('li') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'Aç' }))
+
+    const frame = await waitFor(() => {
+      const element = document.querySelector('iframe.app-frame')
+      expect(element).not.toBeNull()
+      return element as HTMLIFrameElement
+    })
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms')
+    expect(frame.getAttribute('src')).toBe('ilmekapp://app-1/index.html')
+    const request = { v: 1, op: 'connection.state' }
+    const posted: unknown[] = []
+    const frameWindow = frame.contentWindow
+    if (frameWindow === null) throw new Error('the frame has no window')
+    frameWindow.postMessage = (message: unknown) => {
+      posted.push(message)
+    }
+
+    window.dispatchEvent(
+      new MessageEvent('message', { data: { ilmek: 1, id: 'x', request }, source: window }),
+    )
+    window.dispatchEvent(
+      new MessageEvent('message', { data: { ilmek: 1, id: 'r1', request }, source: frameWindow }),
+    )
+
+    await waitFor(() => {
+      expect(posted).toEqual([
+        { ilmek: 1, id: 'r1', response: { ok: true, result: 'connected' } },
+      ])
+    })
+    const relayed = invoke.mock.calls.filter(([command]) => command === 'shell_bridge')
+    expect(relayed).toEqual([['shell_bridge', { label: 'app-1', request }]])
+
+    listeners.get('app-event')?.({ payload: { label: 'app-1', json: '{"kind":"event"}' } })
+    expect(posted.at(-1)).toEqual({ ilmek: 1, event: '{"kind":"event"}' })
+  })
+
   it('opens a typed address and offers a bookmark', async () => {
     respond()
     const user = userEvent.setup()
@@ -194,6 +239,7 @@ describe('discovering and opening applications', () => {
       if (command === 'shell_catalog')
         return Promise.resolve({ entries: [entry], next_cursor: null })
       if (command === 'shell_history') return Promise.resolve({ visited: [], bookmarks: [] })
+      if (command === 'shell_pending') return Promise.resolve([])
       return Promise.resolve(null)
     })
     const user = userEvent.setup()
@@ -223,6 +269,7 @@ describe('discovering and opening applications', () => {
       if (command === 'shell_catalog')
         return Promise.resolve({ entries: [entry], next_cursor: null })
       if (command === 'shell_history') return Promise.resolve({ visited: [], bookmarks: [] })
+      if (command === 'shell_pending') return Promise.resolve([])
       return Promise.resolve(null)
     })
     const user = userEvent.setup()

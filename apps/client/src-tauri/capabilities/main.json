@@ -1,8 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-window",
-  "description": "The trusted shell UI. Application pages never get these permissions.",
-  "windows": ["main"],
+  "description": "The trusted shell UI (the `main` window's only webview). Application pages run in sandboxed frames and get no permissions.",
   "permissions": [
     "core:event:default",
     "allow-shell-state",
@@ -16,6 +15,12 @@
     "allow-shell-history",
     "allow-shell-bookmark",
     "allow-shell-diagnostics",
-    "allow-shell-close-app"
+    "allow-shell-show-tab",
+    "allow-shell-close-tab",
+    "allow-shell-pending",
+    "allow-shell-bridge"
+  ],
+  "windows": [
+    "main"
   ]
 }

@@ -1,9 +1,7 @@
 'use strict'
 
 const sdk = window.ilmek
-const $ = (id) => document.getElementById(id)
-const notice = (text) => { $('notice').textContent = text }
-const short = (author) => author.slice(-8)
+const { $, el, avatar, who, toast, skeleton, empty, connection } = window.ui
 
 let openTopic = null
 
@@ -18,29 +16,31 @@ function describeFailure(error) {
 }
 
 async function run(action) {
-  notice('')
-  try { return await action() } catch (error) { notice(describeFailure(error)); return null }
+  try { return await action() } catch (error) { toast(describeFailure(error), 'error'); return null }
+}
+
+function topicRow(topic) {
+  const count = topic.comment_count
+  return el('li', {},
+    el('button', { class: 'item', type: 'button', onclick: () => showTopic(topic.id) },
+      avatar(topic.author),
+      el('span', { class: 'grow' },
+        el('span', { class: 'item-title', text: topic.title }),
+        el('span', { class: 'item-text', text: `${who(topic.author)} tarafından` })),
+      el('span', { class: `tag topic-count${count === 0 ? '' : ' ok'}`, text: count === 0 ? 'yanıt yok' : `${count} yorum` })))
 }
 
 function renderTopics(topics) {
   const list = $('topics')
-  list.replaceChildren(...topics.map((topic) => {
-    const item = document.createElement('li')
-    const open = document.createElement('button')
-    open.type = 'button'
-    open.className = 'link'
-    open.textContent = topic.title
-    open.addEventListener('click', () => showTopic(topic.id))
-    const meta = document.createElement('div')
-    meta.className = 'meta'
-    meta.textContent = `${short(topic.author)} · ${topic.comment_count} yorum`
-    item.append(open, meta)
-    return item
-  }))
-  $('topics-empty').hidden = topics.length > 0
+  if (topics.length === 0) {
+    list.replaceChildren(el('li', {}, empty('💬', 'Henüz konu yok', 'İlk konuyu siz açın.')))
+    return
+  }
+  list.replaceChildren(...topics.map(topicRow))
 }
 
 async function loadTopics() {
+  if ($('topics').childElementCount === 0) $('topics').replaceChildren(el('li', {}, skeleton()))
   const result = await run(() => sdk.call('forum.topics.list', { limit: 50 }))
   if (result) renderTopics(result.topics)
 }
@@ -49,19 +49,21 @@ async function showTopic(id) {
   const result = await run(() => sdk.call('forum.topic.get', { topic_id: id }))
   if (!result) return
   openTopic = id
-  $('topic-title').textContent = result.topic.title
-  $('topic-body').textContent = result.topic.body
-  $('comments').replaceChildren(...result.comments.map((comment) => {
-    const item = document.createElement('li')
-    item.textContent = comment.body
-    const meta = document.createElement('div')
-    meta.className = 'meta'
-    meta.textContent = short(comment.author)
-    item.append(meta)
-    return item
-  }))
+  const { topic, comments } = result
+  $('topic-title').textContent = topic.title
+  $('topic-author').textContent = `${who(topic.author)} tarafından`
+  $('topic-avatar').replaceChildren(avatar(topic.author))
+  $('topic-body').textContent = topic.body
+  $('comments-heading').textContent = comments.length === 0 ? 'Henüz yorum yok' : `${comments.length} yorum`
+  $('comments').replaceChildren(...comments.map((comment) =>
+    el('li', { class: 'bubble' },
+      avatar(comment.author, true),
+      el('div', { class: 'bubble-body' },
+        el('div', { class: 'meta', text: who(comment.author) }),
+        el('div', { text: comment.body })))))
   $('list-view').hidden = true
   $('topic-view').hidden = false
+  window.scrollTo(0, 0)
 }
 
 function showList() {
@@ -71,7 +73,23 @@ function showList() {
   loadTopics()
 }
 
+function setComposing(on) {
+  $('new-topic').hidden = !on
+  $('toggle-compose').setAttribute('aria-expanded', String(on))
+  if (on) $('new-topic').elements.title.focus()
+}
+
+function submitOnCtrlEnter(form) {
+  form.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) form.requestSubmit()
+  })
+}
+
 $('back').addEventListener('click', showList)
+$('toggle-compose').addEventListener('click', () => setComposing($('new-topic').hidden))
+$('cancel-compose').addEventListener('click', () => setComposing(false))
+submitOnCtrlEnter($('new-topic'))
+submitOnCtrlEnter($('new-comment'))
 
 $('new-topic').addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -79,7 +97,7 @@ $('new-topic').addEventListener('submit', async (event) => {
   const data = new FormData(form)
   const created = await run(() => sdk.call('forum.topics.create',
     { title: data.get('title'), body: data.get('body') }, { write: true }))
-  if (created) { form.reset(); loadTopics() }
+  if (created) { form.reset(); setComposing(false); toast('Konu açıldı.'); loadTopics() }
 })
 
 $('new-comment').addEventListener('submit', async (event) => {
@@ -90,12 +108,10 @@ $('new-comment').addEventListener('submit', async (event) => {
   if (added) { form.reset(); showTopic(openTopic) }
 })
 
-sdk.connection.onChange((state) => {
-  $('connection').textContent = state === 'connected' ? 'Bağlı' : 'Bağlantı yok'
-})
+connection($('connection'))
 
 // Subscribe first, then load the current state, so no change falls between the two.
 sdk.subscribe('forum.events', null, (event) => {
   if (openTopic === null) loadTopics()
   else if (event.topic_id === openTopic) showTopic(openTopic)
-}).then(loadTopics)
+}).then(loadTopics, loadTopics)

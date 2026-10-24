@@ -107,7 +107,7 @@ Masaüstü penceresi için `cd apps/client && bun run tauri dev` ve "Bul ve kat�
 Masaüstü istemci İlmek'in kendi tarayıcısıdır: adres çubuğu, katalog ve her uygulama için ayrı
 pencere. Kurulunca `ilmek://` bağlantılarının sahibi olarak kaydolur; Chrome'a `ilmek://nuri/forum`
 yazınca (Chrome bir kez "açılsın mı?" sorar) uygulama istemcide açılır. İstemci zaten açıksa aynı
-programda yeni pencere olur. Adımlar: [FIRST_DEMO](FIRST_DEMO.md) bölüm 6. Linux'ta denendi;
+programda yeni sekme olur. Adımlar: [FIRST_DEMO](FIRST_DEMO.md) bölüm 6. Linux'ta denendi;
 macOS'ta `.app` paketi ve Chrome ile **denenmedi**.
 
 ## 4. Başka bir makine de uygulama sunsun

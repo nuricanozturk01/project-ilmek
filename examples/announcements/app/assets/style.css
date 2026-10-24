@@ -1,3 +1,1 @@
-:root { color-scheme: light dark; }
-body { font: 17px/1.6 system-ui, sans-serif; margin: 0 auto; max-width: 40rem; padding: 1rem; }
-article { border-block-end: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+/* The shared look lives in ilmek-ui.css. */

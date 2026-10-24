@@ -8,13 +8,8 @@ mod sink;
 mod state;
 mod windows;
 
-use std::sync::atomic::{AtomicU64, Ordering};
-
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
-
-/// Numbers the transfers started from `ilmek://` links, so their ids never collide.
-static LINKS: AtomicU64 = AtomicU64::new(0);
 
 pub fn run() {
     let level = std::env::var("ILMEK_LOG")
@@ -41,7 +36,7 @@ pub fn run() {
         .setup(|app| {
             let root = state::data_root(app.handle())?;
             app.manage(state::Shell::new(root));
-            windows::wipe_web_data(app.handle());
+            windows::start_idle_sweeper(app.handle());
             // `ilmek://…` links from a browser or the OS: macOS delivers them as events, Linux and
             // Windows as arguments of a new process (handled by the single-instance plugin).
             let handle = app.handle().clone();
@@ -72,8 +67,10 @@ pub fn run() {
             commands::shell_history,
             commands::shell_bookmark,
             commands::shell_diagnostics,
-            commands::shell_close_app,
-            commands::ilmek_bridge,
+            commands::shell_show_tab,
+            commands::shell_close_tab,
+            commands::shell_pending,
+            commands::shell_bridge,
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {
@@ -82,35 +79,22 @@ pub fn run() {
     }
 }
 
-/// Opens one `ilmek://` link the operating system handed to this program.
+/// An `ilmek://` link the operating system handed to this program: the UI opens it in a tab.
 fn open_link(app: &tauri::AppHandle, address: &str) {
     if !address.starts_with("ilmek://") {
         return;
     }
-    let (app, address) = (app.clone(), address.to_owned());
-    let transfer = format!("link-{}", LINKS.fetch_add(1, Ordering::Relaxed));
-    tauri::async_runtime::spawn(async move {
-        let shell = app.state::<state::Shell>();
-        if let Err(error) = commands::open_address(&app, &shell, &address, &transfer).await {
-            tracing::error!(code = error.code, "could not open an ilmek:// link");
-        }
-    });
+    app.state::<state::Shell>()
+        .queue_address(address.to_owned());
+    let _ = app.emit("open-pending", ());
 }
 
 /// `ilmek-client ilmek://publisher/app ...` opens those applications right after start-up.
 fn open_startup_addresses(app: &tauri::AppHandle) {
-    for (index, address) in std::env::args()
+    for address in std::env::args()
         .skip(1)
         .filter(|arg| arg.starts_with("ilmek://"))
-        .enumerate()
     {
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            let shell = app.state::<state::Shell>();
-            let transfer = format!("startup-{index}");
-            if let Err(error) = commands::open_address(&app, &shell, &address, &transfer).await {
-                tracing::error!(code = error.code, "could not open a start-up address");
-            }
-        });
+        open_link(app, &address);
     }
 }

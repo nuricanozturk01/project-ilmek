@@ -4,26 +4,41 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Notlar</title>
+  <link rel="stylesheet" href="ilmek-ui.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header><h1>Notlar</h1><span id="connection" role="status" aria-live="polite"></span></header>
-  <main>
-    <aside aria-label="Not listesi">
-      <button id="new" type="button">Yeni not</button>
-      <ul id="notes"></ul>
-    </aside>
-    <form id="editor" hidden>
-      <label>Başlık <input name="title" maxlength="200" required></label>
-      <label>İçerik <textarea name="body" rows="12" maxlength="20000"></textarea></label>
-      <p id="draft-state" role="status"></p>
-      <div class="row">
-        <button type="submit">Kaydet</button>
-        <button id="delete" type="button">Sil</button>
-      </div>
-    </form>
-    <p id="notice" role="alert"></p>
-  </main>
+  <div class="shell shell-wide">
+    <header class="topbar">
+      <span class="logo" aria-hidden="true">N</span>
+      <h1>Notlar</h1>
+      <span id="connection" class="chip" role="status" aria-live="polite">…</span>
+    </header>
+    <div class="split">
+      <aside class="card" aria-label="Not listesi">
+        <div class="pad stack">
+          <button id="new" class="btn primary" type="button">Yeni not</button>
+          <input id="filter" class="search" type="search" placeholder="Notlarda ara" aria-label="Notlarda ara" autocomplete="off">
+        </div>
+        <ul id="notes" class="list"></ul>
+      </aside>
+      <main>
+        <form id="editor" class="card pad stack" hidden>
+          <label class="field">Başlık <input name="title" maxlength="200" required autocomplete="off"></label>
+          <label class="field">İçerik <textarea name="body" rows="14" maxlength="20000"></textarea></label>
+          <div class="row spread">
+            <span id="draft-state" class="meta" role="status"></span>
+            <span class="row">
+              <button id="delete" class="btn danger" type="button">Sil</button>
+              <button class="btn primary" type="submit">Kaydet</button>
+            </span>
+          </div>
+        </form>
+        <div id="placeholder" class="card"></div>
+      </main>
+    </div>
+  </div>
+  <script src="ilmek-ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

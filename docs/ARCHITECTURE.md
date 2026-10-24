@@ -133,10 +133,10 @@ change and its deduplication record in one SQLite transaction, so a retry after 
 returns the original result.
 
 **Opening a link from a browser.** The desktop client is İlmek's browser: address bar, catalog, one
-window per application. It registers itself as the operating system's handler of `ilmek://`
+browser tab per application (all in one window, one webview). It registers itself as the operating system's handler of `ilmek://`
 (a packaged `.app` on macOS, a `.desktop` file written at start-up on Linux, the registry on Windows).
 A link typed or clicked in Chrome therefore starts the client, or, if it already runs, is forwarded to
-that instance by the `single-instance` plugin, which opens the application in a new window.
+that instance by the `single-instance` plugin, which opens the application in a new tab.
 Browsers cannot render `ilmek://` themselves and cannot register the scheme from a web page or
 extension; the operating system does it.
 
@@ -145,8 +145,18 @@ flowchart LR
     C["Chrome: ilmek://nuri/forum"] --> OS["OS scheme handler"]
     OS --> A["İlmek client (already running or started)"]
     A --> N["find node, download, verify"]
-    N --> W["application window with the SDK bridge"]
+    N --> W["tab: sandboxed iframe, SDK over postMessage"]
 ```
+
+**Tabs.** The client has one webview, the shell UI. Each open application is an
+`<iframe sandbox="allow-scripts allow-forms">` in it, loaded from the `ilmekapp://` scheme. A page
+has no Tauri commands at all: the SDK (served by the scheme at `/__ilmek/sdk.js`, injected into
+every HTML file) talks to its parent with `postMessage`; the shell accepts a message only if its
+`source` is one of its own frames and relays it to that tab's session (`shell_bridge`), answering to
+the same frame. Events go the other way as JSON text. At most 4 tabs keep a live frame and session;
+the one hidden longest (or any hidden for 10 minutes) is discarded and reloaded from the verified
+package cache when chosen. A multi-webview layout was tried first and dropped: on Linux wry stacks
+child webviews in a `gtk::Box`, so they cannot be positioned.
 
 ## Process boundaries
 

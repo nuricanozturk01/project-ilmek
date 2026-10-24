@@ -7,7 +7,7 @@ import {
   useReducer,
   type ReactNode,
 } from 'react'
-import { ShellError, onTransferProgress, shell } from '../../shared/ipc.js'
+import { ShellError, onTransferProgress, shell, type Opened } from '../../shared/ipc.js'
 
 export interface Transfer {
   id: string
@@ -24,6 +24,12 @@ type Action =
   | { type: 'progress'; id: string; done: number; total: number }
   | { type: 'finish'; id: string; stale: boolean }
   | { type: 'fail'; id: string; error: string }
+  | { type: 'dismiss'; id: string }
+  | { type: 'clear' }
+
+export function isActive(transfer: Transfer): boolean {
+  return transfer.state === 'connecting' || transfer.state === 'downloading'
+}
 
 function reduce(state: Transfer[], action: Action): Transfer[] {
   switch (action.type) {
@@ -43,13 +49,26 @@ function reduce(state: Transfer[], action: Action): Transfer[] {
       return state.map((t) =>
         t.id === action.id ? { ...t, state: 'failed', error: action.error } : t,
       )
+    case 'dismiss':
+      return state.filter((t) => t.id !== action.id)
+    case 'clear':
+      return state.filter(isActive)
   }
 }
 
 interface TransferApi {
   transfers: Transfer[]
-  start: (address: string) => Promise<void>
+  /** Fetches and opens `address`; resolves to the opened tab, or `null` when it failed. */
+  start: (address: string, id?: string) => Promise<Opened | null>
   cancel: (id: string) => void
+  /** Starts the same address again and removes the failed attempt. */
+  retry: (id: string) => void
+  dismiss: (id: string) => void
+  /** Removes every finished or failed entry. */
+  clearFinished: () => void
+  /** `true` while this address is being fetched or opened. */
+  isBusy: (address: string) => boolean
+  activeCount: number
 }
 
 const TransferContext = createContext<TransferApi | null>(null)
@@ -72,8 +91,8 @@ export function TransferProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const start = useCallback(async (address: string) => {
-    const id = crypto.randomUUID()
+  const start = useCallback(async (address: string, given?: string) => {
+    const id = given ?? crypto.randomUUID()
     dispatch({
       type: 'add',
       transfer: { id, address, state: 'connecting', done: 0, total: 0, stale: false, error: null },
@@ -81,8 +100,10 @@ export function TransferProvider({ children }: { children: ReactNode }) {
     try {
       const opened = await shell.open(address, id)
       dispatch({ type: 'finish', id, stale: opened.stale })
+      return opened
     } catch (error) {
       dispatch({ type: 'fail', id, error: error instanceof ShellError ? error.code : 'unknown' })
+      return null
     }
   }, [])
 
@@ -90,7 +111,35 @@ export function TransferProvider({ children }: { children: ReactNode }) {
     void shell.cancel(id)
   }, [])
 
-  const value = useMemo(() => ({ transfers, start, cancel }), [transfers, start, cancel])
+  const retry = useCallback(
+    (id: string) => {
+      const failed = transfers.find((t) => t.id === id)
+      if (failed === undefined) return
+      dispatch({ type: 'dismiss', id })
+      void start(failed.address)
+    },
+    [transfers, start],
+  )
+
+  const dismiss = useCallback((id: string) => {
+    dispatch({ type: 'dismiss', id })
+  }, [])
+
+  const clearFinished = useCallback(() => {
+    dispatch({ type: 'clear' })
+  }, [])
+
+  const isBusy = useCallback(
+    (address: string) => transfers.some((t) => t.address === address && isActive(t)),
+    [transfers],
+  )
+
+  const activeCount = transfers.filter(isActive).length
+
+  const value = useMemo(
+    () => ({ transfers, start, cancel, retry, dismiss, clearFinished, isBusy, activeCount }),
+    [transfers, start, cancel, retry, dismiss, clearFinished, isBusy, activeCount],
+  )
   return <TransferContext value={value}>{children}</TransferContext>
 }
 

@@ -14,6 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::SDK_SCRIPT;
 use crate::assets::{AssetPolicy, AssetResponse};
+use crate::assets::{SDK_PATH, inject_sdk, security_headers};
 use crate::bridge::{CallRequest, Failure, Request, Response};
 use crate::events::{BridgeEvent, EventSink};
 use crate::storage::AppStorage;
@@ -116,8 +117,8 @@ impl AppSession {
         format!("{}/{}", self.origin(), self.manifest.entrypoint)
     }
 
-    /// Script run in the page before any of its own code. The identity it carries comes from the
-    /// verified package and the registry record, never from the page.
+    /// The script served at [`SDK_PATH`], run by the page before any of its own code. The identity
+    /// it carries comes from the verified package and the registry record, never from the page.
     #[must_use]
     pub fn bootstrap_script(&self) -> String {
         let info = json!({
@@ -130,7 +131,20 @@ impl AppSession {
 
     #[must_use]
     pub fn serve(&self, request_path: &str) -> AssetResponse {
-        self.assets.serve(request_path)
+        let path = request_path.split(['?', '#']).next().unwrap_or_default();
+        if path == SDK_PATH {
+            return AssetResponse {
+                status: 200,
+                content_type: "text/javascript; charset=utf-8",
+                headers: security_headers(),
+                body: self.bootstrap_script().into_bytes(),
+            };
+        }
+        let mut response = self.assets.serve(request_path);
+        if response.status == 200 && response.content_type.starts_with("text/html") {
+            response.body = inject_sdk(&response.body);
+        }
+        response
     }
 
     #[must_use]

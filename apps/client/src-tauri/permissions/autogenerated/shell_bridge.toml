@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shell-bridge"
+description = "Enables the shell_bridge command without any pre-configured scope."
+commands.allow = ["shell_bridge"]
+
+[[permission]]
+identifier = "deny-shell-bridge"
+description = "Denies the shell_bridge command without any pre-configured scope."
+commands.deny = ["shell_bridge"]

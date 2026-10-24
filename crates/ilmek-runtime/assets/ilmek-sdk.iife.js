@@ -143,30 +143,45 @@
   }
 
   // src/inject.ts
+  function isMessage(data) {
+    return typeof data === "object" && data !== null && data.ilmek === 1;
+  }
   function install(target) {
-    const internals = target.__TAURI_INTERNALS__;
     const bootstrap = target.__ILMEK_BOOTSTRAP__;
-    if (internals === void 0 || bootstrap === void 0) return;
+    const shell = target.parent;
+    if (bootstrap === void 0 || shell === void 0 || shell === target) return;
     delete target.__ILMEK_BOOTSTRAP__;
+    const pending = /* @__PURE__ */ new Map();
+    let counter = 0;
     let sink = () => void 0;
+    target.addEventListener("message", (event) => {
+      if (event.source !== shell || !isMessage(event.data)) return;
+      const message = event.data;
+      if (typeof message.event === "string") {
+        sink(JSON.parse(message.event));
+        return;
+      }
+      if (typeof message.id !== "string") return;
+      const waiting = pending.get(message.id);
+      if (waiting === void 0) return;
+      pending.delete(message.id);
+      waiting.resolve(message.response);
+    });
     const runtime = {
       transport: {
-        request: (message) => internals.invoke("ilmek_bridge", { request: message })
+        request: (request) => new Promise((resolve) => {
+          counter += 1;
+          const id = `r${String(counter)}`;
+          pending.set(id, { resolve });
+          shell.postMessage({ ilmek: 1, id, request }, "*");
+        })
       },
       setEventSink: (next) => {
         sink = next;
       }
     };
-    const sdk = createSdk(runtime, bootstrap);
-    Object.defineProperty(target, "__ilmekDeliver", {
-      value: (json) => {
-        sink(JSON.parse(json));
-      },
-      writable: false,
-      configurable: false
-    });
     Object.defineProperty(target, "ilmek", {
-      value: Object.freeze(sdk),
+      value: Object.freeze(createSdk(runtime, bootstrap)),
       writable: false,
       configurable: false
     });

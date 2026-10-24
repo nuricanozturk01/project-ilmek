@@ -1,5 +1,5 @@
-//! Every command is listed here so that capabilities decide who may call it: the main window
-//! gets the `shell_*` commands, application windows get only `ilmek_bridge`.
+//! Every command is listed here so that capabilities decide who may call it: only the
+//! shell UI webview gets them. Application pages run in sandboxed frames and have no commands.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let commands = &[
@@ -14,8 +14,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "shell_history",
         "shell_bookmark",
         "shell_diagnostics",
-        "shell_close_app",
-        "ilmek_bridge",
+        "shell_show_tab",
+        "shell_close_tab",
+        "shell_pending",
+        "shell_bridge",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

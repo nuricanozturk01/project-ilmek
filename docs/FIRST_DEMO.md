@@ -138,7 +138,7 @@ Node'u bulur, katılır, kendini kaydeder. Üzerine uygulama kurmak için aynı 
 
 ## 6. Masaüstü istemci: İlmek'in tarayıcısı
 
-İstemci bir pencere açar: adres çubuğu, katalog, uygulamalar kendi penceresinde (forum dahil, SDK
+İstemci bir pencere açar: adres çubuğu, katalog, uygulamalar sekmelerde açılır (forum dahil, SDK
 köprüsüyle). CLI denemesi çalıştıktan sonra bunu dene.
 
 **Geliştirme modunda (hızlı, bağlantı kaydı yok):**
@@ -157,9 +157,9 @@ için kaydeder.
 
 ```sh
 cd apps/client && bun run tauri build --bundles app && cd ../..
-# çıktı: target/release/bundle/macos/İlmek.app
-cp -R "target/release/bundle/macos/İlmek.app" /Applications/
-open "/Applications/İlmek.app"                       # imzasız: ilk sefer sağ tık > Aç
+# çıktı: target/release/bundle/macos/Ilmek.app
+cp -R "target/release/bundle/macos/Ilmek.app" /Applications/
+open "/Applications/Ilmek.app"                       # imzasız: ilk sefer sağ tık > Aç
 ```
 
 Uygulama bir kez açılıp **Bul ve katıl** ile topluluğa katıldıktan sonra:
@@ -170,7 +170,7 @@ open "ilmek://nuri/forum"                             # Terminal'den: kaydın ç
 
 Sonra Chrome'un adres çubuğuna `ilmek://nuri/forum` yaz. Chrome "İlmek'i açmak ister misin?" diye bir
 kez sorar, **Aç**'a bas. Adres çubuğu bunu arama sanırsa `ilmek://nuri/forum` içeren bir bağlantıya
-tıkla, ya da Terminal'deki `open` komutunu kullan. İstemci zaten açıksa yeni pencere aynı
+tıkla, ya da Terminal'deki `open` komutunu kullan. İstemci zaten açıksa yeni sekme aynı
 programda açılır (ikinci program başlamaz).
 
 Linux'ta uygulama her açılışta şemayı kullanıcı için kendisi kaydeder

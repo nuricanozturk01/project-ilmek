@@ -3,12 +3,31 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// Applied to every response. Pages get no network of their own: `connect-src` allows only the
-/// shell's IPC endpoints, which are further limited by per-window capabilities.
-pub const CONTENT_SECURITY_POLICY: &str = "default-src 'none'; script-src 'self'; \
-style-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self'; \
-connect-src ipc: http://ipc.localhost; frame-src 'none'; child-src 'none'; object-src 'none'; \
-form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+/// Applied to every response. Pages get no network of their own (`connect-src 'none'`) and run
+/// in a sandboxed frame of the shell: `sandbox` gives them an opaque origin (no cookies, no web
+/// storage, no access to the shell), and `frame-ancestors` lets only the shell embed them. The
+/// only way out is `postMessage` to the shell, which the shell routes to this page's own session.
+///
+/// Resources are allowed by *scheme* (`ilmekapp:`, and the `http://ilmekapp.localhost` form
+/// Windows and Android give the same scheme), not by `'self'`: a sandboxed document has an opaque
+/// origin, which WebKit also uses for `'self'`, so `'self'` would block the page's own files. The
+/// scheme handler serves only open sessions' verified packages.
+pub const CONTENT_SECURITY_POLICY: &str = concat!(
+    "default-src 'none'; ",
+    "script-src ilmekapp: http://ilmekapp.localhost; ",
+    "style-src ilmekapp: http://ilmekapp.localhost; ",
+    "img-src ilmekapp: http://ilmekapp.localhost data: blob:; ",
+    "font-src ilmekapp: http://ilmekapp.localhost; ",
+    "media-src ilmekapp: http://ilmekapp.localhost; ",
+    "connect-src 'none'; frame-src 'none'; child-src 'none'; object-src 'none'; ",
+    "form-action 'none'; base-uri 'none'; ",
+    "frame-ancestors tauri://localhost http://tauri.localhost http://localhost:1420; ",
+    "sandbox allow-scripts allow-forms",
+);
+
+/// Where a page finds the SDK. The shell cannot inject scripts into a frame, so the response
+/// for every HTML file of the package loads this script first.
+pub const SDK_PATH: &str = "/__ilmek/sdk.js";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssetResponse {
@@ -46,7 +65,7 @@ fn content_type(path: &str) -> &'static str {
     }
 }
 
-fn security_headers() -> Vec<(&'static str, String)> {
+pub(crate) fn security_headers() -> Vec<(&'static str, String)> {
     vec![
         (
             "Content-Security-Policy",
@@ -54,7 +73,7 @@ fn security_headers() -> Vec<(&'static str, String)> {
         ),
         ("X-Content-Type-Options", "nosniff".to_owned()),
         ("Cache-Control", "no-store".to_owned()),
-        ("Cross-Origin-Resource-Policy", "same-origin".to_owned()),
+        ("Cross-Origin-Resource-Policy", "cross-origin".to_owned()),
         ("Referrer-Policy", "no-referrer".to_owned()),
         (
             "Permissions-Policy",
@@ -131,4 +150,28 @@ impl AssetPolicy {
             Some(file) => self.files.contains_key(file),
         }
     }
+}
+
+/// Inserts the SDK script tag as the first thing in `<head>` (or after `<html>`, or first), so
+/// `window.ilmek` exists before any script of the page runs.
+pub(crate) fn inject_sdk(html: &[u8]) -> Vec<u8> {
+    let tag = format!("<script src=\"{SDK_PATH}\"></script>");
+    let after = |name: &[u8]| -> Option<usize> {
+        let lower = html.to_ascii_lowercase();
+        let start = lower
+            .windows(name.len())
+            .position(|window| window == name)?;
+        let boundary = lower.get(start + name.len()).copied();
+        if !matches!(boundary, Some(b'>' | b' ' | b'\t' | b'\n' | b'\r' | b'/')) {
+            return None;
+        }
+        let end = lower[start..].iter().position(|byte| *byte == b'>')?;
+        Some(start + end + 1)
+    };
+    let at = after(b"<head").or_else(|| after(b"<html")).unwrap_or(0);
+    let mut out = Vec::with_capacity(html.len() + tag.len());
+    out.extend_from_slice(&html[..at]);
+    out.extend_from_slice(tag.as_bytes());
+    out.extend_from_slice(&html[at..]);
+    out
 }

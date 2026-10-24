@@ -1,8 +1,0 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "application-pages",
-  "description": "Downloaded application pages may use exactly one command, the bridge.",
-  "windows": ["app-*"],
-  "remote": { "urls": ["ilmekapp://app-*/*", "http://ilmekapp.localhost/*"] },
-  "permissions": ["allow-ilmek-bridge"]
-}

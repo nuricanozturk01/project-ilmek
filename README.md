@@ -61,12 +61,12 @@ Bulamazsa yalnızca Linux'un IP'sini ver: `target/debug/ilmek join --registry LI
 ```sh
 brew install oven-sh/bun/bun && bun install
 cd apps/client && bun run tauri build --bundles app && cd ../..
-cp -R "target/release/bundle/macos/İlmek.app" /Applications/ && open "/Applications/İlmek.app"
+cp -R "target/release/bundle/macos/Ilmek.app" /Applications/ && open "/Applications/Ilmek.app"
 # pencerede "Bul ve katıl", sonra:
 open "ilmek://nuri/forum"                                    # veya Chrome adres çubuğuna yaz
 ```
 
-Adım adım ve sorun giderme: [FIRST_DEMO](docs/FIRST_DEMO.md).
+Adım adım ve sorun giderme: [FIRST_DEMO](docs/FIRST_DEMO.md). Linux, macOS ve Windows için ayrı kılavuz: [PLATFORMS](docs/PLATFORMS.md).
 
 ## The first demo: one Linux node, one Mac
 
@@ -108,7 +108,7 @@ give only the node's address, no community id or anything else: `ilmek join --re
 like the new clients expect.
 
 The **desktop client is İlmek's browser**: it has an address bar, a catalog, and opens each
-application in its own window (`cd apps/client && bun run tauri dev`; its **Find and join** button
+application in its own tab (`cd apps/client && bun run tauri dev`; its **Find and join** button
 does the same discovery). It also registers itself as the handler of `ilmek://` links, so typing
 `ilmek://nuri/forum` in Chrome (or `open ilmek://nuri/forum` in a terminal) opens the app in it
 ([FIRST_DEMO](docs/FIRST_DEMO.md)). On Linux the window, a second start handing a link to the running
@@ -149,7 +149,7 @@ Data lives in `$ILMEK_HOME` (default `~/.ilmek`).
 | `deploy/systemd/` | service units for a node and for an extra host |
 | `scripts/` | quickstart, loopback multi-process smoke tests, backup/restore exercise |
 
-Documentation: [FIRST_DEMO](docs/FIRST_DEMO.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [NETWORK_SETUP](docs/NETWORK_SETUP.md) ·
+Documentation: [PLATFORMS](docs/PLATFORMS.md) · [FIRST_DEMO](docs/FIRST_DEMO.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [NETWORK_SETUP](docs/NETWORK_SETUP.md) ·
 [SECURITY](docs/SECURITY.md) · [APP_DEVELOPMENT](docs/APP_DEVELOPMENT.md) ·
 [OPERATIONS](docs/OPERATIONS.md) · [IPC](docs/IPC.md) · [TEST_REPORT](docs/TEST_REPORT.md) ·
 [PROTOCOL](PROTOCOL.md) · [REHBER (Türkçe)](docs/REHBER.md) · [decisions](docs/decisions) ·
@@ -162,7 +162,7 @@ Toolchain versions are pinned in `rust-toolchain.toml` and `package.json`. Verif
 
 ```sh
 cargo build -p ilmek-cli                       # target/debug/ilmek
-cargo test --workspace                         # Rust tests (177)
+cargo test --workspace                         # Rust tests (178)
 cargo clippy --workspace --all-targets         # no warnings
 bun install && bun run lint && bun run typecheck && bun run test
 scripts/smoke/local-processes.sh               # real processes over loopback

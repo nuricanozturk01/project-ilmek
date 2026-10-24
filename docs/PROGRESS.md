@@ -5,8 +5,9 @@ Environment: one Linux x86_64 dev box; nothing else was available.
 
 ## State
 
-- `cargo fmt --check`, `cargo clippy --workspace --all-targets` clean; `cargo test --workspace` 177
-  passed; JS typecheck/lint/test clean (client 13, sdk 20).
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets` clean; `cargo test --workspace` 178
+  passed; JS typecheck/lint/test clean (client 14, sdk 21).
+- Desktop client is now a tabbed browser (one webview, sandboxed iframe per app, SDK over `postMessage`); example apps redesigned on a shared `examples/_ui` stylesheet (`scripts/packaging/sync-example-ui.sh`). Checked on Linux only; see TEST_REPORT E1-12.
 - Smoke: `scripts/smoke/{local-processes,multi-app,backup-restore}.sh` PASS; `scripts/quickstart.sh`
   works; `crates/ilmek-cli/tests/node_flow.rs` (real binary, UDP discovery, extra host) PASS.
 - Done in this branch: security removed (TLS, CA, tokens, trust, signatures); `ilmek-identity` and

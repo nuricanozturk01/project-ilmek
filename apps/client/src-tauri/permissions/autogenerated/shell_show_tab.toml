@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shell-show-tab"
+description = "Enables the shell_show_tab command without any pre-configured scope."
+commands.allow = ["shell_show_tab"]
+
+[[permission]]
+identifier = "deny-shell-show-tab"
+description = "Denies the shell_show_tab command without any pre-configured scope."
+commands.deny = ["shell_show_tab"]

@@ -70,12 +70,14 @@ fn the_content_security_policy_gives_pages_no_network_of_their_own() {
     let policy = CONTENT_SECURITY_POLICY;
     for required in [
         "default-src 'none'",
-        "script-src 'self'",
+        "script-src ilmekapp:",
         "frame-src 'none'",
         "object-src 'none'",
         "form-action 'none'",
         "base-uri 'none'",
-        "frame-ancestors 'none'",
+        "connect-src 'none'",
+        "frame-ancestors tauri://localhost",
+        "sandbox allow-scripts allow-forms",
     ] {
         assert!(policy.contains(required), "missing `{required}`");
     }
@@ -88,20 +90,22 @@ fn the_content_security_policy_gives_pages_no_network_of_their_own() {
         "wss:",
         "*",
     ] {
+        let without_ancestors = policy
+            .split("frame-ancestors")
+            .map(|part| part.split_once(';').map_or(part, |(_, rest)| rest))
+            .collect::<String>()
+            .replace("http://ilmekapp.localhost", "");
         assert!(
-            !policy
-                .replace("http://ipc.localhost", "")
-                .contains(forbidden),
+            !without_ancestors.contains(forbidden),
             "`{forbidden}` must not appear"
         );
     }
-    assert!(policy.contains("connect-src ipc: http://ipc.localhost"));
 }
 
 #[test]
 fn the_embedded_sdk_matches_the_built_package() {
     let embedded = ilmek_runtime::SDK_SCRIPT;
-    assert!(embedded.contains("ilmek_bridge") && embedded.contains("__ilmekDeliver"));
+    assert!(embedded.contains("postMessage") && !embedded.contains("__TAURI"));
     let built = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../packages/sdk-js/dist/ilmek-sdk.iife.js");
     if let Ok(fresh) = std::fs::read_to_string(&built) {

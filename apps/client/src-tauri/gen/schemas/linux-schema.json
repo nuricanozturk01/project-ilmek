@@ -177,16 +177,16 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables the ilmek_bridge command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-ilmek-bridge",
-          "markdownDescription": "Enables the ilmek_bridge command without any pre-configured scope."
-        },
-        {
           "description": "Enables the shell_bookmark command without any pre-configured scope.",
           "type": "string",
           "const": "allow-shell-bookmark",
           "markdownDescription": "Enables the shell_bookmark command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the shell_bridge command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-shell-bridge",
+          "markdownDescription": "Enables the shell_bridge command without any pre-configured scope."
         },
         {
           "description": "Enables the shell_cached command without any pre-configured scope.",
@@ -207,10 +207,10 @@
           "markdownDescription": "Enables the shell_catalog command without any pre-configured scope."
         },
         {
-          "description": "Enables the shell_close_app command without any pre-configured scope.",
+          "description": "Enables the shell_close_tab command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-shell-close-app",
-          "markdownDescription": "Enables the shell_close_app command without any pre-configured scope."
+          "const": "allow-shell-close-tab",
+          "markdownDescription": "Enables the shell_close_tab command without any pre-configured scope."
         },
         {
           "description": "Enables the shell_diagnostics command without any pre-configured scope.",
@@ -237,6 +237,12 @@
           "markdownDescription": "Enables the shell_open command without any pre-configured scope."
         },
         {
+          "description": "Enables the shell_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-shell-pending",
+          "markdownDescription": "Enables the shell_pending command without any pre-configured scope."
+        },
+        {
           "description": "Enables the shell_refresh command without any pre-configured scope.",
           "type": "string",
           "const": "allow-shell-refresh",
@@ -249,22 +255,28 @@
           "markdownDescription": "Enables the shell_remove command without any pre-configured scope."
         },
         {
+          "description": "Enables the shell_show_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-shell-show-tab",
+          "markdownDescription": "Enables the shell_show_tab command without any pre-configured scope."
+        },
+        {
           "description": "Enables the shell_state command without any pre-configured scope.",
           "type": "string",
           "const": "allow-shell-state",
           "markdownDescription": "Enables the shell_state command without any pre-configured scope."
         },
         {
-          "description": "Denies the ilmek_bridge command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-ilmek-bridge",
-          "markdownDescription": "Denies the ilmek_bridge command without any pre-configured scope."
-        },
-        {
           "description": "Denies the shell_bookmark command without any pre-configured scope.",
           "type": "string",
           "const": "deny-shell-bookmark",
           "markdownDescription": "Denies the shell_bookmark command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the shell_bridge command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-shell-bridge",
+          "markdownDescription": "Denies the shell_bridge command without any pre-configured scope."
         },
         {
           "description": "Denies the shell_cached command without any pre-configured scope.",
@@ -285,10 +297,10 @@
           "markdownDescription": "Denies the shell_catalog command without any pre-configured scope."
         },
         {
-          "description": "Denies the shell_close_app command without any pre-configured scope.",
+          "description": "Denies the shell_close_tab command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-shell-close-app",
-          "markdownDescription": "Denies the shell_close_app command without any pre-configured scope."
+          "const": "deny-shell-close-tab",
+          "markdownDescription": "Denies the shell_close_tab command without any pre-configured scope."
         },
         {
           "description": "Denies the shell_diagnostics command without any pre-configured scope.",
@@ -315,6 +327,12 @@
           "markdownDescription": "Denies the shell_open command without any pre-configured scope."
         },
         {
+          "description": "Denies the shell_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-shell-pending",
+          "markdownDescription": "Denies the shell_pending command without any pre-configured scope."
+        },
+        {
           "description": "Denies the shell_refresh command without any pre-configured scope.",
           "type": "string",
           "const": "deny-shell-refresh",
@@ -325,6 +343,12 @@
           "type": "string",
           "const": "deny-shell-remove",
           "markdownDescription": "Denies the shell_remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the shell_show_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-shell-show-tab",
+          "markdownDescription": "Denies the shell_show_tab command without any pre-configured scope."
         },
         {
           "description": "Denies the shell_state command without any pre-configured scope.",

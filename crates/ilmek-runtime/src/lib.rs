@@ -11,7 +11,7 @@ mod session;
 mod storage;
 mod subscription;
 
-pub use assets::{AssetResponse, CONTENT_SECURITY_POLICY};
+pub use assets::{AssetResponse, CONTENT_SECURITY_POLICY, SDK_PATH};
 pub use bridge::{
     CallRequest, Failure, KeyRequest, Request, Response, SetRequest, SubscribeRequest,
     UnsubscribeRequest,
