@@ -1,6 +1,7 @@
 package dev.ilmek.sdk.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,9 +27,13 @@ class IlmekEventsServiceTest {
     @Autowired
     private IlmekEventRepository repository;
 
+    @Autowired
+    private IlmekEventFloorRepository floors;
+
     @AfterEach
     void clean() {
         repository.deleteAll();
+        floors.deleteAll();
     }
 
     @Test
@@ -82,7 +87,11 @@ class IlmekEventsServiceTest {
         events.append("t", "b".getBytes(UTF_8));
         String cursor = EventCursor.encode("t", e1.getSequence());
 
-        assertEquals(1, events.since("t", cursor).size());
+        List<IlmekEvent> later = events.since("t", cursor);
+
+        assertEquals(1, later.size());
+        assertEquals("b", new String(later.get(0).getBody(), UTF_8));
+        assertTrue(later.get(0).getSequence() > e1.getSequence());
     }
 
     @Test
@@ -154,5 +163,68 @@ class IlmekEventsServiceTest {
 
         assertEquals(1, events.countForTopic("quiet"));
         assertEquals(10000, events.countForTopic("busy"));
+    }
+
+    @Test
+    void neverTrimmedTopicNeverExpires() {
+        events.append("t", "a".getBytes(UTF_8));
+        events.append("t", "b".getBytes(UTF_8));
+
+        List<IlmekEvent> result = assertDoesNotThrow(() -> events.since("t", EventCursor.encode("t", 0)));
+
+        assertEquals(2, result.size());
+        assertFalse(floors.existsById("t"));
+    }
+
+    @Test
+    void cursorBelowTrimFloorIsExpired() {
+        for (int i = 0; i < 10005; i++) {
+            events.append("t", ("e" + i).getBytes(UTF_8));
+        }
+
+        assertThrows(CursorExpiredException.class, () -> events.since("t", EventCursor.encode("t", 4)));
+        assertThrows(CursorExpiredException.class, () -> events.since("t", EventCursor.encode("t", 0)));
+    }
+
+    @Test
+    void cursorExactlyAtTrimFloorIsValidAndReturnsRetainedEvents() {
+        for (int i = 0; i < 10005; i++) {
+            events.append("t", ("e" + i).getBytes(UTF_8));
+        }
+
+        List<IlmekEvent> result = events.since("t", EventCursor.encode("t", 5));
+
+        assertEquals(10000, result.size());
+        assertEquals(6, result.get(0).getSequence());
+        assertEquals("e5", new String(result.get(0).getBody(), UTF_8));
+    }
+
+    @Test
+    void trimFloorIncreasesAcrossTrimPasses() {
+        for (int i = 0; i < 10005; i++) {
+            events.append("t", ("e" + i).getBytes(UTF_8));
+        }
+        for (int i = 0; i < 1000; i++) {
+            events.append("t", ("f" + i).getBytes(UTF_8));
+        }
+
+        assertEquals(1005, floors.findById("t").orElseThrow().getFloorSequence());
+        assertThrows(CursorExpiredException.class, () -> events.since("t", EventCursor.encode("t", 5)));
+        assertThrows(CursorExpiredException.class, () -> events.since("t", EventCursor.encode("t", 1004)));
+        List<IlmekEvent> result = events.since("t", EventCursor.encode("t", 1005));
+        assertEquals(10000, result.size());
+        assertEquals(1006, result.get(0).getSequence());
+    }
+
+    @Test
+    void trimFloorIsOnlyRecordedForTrimmedTopic() {
+        events.append("quiet", "q".getBytes(UTF_8));
+        for (int i = 0; i < 10001; i++) {
+            events.append("busy", "b".getBytes(UTF_8));
+        }
+
+        assertFalse(floors.existsById("quiet"));
+        assertEquals(1, floors.findById("busy").orElseThrow().getFloorSequence());
+        assertEquals(1, events.since("quiet", EventCursor.encode("quiet", 0)).size());
     }
 }

@@ -13,9 +13,11 @@ public class IlmekEventsService {
     public static final int RETAINED_PER_TOPIC = 10_000;
 
     private final IlmekEventRepository repository;
+    private final IlmekEventFloorRepository floors;
 
-    public IlmekEventsService(IlmekEventRepository repository) {
+    public IlmekEventsService(IlmekEventRepository repository, IlmekEventFloorRepository floors) {
         this.repository = repository;
+        this.floors = floors;
     }
 
     @Transactional
@@ -25,7 +27,11 @@ public class IlmekEventsService {
         long sequence = repository.maxSequence(topic) + 1;
         IlmekEvent saved = repository.save(
             new IlmekEvent(topic, sequence, newEventId(), body, System.currentTimeMillis()));
-        repository.deleteByTopicUpToSequence(topic, sequence - RETAINED_PER_TOPIC);
+        long trimBound = sequence - RETAINED_PER_TOPIC;
+        if (trimBound > 0) {
+            repository.deleteByTopicUpToSequence(topic, trimBound);
+            raiseFloor(topic, trimBound);
+        }
         return saved;
     }
 
@@ -40,12 +46,25 @@ public class IlmekEventsService {
         if (!cursor.topic().equals(topic)) {
             throw new IllegalArgumentException("cursor belongs to another topic");
         }
+        if (cursor.sequence() < trimFloor(topic)) {
+            throw new CursorExpiredException();
+        }
         return repository.findByTopicAndSequenceGreaterThanOrderBySequenceAsc(topic, cursor.sequence());
     }
 
     @Transactional(readOnly = true)
     public long countForTopic(String topic) {
         return repository.countByTopic(topic);
+    }
+
+    private void raiseFloor(String topic, long sequence) {
+        IlmekEventFloor floor = floors.findById(topic).orElseGet(() -> new IlmekEventFloor(topic, 0));
+        floor.raiseTo(sequence);
+        floors.save(floor);
+    }
+
+    private long trimFloor(String topic) {
+        return floors.findById(topic).map(IlmekEventFloor::getFloorSequence).orElse(0L);
     }
 
     private static void requireTopic(String topic) {
