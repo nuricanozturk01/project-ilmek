@@ -40,3 +40,17 @@ Tests use Angular's default unit runner for Angular 22 (Vitest with jsdom). No b
 ## Versions
 
 Every `@angular/*` package is pinned to an exact version in `package.json`. `package-lock.json` is committed.
+
+## Verification
+
+Environment: Linux x86_64, Angular 22.2.4 build, Tauri client built from `apps/client/src-tauri` (Linux, DISPLAY :0). The backend is the real `backend-java.jar` run by the real host (see `examples/tasks/backend-java/README.md`).
+
+| Check | Status | Command | Observed |
+| --- | --- | --- | --- |
+| Angular unit tests | PASS (from Task 12) | `npm test` | `Tests 8 passed (8)` |
+| Angular production build | PASS (from Task 12) | `npm run build` | `index.html` has 0 `<style>` and 0 inline scripts |
+| Tauri client build | PASS | `cargo build -p ilmek-client-app --manifest-path src-tauri/Cargo.toml` (from `apps/client`) | `Finished` with exit 0 |
+| Client window opens | PASS | `target/debug/ilmek-client "ilmek://nuri/tasks"` | window `İlmek` present, geometry 1100x760 |
+| Todo UI renders styled (list, add, complete, live update) | BLOCKED | screenshot via `gnome-screenshot -f` after launch | captures showed only the desktop wallpaper; the İlmek window did not appear in the captures, so rendering and styling were not observed |
+
+The ViewEncapsulation (Emulated) styling question is therefore unresolved. Do not treat the styling as verified. If the GUI check can be completed and the component styles are missing, the fix is `ViewEncapsulation.None` with the global `src/styles.css`, not a CSP change.

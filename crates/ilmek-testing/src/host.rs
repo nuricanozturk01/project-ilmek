@@ -25,6 +25,16 @@ pub struct TestHost {
 /// Binding a probed port can lose a race against another test process, so a failed bind is
 /// retried on a fresh port and data directory.
 pub async fn start_host(community: &Community, launcher: Arc<dyn Launcher>) -> TestHost {
+    start_host_with_deadline(community, launcher, 5000).await
+}
+
+/// Like [`start_host`], with a custom backend start deadline in milliseconds. Real backends such
+/// as a Spring Boot jar can need more than the default when several start at once.
+pub async fn start_host_with_deadline(
+    community: &Community,
+    launcher: Arc<dyn Launcher>,
+    backend_start_deadline_ms: u64,
+) -> TestHost {
     let member = community.host(LOOPBACK).await;
 
     let dir = tempfile::tempdir().unwrap();
@@ -33,7 +43,7 @@ pub async fn start_host(community: &Community, launcher: Arc<dyn Launcher>) -> T
         let port = free_port();
         let data_dir = dir.path().join(format!("host-{attempt}"));
         let settings = Settings::parse(&format!(
-            "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nbackend_start_deadline_ms = 5000\nheartbeat_interval_ms = 300\nrestart_backoff_ms = 20\n",
+            "data_dir = \"{}\"\ndevice_dir = \"{}\"\nlisten = \"127.0.0.1:{port}\"\nadvertised = \"127.0.0.1:{port}\"\nreconcile_interval_ms = 50\nbackend_start_deadline_ms = {backend_start_deadline_ms}\nheartbeat_interval_ms = 300\nrestart_backoff_ms = 20\n",
             data_dir.display(),
             member.device_dir().display(),
         ))

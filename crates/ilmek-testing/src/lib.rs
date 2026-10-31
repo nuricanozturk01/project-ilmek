@@ -18,7 +18,7 @@ mod packages;
 
 pub use clock::ManualClock;
 pub use community::{Community, LOOPBACK, Member, Owner, free_port};
-pub use host::{TestHost, start_host};
+pub use host::{TestHost, start_host, start_host_with_deadline};
 pub use launcher::InProcessLauncher;
 pub use notes::{BackendHandles, NOTES_MIGRATIONS, NotesBackend, backend_launcher, notes_launcher};
 pub use packages::{PackageSpec, build_package};
