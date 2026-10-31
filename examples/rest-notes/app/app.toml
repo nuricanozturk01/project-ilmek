@@ -1,0 +1,11 @@
+app_id = "01a191e3-0c80-73d9-89bf-2fc47a9c4e59"
+publisher_id = "01a191e3-0c80-73d9-89bf-2fc367c3e8da"
+namespace = "nuri"
+slug = "notes-rest"
+name = "Notes (REST)"
+description = "Düz Spring Boot REST ve Angular HttpClient uygulaması."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
+permissions = ["app.call"]
+backend_required = true

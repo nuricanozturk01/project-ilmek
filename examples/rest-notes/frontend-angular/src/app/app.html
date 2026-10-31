@@ -1,0 +1,62 @@
+<main>
+  <header>
+    <h1>Notes</h1>
+    <p class="count">{{ notes().length }} shown</p>
+  </header>
+
+  <form class="editor" (submit)="$event.preventDefault(); save()">
+    <input
+      type="text"
+      aria-label="Title"
+      placeholder="Title"
+      [value]="draftTitle()"
+      (input)="draftTitle.set($any($event.target).value)"
+    />
+    <textarea
+      aria-label="Body"
+      placeholder="Body"
+      rows="3"
+      [value]="draftBody()"
+      (input)="draftBody.set($any($event.target).value)"
+    ></textarea>
+    <div class="actions">
+      <button type="submit">{{ editingId() === null ? 'Add' : 'Save' }}</button>
+      @if (editingId() !== null) {
+        <button type="button" class="secondary" (click)="cancel()">Cancel</button>
+      }
+    </div>
+  </form>
+
+  <input
+    class="search"
+    type="search"
+    aria-label="Search"
+    placeholder="Search"
+    (input)="search($any($event.target).value)"
+  />
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+
+  @if (notes().length === 0) {
+    <p class="empty">No notes yet.</p>
+  } @else {
+    <ul>
+      @for (note of notes(); track note.id) {
+        <li>
+          <div class="text">
+            <strong>{{ note.title }}</strong>
+            @if (note.body) {
+              <span>{{ note.body }}</span>
+            }
+          </div>
+          <div class="row-actions">
+            <button type="button" class="secondary" (click)="edit(note)">Edit</button>
+            <button type="button" class="danger" (click)="remove(note)">Delete</button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</main>
