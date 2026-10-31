@@ -30,7 +30,7 @@ Put these annotations on the application class (the example uses `TasksApplicati
 
 ```java
 @SpringBootApplication
-@EntityScan(basePackageClasses = {TasksApplication.class, IlmekOperation.class})
+@AutoConfigurationPackage(basePackageClasses = {TasksApplication.class, IlmekOperation.class})
 @EnableJpaRepositories(basePackageClasses = {TasksApplication.class, IlmekOperationRepository.class})
 public class TasksApplication {
     // ...
@@ -39,7 +39,9 @@ public class TasksApplication {
 
 `IlmekOperation.class` and `IlmekOperationRepository.class` are in `dev.ilmek.sdk.store`, so scanning that package registers the operation, event, and event-floor entities and repositories together.
 
-Without the `@EntityScan` and `@EnableJpaRepositories` lines, the starter store beans (`IlmekOperationsService`, `IlmekEventsService`) are silently absent. The starter activates only when all three repositories are registered, and the application has no error to show for it. Starting the application without these annotations therefore starts no IPC client either.
+`@AutoConfigurationPackage` is used instead of `@EntityScan` because it has the same package on Spring Boot 3.5 and 4.1 (`@EntityScan` moved in Boot 4). Keep the application's own package in `basePackageClasses`: an explicit `@AutoConfigurationPackage` replaces the one that `@SpringBootApplication` adds.
+
+Without the `@AutoConfigurationPackage` and `@EnableJpaRepositories` lines, the starter store beans (`IlmekOperationsService`, `IlmekEventsService`) are silently absent. The starter activates only when all three repositories are registered, and the application has no error to show for it. Starting the application without these annotations therefore starts no IPC client either.
 
 The consumer must also provide a data source. The example uses H2 with `WRITE_DELAY=0` so that committed rows survive a `kill -9`.
 
@@ -66,11 +68,22 @@ Annotate methods with `@IlmekMethod(name = "...", kind = MethodKind.READ | WRITE
 
 Events are appended with `IlmekEventsService.append(topic, body)`. The body must be a JSON object of at most 262,144 bytes; other bodies throw `IllegalArgumentException` before anything is stored. Subscribers read in pages of `IlmekEventsService.PAGE_SIZE` (16) rows, refilled by acknowledgement. Each topic keeps 10,000 events; an older cursor is answered with `CURSOR_EXPIRED`.
 
+## Supported versions
+
+| Item | Supported | Default |
+| --- | --- | --- |
+| Java | 17, 21, 25 (compiled with `--release 17`) | any of them |
+| Spring Boot | 3.5.x (tested 3.5.16), 4.1.x (tested 4.1.2) | 4.1.2 |
+
+Select the Boot line with `-PbootVersion`. The starter uses its own Jackson 2 (`com.fasterxml.jackson`, pinned to 2.22.4), so Boot 4's Jackson 3 does not affect it. Only the two test helpers `IlmekJpaTest` and `JpaAutoConfigurations` differ per line (`src/test-boot3`, `src/test-boot4`); production code is shared.
+
 ## Tests
 
 ```sh
 cd java/ilmek-spring-boot-starter
-./gradlew :starter:test
+./gradlew :starter:test                         # Boot 4.1.2
+./gradlew -PbootVersion=3.5.16 :starter:test    # Boot 3.5
+./gradlew -Dorg.gradle.java.home=/path/to/jdk :starter:test   # choose the JDK
 ```
 
 The suite includes a real loopback `ServerSocket` acting as the host for handshake, link-close exit, once-only startup, and absent or invalid configuration.
