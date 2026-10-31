@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Builds an Angular 17+ project and packs dist/<project>/browser as an İlmek app.
 set -euo pipefail
 
 if [ "$#" -ne 3 ]; then
@@ -22,6 +21,10 @@ if [ -e "$out" ]; then
   echo "error: output already exists: $out" >&2
   exit 1
 fi
+if [ -L "$assets" ]; then
+  echo "error: refusing to clear symlinked assets directory: $assets" >&2
+  exit 1
+fi
 
 (cd "$ng_project" && ng build --configuration production)
 
@@ -30,9 +33,15 @@ browsers=("$ng_project"/dist/*/browser)
 shopt -u nullglob
 if [ "${#browsers[@]}" -ne 1 ]; then
   echo "error: expected one dist/<project>/browser, found ${#browsers[@]}" >&2
+  echo "  hint: remove stale dist/ folders from older builds and rebuild" >&2
   exit 1
 fi
 browser="${browsers[0]}"
+
+if [ ! -f "$browser/index.html" ] || [ -L "$browser/index.html" ]; then
+  echo "error: $browser/index.html is missing or not a regular file; assets left unchanged" >&2
+  exit 1
+fi
 
 mkdir -p "$assets"
 find "$assets" -mindepth 1 -delete
