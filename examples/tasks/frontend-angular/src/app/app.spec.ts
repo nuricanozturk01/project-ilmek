@@ -3,7 +3,7 @@ import type { IlmekAppSDK } from '../types/ilmek-sdk';
 import { App } from './app';
 
 interface Task {
-  id: string;
+  id: number;
   title: string;
   done: boolean;
 }
@@ -12,12 +12,12 @@ function installMock(initial: Task[]) {
   let tasks = initial.map((task) => ({ ...task }));
   let onEvent: ((event: unknown) => void) | undefined;
 
-  const call = vi.fn(async (method: string, input: { title?: string; id?: string }) => {
+  const call = vi.fn(async (method: string, input: { title?: string; id?: number }) => {
     if (method === 'tasks.list') {
       return { tasks: tasks.map((task) => ({ ...task })) };
     }
     if (method === 'tasks.create') {
-      tasks.push({ id: `task-${tasks.length + 1}`, title: input.title ?? '', done: false });
+      tasks.push({ id: tasks.length + 1, title: input.title ?? '', done: false });
       return {};
     }
     if (method === 'tasks.complete') {
@@ -68,8 +68,8 @@ describe('App (tasks)', () => {
 
   it('renders the list from tasks.list and strikes through completed items', async () => {
     const mock = installMock([
-      { id: 'task-1', title: 'Buy milk', done: false },
-      { id: 'task-2', title: 'Write report', done: true },
+      { id: 1, title: 'Buy milk', done: false },
+      { id: 2, title: 'Write report', done: true },
     ]);
 
     const fixture = await render();
@@ -117,7 +117,7 @@ describe('App (tasks)', () => {
   });
 
   it('completes a task as a write call and marks it done', async () => {
-    const mock = installMock([{ id: 'task-1', title: 'Buy milk', done: false }]);
+    const mock = installMock([{ id: 1, title: 'Buy milk', done: false }]);
     const fixture = await render();
 
     const checkbox = fixture.nativeElement.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -125,19 +125,19 @@ describe('App (tasks)', () => {
     await flush();
     fixture.detectChanges();
 
-    expect(mock.call).toHaveBeenCalledWith('tasks.complete', { id: 'task-1' }, { write: true });
+    expect(mock.call).toHaveBeenCalledWith('tasks.complete', { id: 1 }, { write: true });
     const item = fixture.nativeElement.querySelector('li') as HTMLLIElement;
     expect(item.classList.contains('done')).toBe(true);
   });
 
   it('reverts the checkbox and shows an error when completing fails', async () => {
-    const mock = installMock([{ id: 'task-1', title: 'Buy milk', done: false }]);
+    const mock = installMock([{ id: 1, title: 'Buy milk', done: false }]);
     const fixture = await render();
     mock.call.mockImplementation(async (method: string) => {
       if (method === 'tasks.complete') {
         throw new Error('host busy');
       }
-      return { tasks: [{ id: 'task-1', title: 'Buy milk', done: false }] };
+      return { tasks: [{ id: 1, title: 'Buy milk', done: false }] };
     });
 
     const checkbox = fixture.nativeElement.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -151,10 +151,10 @@ describe('App (tasks)', () => {
   });
 
   it('refreshes the list when a tasks.events event arrives', async () => {
-    const mock = installMock([{ id: 'task-1', title: 'Buy milk', done: false }]);
+    const mock = installMock([{ id: 1, title: 'Buy milk', done: false }]);
     const fixture = await render();
 
-    mock.addRemoteTask({ id: 'task-2', title: 'Water plants', done: false });
+    mock.addRemoteTask({ id: 2, title: 'Water plants', done: false });
     await flush();
     fixture.detectChanges();
 

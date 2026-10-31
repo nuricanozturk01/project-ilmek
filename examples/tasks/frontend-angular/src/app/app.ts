@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 
 interface Task {
-  id: string;
+  id: number;
   title: string;
   done: boolean;
 }
