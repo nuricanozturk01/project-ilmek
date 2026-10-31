@@ -201,7 +201,7 @@ public final class IlmekBackendClient {
                 } else if (message instanceof IpcMessage.Subscribe subscribe) {
                     openSubscription(executor, decoded.requestId(), subscribe);
                 } else if (message instanceof IpcMessage.EventAck ack) {
-                    respond(decoded.requestId(), acknowledge(ack));
+                    acknowledge(decoded.requestId(), ack);
                 } else if (message instanceof IpcMessage.Unsubscribe unsubscribe) {
                     respond(decoded.requestId(), unsubscribe(unsubscribe));
                 } else {
@@ -353,18 +353,21 @@ public final class IlmekBackendClient {
         }
     }
 
-    private IpcMessage acknowledge(IpcMessage.EventAck ack) {
+    private void acknowledge(String requestId, IpcMessage.EventAck ack) {
         Subscription subscription = subscriptions.get(ack.subscriptionId());
         if (subscription == null) {
-            return error(ErrorCode.NOT_FOUND, "unknown subscription", false);
+            respond(requestId, error(ErrorCode.NOT_FOUND, "unknown subscription", false));
+            return;
         }
         if (ack.sequence() > subscription.position()
                 || !ack.cursor().equals(EventCursor.encode(subscription.topic, ack.sequence()))) {
-            return error(ErrorCode.INVALID_MESSAGE, "acknowledgement is ahead of delivery or has a foreign cursor",
-                    false);
+            respond(requestId, error(ErrorCode.INVALID_MESSAGE,
+                    "acknowledgement is ahead of delivery or has a foreign cursor", false));
+            return;
         }
+        // Queue the reply before waking the event pump so the next event cannot overtake it.
+        respond(requestId, new IpcMessage.EventAcked(ack.subscriptionId(), ack.sequence()));
         subscription.acknowledge(ack.sequence());
-        return new IpcMessage.EventAcked(ack.subscriptionId(), ack.sequence());
     }
 
     private IpcMessage unsubscribe(IpcMessage.Unsubscribe unsubscribe) {
