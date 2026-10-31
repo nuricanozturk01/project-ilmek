@@ -410,7 +410,7 @@ class IlmekBackendClientTest {
 
     @Test
     void nonObjectEventBodyEndsSubscriptionWithInternalError() throws Exception {
-        events.append(TOPIC, "[]".getBytes(UTF_8));
+        eventRepository.save(new IlmekEvent(TOPIC, 1, id(409), "[]".getBytes(UTF_8), System.currentTimeMillis()));
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
             Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);

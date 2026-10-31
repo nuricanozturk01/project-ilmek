@@ -25,6 +25,9 @@ public record BackendConfig(
 
     public static BackendConfig readFrom(InputStream in, Duration deadline) {
         byte[] bytes = readBounded(in, deadline);
+        if (bytes.length == 0) {
+            throw ConfigException.absent("no backend configuration on standard input");
+        }
         BackendConfig config;
         try {
             config = MAPPER.readValue(bytes, BackendConfig.class);
@@ -45,7 +48,7 @@ public record BackendConfig(
             bytes = task.get(deadline.toNanos(), TimeUnit.NANOSECONDS);
         } catch (TimeoutException e) {
             task.cancel(true);
-            throw new ConfigException("backend configuration not received before the deadline", e);
+            throw ConfigException.absent("backend configuration not received before the deadline");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ConfigException("interrupted while reading backend configuration", e);

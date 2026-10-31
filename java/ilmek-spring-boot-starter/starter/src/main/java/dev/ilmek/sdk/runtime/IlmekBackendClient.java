@@ -1,11 +1,9 @@
 package dev.ilmek.sdk.runtime;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.ilmek.sdk.api.AppException;
 import dev.ilmek.sdk.api.IlmekCallContext;
 import dev.ilmek.sdk.api.IlmekMethodRegistry;
+import dev.ilmek.sdk.store.EventBody;
 import dev.ilmek.sdk.store.EventCursor;
 import dev.ilmek.sdk.store.IlmekEvent;
 import dev.ilmek.sdk.store.IlmekEventsService;
@@ -27,9 +25,6 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -47,10 +42,13 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 
 public final class IlmekBackendClient {
 
+    private static final Log LOG = LogFactory.getLog(IlmekBackendClient.class);
     private static final long NO_DEADLINE = Long.MAX_VALUE;
     private static final long SLOW_CONSUMER_NANOS = TimeUnit.SECONDS.toNanos(30);
     private static final long POLL_MILLIS = 250;
@@ -58,12 +56,9 @@ public final class IlmekBackendClient {
     private static final int MAX_IN_FLIGHT = 64;
     private static final int MAX_SUBSCRIPTIONS = 8;
     private static final int OUTBOUND_CAPACITY = 256;
-    private static final int EVENT_WINDOW = 16;
-    private static final int MAX_BODY_BYTES = 262_144;
+    private static final int EVENT_WINDOW = IlmekEventsService.PAGE_SIZE;
     private static final int MAX_MESSAGE_CHARS = 170;
     private static final byte[] WRITER_STOP = new byte[0];
-    private static final ObjectMapper JSON = new ObjectMapper()
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY);
 
     private final InetSocketAddress address;
     private final String token;
@@ -262,10 +257,13 @@ public final class IlmekBackendClient {
                     : invokeObject(handle, context, body);
             return new IpcMessage.Result(appId, call.operationId(), new IpcMessage.Body(result));
         } catch (AppException e) {
+            warnMapped("method " + call.method(), e.code(), e);
             return error(e.code(), e.getMessage(), e.retryable());
         } catch (DataIntegrityViolationException e) {
+            warnMapped("method " + call.method(), ErrorCode.OPERATION_PENDING, e);
             return error(ErrorCode.OPERATION_PENDING, "operation is being written by another request", true);
         } catch (RuntimeException e) {
+            warnMapped("method " + call.method(), ErrorCode.INTERNAL, e);
             return error(ErrorCode.INTERNAL, "method failed", false);
         }
     }
@@ -282,20 +280,19 @@ public final class IlmekBackendClient {
         String topic = subscribe.topic();
         long start;
         try {
-            if (subscribe.cursor() == null) {
-                start = events.latestSequence(topic);
-            } else {
-                start = EventCursor.decode(subscribe.cursor()).map(EventCursor.Parsed::sequence)
-                        .orElseThrow(() -> new IllegalArgumentException("invalid cursor"));
-                events.since(topic, subscribe.cursor());
-            }
+            start = subscribe.cursor() == null
+                    ? events.latestSequence(topic)
+                    : events.validateCursor(topic, subscribe.cursor());
         } catch (AppException e) {
+            warnMapped("subscribe", e.code(), e);
             respond(requestId, error(e.code(), e.getMessage(), e.retryable()));
             return;
         } catch (IllegalArgumentException e) {
+            warnMapped("subscribe", ErrorCode.INVALID_MESSAGE, e);
             respond(requestId, error(ErrorCode.INVALID_MESSAGE, "invalid cursor or topic", false));
             return;
         } catch (RuntimeException e) {
+            warnMapped("subscribe", ErrorCode.INTERNAL, e);
             respond(requestId, error(ErrorCode.INTERNAL, "subscription failed", false));
             return;
         }
@@ -314,13 +311,12 @@ public final class IlmekBackendClient {
                     subscription.pause(POLL_MILLIS);
                     continue;
                 }
-                List<IlmekEvent> batch = events.since(subscription.topic,
-                        EventCursor.encode(subscription.topic, position));
+                List<IlmekEvent> batch = events.page(subscription.topic, position);
                 for (IlmekEvent event : batch) {
                     if (!subscription.awaitWindowSlot()) {
                         return;
                     }
-                    if (!isSendableObject(event.getBody())) {
+                    if (!EventBody.isObject(event.getBody())) {
                         respond(subscription.requestId,
                                 error(ErrorCode.INTERNAL, "event body must be a JSON object", false));
                         return;
@@ -333,10 +329,12 @@ public final class IlmekBackendClient {
                 }
             }
         } catch (AppException e) {
+            warnMapped("stream", e.code(), e);
             respond(subscription.requestId, error(e.code(), e.getMessage(), e.retryable()));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException e) {
+            warnMapped("stream", ErrorCode.INTERNAL, e);
             respond(subscription.requestId, error(ErrorCode.INTERNAL, "subscription failed", false));
         } finally {
             subscription.cancel();
@@ -369,7 +367,7 @@ public final class IlmekBackendClient {
     private static byte[] invokeObject(IlmekMethodRegistry.MethodHandle handle, IlmekCallContext context,
                                        byte[] body) {
         byte[] result = handle.invoke().apply(context, body);
-        if (!isSendableObject(result)) {
+        if (!EventBody.isObject(result)) {
             throw new AppException(ErrorCode.INTERNAL, "method result must be a JSON object", false);
         }
         return result;
@@ -380,6 +378,7 @@ public final class IlmekBackendClient {
         try {
             frame = IpcCodec.encode(message, requestId, communityId);
         } catch (IpcFormatException | FrameFormatException e) {
+            warnMapped("response", ErrorCode.INTERNAL, e);
             frame = IpcCodec.encode(error(ErrorCode.INTERNAL, "response could not be encoded", false),
                     requestId, communityId);
         }
@@ -421,21 +420,8 @@ public final class IlmekBackendClient {
         }
     }
 
-    private static boolean isSendableObject(byte[] bytes) {
-        if (bytes == null || bytes.length > MAX_BODY_BYTES) {
-            return false;
-        }
-        try {
-            String text = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
-            JsonNode node = JSON.readTree(text);
-            return node != null && node.isObject();
-        } catch (IOException e) {
-            return false;
-        }
+    private static void warnMapped(String operation, ErrorCode code, Exception e) {
+        LOG.warn("ILMEK " + operation + " answered with " + code + ": " + e);
     }
 
     private static IpcMessage error(ErrorCode code, String message, boolean retryable) {

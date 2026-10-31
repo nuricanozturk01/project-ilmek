@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class IlmekEventsService {
 
     public static final int RETAINED_PER_TOPIC = 10_000;
+    public static final int PAGE_SIZE = 16;
 
     private final IlmekEventRepository repository;
     private final IlmekEventFloorRepository floors;
@@ -24,6 +26,10 @@ public class IlmekEventsService {
     public IlmekEvent append(String topic, byte[] body) {
         requireTopic(topic);
         Objects.requireNonNull(body, "body");
+        if (!EventBody.isObject(body)) {
+            throw new IllegalArgumentException("event body must be a JSON object of at most "
+                    + EventBody.MAX_BYTES + " bytes");
+        }
         long sequence = repository.maxSequence(topic) + 1;
         IlmekEvent saved = repository.save(
             new IlmekEvent(topic, sequence, newEventId(), body, System.currentTimeMillis()));
@@ -41,15 +47,32 @@ public class IlmekEventsService {
         if (cursorOrNull == null) {
             return repository.findByTopicOrderBySequenceAsc(topic);
         }
-        EventCursor.Parsed cursor = EventCursor.decode(cursorOrNull)
-            .orElseThrow(() -> new IllegalArgumentException("invalid cursor"));
-        if (!cursor.topic().equals(topic)) {
-            throw new IllegalArgumentException("cursor belongs to another topic");
-        }
-        if (cursor.sequence() < trimFloor(topic)) {
+        long after = validateCursor(topic, cursorOrNull);
+        return repository.findByTopicAndSequenceGreaterThanOrderBySequenceAsc(topic, after);
+    }
+
+    @Transactional(readOnly = true)
+    public List<IlmekEvent> page(String topic, long afterSequence) {
+        requireTopic(topic);
+        if (afterSequence < trimFloor(topic)) {
             throw new CursorExpiredException();
         }
-        return repository.findByTopicAndSequenceGreaterThanOrderBySequenceAsc(topic, cursor.sequence());
+        return repository.findByTopicAndSequenceGreaterThanOrderBySequenceAsc(topic, afterSequence,
+            PageRequest.of(0, PAGE_SIZE));
+    }
+
+    @Transactional(readOnly = true)
+    public long validateCursor(String topic, String cursor) {
+        requireTopic(topic);
+        EventCursor.Parsed parsed = EventCursor.decode(cursor)
+            .orElseThrow(() -> new IllegalArgumentException("invalid cursor"));
+        if (!parsed.topic().equals(topic)) {
+            throw new IllegalArgumentException("cursor belongs to another topic");
+        }
+        if (parsed.sequence() < trimFloor(topic)) {
+            throw new CursorExpiredException();
+        }
+        return parsed.sequence();
     }
 
     @Transactional(readOnly = true)

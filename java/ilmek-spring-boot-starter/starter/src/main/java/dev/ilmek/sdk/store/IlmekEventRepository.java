@@ -1,6 +1,7 @@
 package dev.ilmek.sdk.store;
 
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +15,9 @@ public interface IlmekEventRepository extends JpaRepository<IlmekEvent, Long> {
     List<IlmekEvent> findByTopicOrderBySequenceAsc(String topic);
 
     List<IlmekEvent> findByTopicAndSequenceGreaterThanOrderBySequenceAsc(String topic, long sequence);
+
+    List<IlmekEvent> findByTopicAndSequenceGreaterThanOrderBySequenceAsc(String topic, long sequence,
+                                                                         Pageable pageable);
 
     long countByTopic(String topic);
 

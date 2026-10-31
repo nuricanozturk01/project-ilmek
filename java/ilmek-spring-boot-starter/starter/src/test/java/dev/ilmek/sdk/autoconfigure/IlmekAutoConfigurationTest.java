@@ -35,8 +35,11 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntConsumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.SpringApplication;
@@ -59,6 +62,8 @@ class IlmekAutoConfigurationTest {
     private static final String TOKEN = "tok";
     private static final String CLIENT_THREAD = "ilmek-backend-client";
 
+    private final BlockingQueue<Integer> exits = new LinkedBlockingQueue<>();
+
     private final String database = "ilmek-" + UUID.randomUUID();
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
@@ -73,7 +78,8 @@ class IlmekAutoConfigurationTest {
                     "spring.jpa.hibernate.ddl-auto=create-drop")
             .withUserConfiguration(AutoConfigurationPackageHolder.class);
 
-    private final ApplicationContextRunner consumerRunner = runner.withUserConfiguration(IlmekStoreTestConfiguration.class);
+    private final ApplicationContextRunner consumerRunner = runner.withUserConfiguration(IlmekStoreTestConfiguration.class)
+            .withBean("ilmekProcessExit", IntConsumer.class, () -> exits::add);
 
     @Test
     void registersStarterBeansWhenConsumerRegistersStoreRepositories() {
@@ -115,7 +121,7 @@ class IlmekAutoConfigurationTest {
     }
 
     @Test
-    void startsDaemonClientOnReadyAndCompletesHandshake() throws Exception {
+    void startsNonDaemonClientOnReadyAndKeepsLinkOpen() throws Exception {
         try (FakeHost host = new FakeHost()) {
             consumerRunner.withBean("stdin", IlmekAutoConfiguration.ConfigInput.class, () -> stdin(configJson(host.port())))
                     .run(context -> {
@@ -128,12 +134,16 @@ class IlmekAutoConfigurationTest {
                         assertEquals(APP, message.appId());
                         assertEquals(COMMUNITY, hello.communityId());
 
-                        Thread client = findThread(CLIENT_THREAD).orElseThrow();
-                        assertTrue(client.isDaemon());
-
                         host.send(new IpcMessage.Ready(APP), hello.requestId());
+                        Thread.sleep(500);
+
+                        Thread client = findThread(CLIENT_THREAD).orElseThrow();
+                        assertFalse(client.isDaemon());
+                        assertTrue(exits.isEmpty());
+
                         host.disconnect();
                         awaitThreadEnd(CLIENT_THREAD);
+                        assertEquals(0, exitStatus());
                     });
         }
     }
@@ -150,18 +160,40 @@ class IlmekAutoConfigurationTest {
             awaitThreadEnd(CLIENT_THREAD);
             assertTrue(context.isRunning());
             assertNull(context.getStartupFailure());
+            assertTrue(exits.isEmpty());
         });
     }
 
     @Test
-    void invalidConfigurationSkipsClientWithoutFailingContext() throws Exception {
+    void invalidConfigurationStopsContextAndExitsWithStatusOne() throws Exception {
         consumerRunner.withBean("stdin", IlmekAutoConfiguration.ConfigInput.class,
                         () -> stdin("{\"token\":\"tok\""))
                 .run(context -> {
                     publishReady(context);
                     awaitThreadEnd(CLIENT_THREAD);
-                    assertTrue(context.isRunning());
+                    assertEquals(1, exitStatus());
+                    assertFalse(context.isRunning());
                 });
+    }
+
+    @Test
+    void secondReadyEventDoesNotStartSecondClient() throws Exception {
+        try (FakeHost host = new FakeHost()) {
+            consumerRunner.withBean("stdin", IlmekAutoConfiguration.ConfigInput.class, () -> stdin(configJson(host.port())))
+                    .run(context -> {
+                        publishReady(context);
+                        publishReady(context);
+                        host.accept();
+
+                        IpcCodec.Decoded hello = host.read();
+                        host.expectNoConnection(Duration.ofMillis(500));
+
+                        host.send(new IpcMessage.Ready(APP), hello.requestId());
+                        host.disconnect();
+                        awaitThreadEnd(CLIENT_THREAD);
+                        assertEquals(0, exitStatus());
+                    });
+        }
     }
 
     @Test
@@ -176,6 +208,14 @@ class IlmekAutoConfigurationTest {
             assertTrue(factory.getMetamodel().getEntities().stream()
                     .anyMatch(e -> e.getJavaType().getSimpleName().equals("IlmekOperation")));
         });
+    }
+
+    private int exitStatus() throws InterruptedException {
+        Integer status = exits.poll(5, TimeUnit.SECONDS);
+        if (status == null) {
+            throw new AssertionError("process exit was not requested");
+        }
+        return status;
     }
 
     private static void publishReady(ConfigurableApplicationContext context) {
