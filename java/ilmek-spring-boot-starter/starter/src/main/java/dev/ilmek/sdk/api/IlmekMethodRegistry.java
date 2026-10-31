@@ -27,6 +27,10 @@ public class IlmekMethodRegistry implements BeanPostProcessor {
         return Optional.ofNullable(methods.get(methodName));
     }
 
+    public Map<String, MethodHandle> snapshot() {
+        return Map.copyOf(methods);
+    }
+
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         Class<?> userClass = ClassUtils.getUserClass(bean);
