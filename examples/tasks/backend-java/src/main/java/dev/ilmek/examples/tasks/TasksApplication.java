@@ -14,9 +14,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 public class TasksApplication {
 
     public static void main(String[] args) {
-        SpringApplication application = new SpringApplication(TasksApplication.class);
-        // Without a web server nothing else keeps the JVM alive; the starter's IPC thread is a daemon.
-        application.setKeepAlive(true);
-        application.run(args);
+        new SpringApplication(TasksApplication.class).run(args);
     }
 }
