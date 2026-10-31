@@ -1,0 +1,8 @@
+backend-java/build/
+backend-java/.gradle/
+backend-java/data/
+backend-java/.idea/
+frontend-angular/node_modules/
+frontend-angular/dist/
+frontend-angular/.angular/
+app/assets/
