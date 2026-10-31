@@ -126,7 +126,7 @@ public class IlmekAutoConfiguration {
                     config.appId(), config.communityId(), registry, operations, events);
             client.connectAndServe(HELLO_DEADLINE);
             status = EXIT_CLEAN;
-        } catch (IOException | IllegalArgumentException e) {
+        } catch (IOException | RuntimeException e) {
             LOG.error("ILMEK backend client stopped: " + e.getMessage(), e);
             status = EXIT_FAILURE;
         }
@@ -134,7 +134,10 @@ public class IlmekAutoConfiguration {
     }
 
     private static void stop(ApplicationContext context, IntConsumer processExit, int status) {
-        SpringApplication.exit(context);
-        processExit.accept(status);
+        try {
+            SpringApplication.exit(context);
+        } finally {
+            processExit.accept(status);
+        }
     }
 }

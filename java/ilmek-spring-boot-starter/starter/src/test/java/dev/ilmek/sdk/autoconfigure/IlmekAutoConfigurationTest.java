@@ -27,6 +27,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.InputStream;
+import java.lang.reflect.Proxy;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -52,6 +53,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -173,6 +175,44 @@ class IlmekAutoConfigurationTest {
                     awaitThreadEnd(CLIENT_THREAD);
                     assertEquals(1, exitStatus());
                     assertFalse(context.isRunning());
+                });
+    }
+
+    @Test
+    void runtimeFailureInClientStopsWithStatusOne() throws Exception {
+        consumerRunner.withBean("stdin", IlmekAutoConfiguration.ConfigInput.class,
+                        () -> stdin(configJson(1).replace("\"token\":\"" + TOKEN + "\"", "\"token\":null")))
+                .run(context -> {
+                    publishReady(context);
+                    awaitThreadEnd(CLIENT_THREAD);
+                    assertEquals(1, exitStatus());
+                    assertFalse(context.isRunning());
+                });
+    }
+
+    @Test
+    void exitHookRunsEvenWhenContextExitThrows() throws Exception {
+        int closedPort;
+        try (ServerSocket probe = new ServerSocket(0, 0, InetAddress.getLoopbackAddress())) {
+            closedPort = probe.getLocalPort();
+        }
+        ConfigurableApplicationContext failing = (ConfigurableApplicationContext) Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[] {ConfigurableApplicationContext.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("getBeansOfType")) {
+                        throw new IllegalStateException("context cannot be exited");
+                    }
+                    return null;
+                });
+        consumerRunner.withBean("stdin", IlmekAutoConfiguration.ConfigInput.class,
+                        () -> stdin(configJson(closedPort)))
+                .run(context -> {
+                    ApplicationListener<ApplicationReadyEvent> launcher =
+                            context.getBean("ilmekBackendLauncher", ApplicationListener.class);
+                    launcher.onApplicationEvent(new ApplicationReadyEvent(
+                            new SpringApplication(), new String[0], failing, Duration.ZERO));
+                    awaitThreadEnd(CLIENT_THREAD);
+                    assertEquals(1, exitStatus());
                 });
     }
 

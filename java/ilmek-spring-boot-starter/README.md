@@ -51,7 +51,7 @@ The IPC client starts once, on `ApplicationReadyEvent`, on a non-daemon thread. 
 | --- | --- | --- |
 | Empty, or nothing before 10 s | Logged at INFO; no client is started. Normal Spring applications are unaffected. | Not stopped |
 | Not valid configuration (unparseable, unknown field, missing field) | Logged at WARN; the context is stopped | 1 |
-| Parsed but rejected by the client (bad port, non-loopback address) | Logged at ERROR; the context is stopped | 1 |
+| Parsed but rejected by the client (for example, bad port) or any other client failure | Logged at ERROR; the context is stopped | 1 |
 | Valid | Connects to the loopback IPC port, completes the `IPC_READY` handshake, and serves until the host closes the link | 0 when the host closes the link; 1 if the handshake or link fails |
 
 The client stops the application through `SpringApplication.exit(context)` and then calls the process exit hook (`IntConsumer` bean `ilmekProcessExit`, default `System::exit`). Tests replace that bean to observe the status.
