@@ -18,10 +18,11 @@
         <li [class.done]="task.done">
           <label>
             <input
+              #box
               type="checkbox"
               [checked]="task.done"
               [disabled]="task.done"
-              (change)="complete(task)"
+              (change)="complete(task, box)"
             />
             <span>{{ task.title }}</span>
           </label>

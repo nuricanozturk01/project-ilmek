@@ -130,6 +130,26 @@ describe('App (tasks)', () => {
     expect(item.classList.contains('done')).toBe(true);
   });
 
+  it('reverts the checkbox and shows an error when completing fails', async () => {
+    const mock = installMock([{ id: 'task-1', title: 'Buy milk', done: false }]);
+    const fixture = await render();
+    mock.call.mockImplementation(async (method: string) => {
+      if (method === 'tasks.complete') {
+        throw new Error('host busy');
+      }
+      return { tasks: [{ id: 'task-1', title: 'Buy milk', done: false }] };
+    });
+
+    const checkbox = fixture.nativeElement.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    checkbox.click();
+    await flush();
+    fixture.detectChanges();
+
+    expect(checkbox.checked).toBe(false);
+    expect(checkbox.disabled).toBe(false);
+    expect((fixture.nativeElement.querySelector('.error') as HTMLElement).textContent).toContain('host busy');
+  });
+
   it('refreshes the list when a tasks.events event arrives', async () => {
     const mock = installMock([{ id: 'task-1', title: 'Buy milk', done: false }]);
     const fixture = await render();

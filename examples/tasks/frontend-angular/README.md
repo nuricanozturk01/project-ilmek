@@ -6,8 +6,8 @@ Angular frontend for the `examples/tasks` backend. It is a single `App` componen
 
 - **No service worker.** `@angular/service-worker` and PWA schematics are not used. The app runs only inside the İlmek native runtime.
 - **No external URLs.** `index.html`, styles, and scripts reference only local files. No CDN fonts, remote scripts, or remote stylesheets.
-- **Encapsulation risk (unverified).** The component uses Angular's default `ViewEncapsulation.Emulated`. Angular injects component styles as `<style>` elements at runtime, which a strict Content-Security-Policy could block. This is the one unverified risk; Task 13 tests it in the real client. If it fails, switch to `ViewEncapsulation.None` with the global `src/styles.css`.
-- **Inline critical CSS.** The production build inlines critical CSS into `index.html` as a `<style>` element. This is the same CSP consideration as above.
+- **Inline CSS and scripts are off.** The İlmek shell CSP blocks inline `<style>` and inline `<script>`. The production build therefore sets `optimization.styles.inlineCritical` to `false` (and `fonts` to `false`), so `index.html` contains only external `<link>` and `<script src>` tags.
+- **Encapsulation risk (unverified).** The component uses Angular's default `ViewEncapsulation.Emulated`. Angular may still inject component styles as `<style>` elements at runtime, which the shell CSP could block. This is the one unverified risk; Task 13 tests it in the real client. If it fails, switch to `ViewEncapsulation.None` with the global `src/styles.css`.
 
 ## window.ilmek contract
 

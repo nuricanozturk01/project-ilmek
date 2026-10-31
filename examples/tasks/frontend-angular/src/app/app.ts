@@ -40,9 +40,15 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
-  protected async complete(task: Task): Promise<void> {
+  protected async complete(task: Task, checkbox: HTMLInputElement): Promise<void> {
     await this.run(async () => {
-      await window.ilmek.call('tasks.complete', { id: task.id }, { write: true });
+      try {
+        await window.ilmek.call('tasks.complete', { id: task.id }, { write: true });
+      } catch (err) {
+        checkbox.checked = task.done;
+        await this.load().catch(() => undefined);
+        throw err;
+      }
       await this.load();
     });
   }
