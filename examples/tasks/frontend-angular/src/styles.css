@@ -50,6 +50,9 @@ ul {
 }
 
 li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid #eaeef2;
 }
@@ -75,4 +78,69 @@ li.done span {
   color: #cf222e;
   background: #ffebe9;
   border-radius: 6px;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+header h1 {
+  margin: 0;
+}
+
+.count {
+  margin: 0;
+  color: #656d76;
+  font-size: 0.9rem;
+}
+
+.filters {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.filters button {
+  padding: 4px 10px;
+  color: #1f2328;
+  background: transparent;
+  border: 1px solid #d0d7de;
+}
+
+.filters button.selected,
+.filters button[aria-pressed="true"] {
+  color: #fff;
+  background: #1f6feb;
+  border-color: #1f6feb;
+}
+
+li label {
+  flex: 1;
+}
+
+li input[type="text"] {
+  flex: 1;
+}
+
+li button {
+  padding: 4px 8px;
+  color: #1f2328;
+  background: transparent;
+  border: 1px solid #d0d7de;
+  font-size: 0.85rem;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.secondary {
+  color: #1f2328;
+  background: transparent;
+  border: 1px solid #d0d7de;
 }

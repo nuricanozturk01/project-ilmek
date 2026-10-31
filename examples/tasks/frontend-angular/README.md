@@ -1,6 +1,6 @@
 # Tasks frontend (Angular)
 
-Angular frontend for the `examples/tasks` backend. It is a single `App` component that lists tasks, adds a task, completes a task, and refreshes when `tasks.events` fires.
+Angular frontend for the `examples/tasks` backend, a single `App` component. It shows a "Todo" list with a remaining count, adds tasks (trimmed, max 200 characters, empty input ignored), toggles completion, edits titles inline (Enter saves, Escape cancels), deletes tasks, clears completed tasks, and filters All / Active / Completed on the client. Every write reloads the list, and `tasks.events` also triggers a reload. It uses only two methods of `window.ilmek`: `call` (for `tasks.list`, `tasks.create`, `tasks.complete`, `tasks.update`, `tasks.delete`, `tasks.clear_completed`; writes pass `{ write: true }`) and `subscribe` (for `tasks.events`).
 
 ## Constraints
 
@@ -12,11 +12,6 @@ Angular frontend for the `examples/tasks` backend. It is a single `App` componen
 ## window.ilmek contract
 
 The app uses only the contract declared in `src/types/ilmek-sdk.d.ts`, a type-only copy of `IlmekAppSDK` from `packages/sdk-js/src/types.ts`. The runtime object is injected by the shell. The app never imports or bundles the SDK.
-
-- `window.ilmek.call('tasks.list', {})`
-- `window.ilmek.call('tasks.create', { title }, { write: true })`
-- `window.ilmek.call('tasks.complete', { id }, { write: true })`
-- `window.ilmek.subscribe('tasks.events', null, handler)`
 
 The app does not use `connection`, `storage`, or `app`.
 

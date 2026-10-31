@@ -1,33 +1,58 @@
 <main>
-  <h1>Tasks</h1>
+  <header>
+    <h1>Todo</h1>
+    <p class="count">{{ remaining() }} left</p>
+  </header>
 
   <form (submit)="$event.preventDefault(); add(title)">
-    <input #title type="text" placeholder="What needs doing?" aria-label="Task title" />
+    <input #title type="text" maxlength="200" placeholder="What needs doing?" aria-label="New task" />
     <button type="submit">Add</button>
   </form>
+
+  <nav class="filters" aria-label="Filter">
+    <button type="button" [attr.aria-pressed]="filter() === 'all'" [class.selected]="filter() === 'all'" (click)="setFilter('all')">All</button>
+    <button type="button" [attr.aria-pressed]="filter() === 'active'" [class.selected]="filter() === 'active'" (click)="setFilter('active')">Active</button>
+    <button type="button" [attr.aria-pressed]="filter() === 'completed'" [class.selected]="filter() === 'completed'" (click)="setFilter('completed')">Completed</button>
+  </nav>
 
   @if (error()) {
     <p class="error" role="alert">{{ error() }}</p>
   }
 
   @if (tasks().length === 0) {
-    <p class="empty">No tasks yet.</p>
+    <p class="empty">Nothing to do yet.</p>
+  } @else if (visible().length === 0) {
+    <p class="empty">Nothing here.</p>
   } @else {
     <ul>
-      @for (task of tasks(); track task.id) {
+      @for (task of visible(); track task.id) {
         <li [class.done]="task.done">
-          <label>
+          @if (editingId() === task.id) {
             <input
-              #box
-              type="checkbox"
-              [checked]="task.done"
-              [disabled]="task.done"
-              (change)="complete(task, box)"
+              #editor
+              type="text"
+              maxlength="200"
+              aria-label="Edit task"
+              [value]="task.title"
+              (keydown.enter)="saveEdit(task, editor)"
+              (keydown.escape)="cancelEdit()"
             />
-            <span>{{ task.title }}</span>
-          </label>
+          } @else {
+            <label>
+              <input #box type="checkbox" [checked]="task.done" (change)="complete(task, box)" />
+              <span class="title">{{ task.title }}</span>
+            </label>
+            <button type="button" (click)="startEdit(task)">Edit</button>
+            <button type="button" (click)="remove(task)">Delete</button>
+          }
         </li>
       }
     </ul>
+  }
+
+  @if (completedCount() > 0) {
+    <div class="footer">
+      <button type="button" class="secondary" (click)="clearCompleted()">Clear completed</button>
+    </div>
   }
 </main>
