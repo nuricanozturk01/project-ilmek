@@ -1,0 +1,32 @@
+<main>
+  <h1>Tasks</h1>
+
+  <form (submit)="$event.preventDefault(); add(title)">
+    <input #title type="text" placeholder="What needs doing?" aria-label="Task title" />
+    <button type="submit">Add</button>
+  </form>
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+
+  @if (tasks().length === 0) {
+    <p class="empty">No tasks yet.</p>
+  } @else {
+    <ul>
+      @for (task of tasks(); track task.id) {
+        <li [class.done]="task.done">
+          <label>
+            <input
+              type="checkbox"
+              [checked]="task.done"
+              [disabled]="task.done"
+              (change)="complete(task)"
+            />
+            <span>{{ task.title }}</span>
+          </label>
+        </li>
+      }
+    </ul>
+  }
+</main>
