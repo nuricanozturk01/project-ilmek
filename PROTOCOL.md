@@ -474,7 +474,7 @@ Host → backend iletişimi yalnızca loopback'te açılan rastgele porttadır. 
 - Backend IPC başka uygulamalara, registry yönetimine, dosya indirme veya keyfi socket proxy işine izin vermez.
 - Host'un yerel yöneticisinin çalıştırdığı backend executable güvenilen koddur; ayrı süreç olması sandbox sayılmaz.
 
-Bu sözleşmenin Rust SDK implementasyonu `docs/IPC.md` altında örneklerle açıklanır. Normatif alanlar yukarıdadır; farklı wire biçimi uydurulmaz.
+Bu sözleşmenin Rust SDK implementasyonu `docs/BACKEND_IPC.md` altında örneklerle açıklanır. Normatif alanlar yukarıdadır; farklı wire biçimi uydurulmaz.
 
 ## 17. Referans akışlar
 

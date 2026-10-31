@@ -1,0 +1,6 @@
+.hero { display: grid; justify-items: center; align-content: center; gap: 1rem; min-height: 100vh; padding: 2rem 1rem; text-align: center; }
+.hero h1 { font-size: 2rem; }
+.lead { color: var(--muted); max-width: 30rem; }
+.logo.big { width: 4rem; height: 4rem; font-size: 1.8rem; border-radius: 18px; }
+.counter { display: grid; justify-items: center; gap: 0.5rem; min-width: 14rem; }
+.count { font-size: 3rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }

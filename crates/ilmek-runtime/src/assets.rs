@@ -74,6 +74,8 @@ pub(crate) fn security_headers() -> Vec<(&'static str, String)> {
         ("X-Content-Type-Options", "nosniff".to_owned()),
         ("Cache-Control", "no-store".to_owned()),
         ("Cross-Origin-Resource-Policy", "cross-origin".to_owned()),
+        // `<script type="module">` is fetched in CORS mode; the sandboxed frame's opaque origin needs this.
+        ("Access-Control-Allow-Origin", "*".to_owned()),
         ("Referrer-Policy", "no-referrer".to_owned()),
         (
             "Permissions-Policy",

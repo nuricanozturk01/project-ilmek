@@ -57,13 +57,16 @@ Content-Security-Policy: default-src 'none'; script-src ilmekapp: http://ilmekap
   frame-ancestors tauri://localhost http://tauri.localhost http://localhost:1420;
   sandbox allow-scripts allow-forms
 X-Content-Type-Options: nosniff   Cache-Control: no-store   Referrer-Policy: no-referrer
-Cross-Origin-Resource-Policy: cross-origin
+Cross-Origin-Resource-Policy: cross-origin   Access-Control-Allow-Origin: *
 Permissions-Policy: camera=(), microphone=(), geolocation=(), clipboard-read=()
 ```
 
 Resources are allowed by scheme, not `'self'`: in a sandboxed document WebKit takes `'self'` to be
 the opaque origin and blocked the page's own files (observed). CORP had to become `cross-origin`
-for the same reason (an opaque origin is never "same-origin"). Consequence: a page could ask for
+for the same reason (an opaque origin is never "same-origin"). `Access-Control-Allow-Origin: *` is
+there because `<script type="module">` (what Angular and most bundlers emit) is fetched in CORS mode,
+which a sandboxed frame without `allow-same-origin` cannot do without it. It only lets the page read
+the package's own static files, which it can already run; CSP still allows only the `ilmekapp:` scheme. Consequence: a page could ask for
 files of *another currently open* application's package by its host name; those are static package
 files, never data. The only channel out is `postMessage` to the shell, which relays a request only
 for the frame it came from. `window.confirm`/`alert` do not work in the sandbox (apps confirm in

@@ -1,3 +1,11 @@
+app_id = "01a191c8-c7e0-72d9-b4da-6bf00e4d995f"
+publisher_id = "01a191c8-c7e0-72d9-b4da-6befb9cf09ba"
+namespace = "nuri"
+slug = "tasks"
+name = "Todo"
+description = "Spring Boot ve Angular ile yazılmış todo uygulaması."
+version = "1.0.0"
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"
 permissions = ["app.call", "app.subscribe", "storage.local"]
 backend_required = true
-entrypoint = "index.html"

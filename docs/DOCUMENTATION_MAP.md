@@ -42,6 +42,7 @@ Spring Boot 4.2.0 yalnızca RC olduğu için hedeflenmedi. Starter kendi Jackson
 | İlk demo, adım adım (Linux node + Mac istemci) | `docs/TWO_MACHINE_DEMO.md` |
 | İşletim sistemine göre kurulum | `docs/INSTALL_BY_PLATFORM.md` |
 | Birden çok host / ağ kurulumu | `docs/NETWORK_AND_DISCOVERY.md` |
+| Var olan Spring + Angular uygulamasını taşımak (controller'lar değişmeden) | `docs/MIGRATE_EXISTING_SPRING_ANGULAR_APP.md` |
 | Yeni uygulama ekleme ve yayınlama (hızlı başlangıç) | `docs/APP_DEVELOPMENT_GUIDE.md` ("Quick start") |
 | Uygulamayı güncelleme, geri alma, silme | `docs/APP_DEVELOPMENT_GUIDE.md` ("Updating, rolling back, removing") |
 | Yeni statik uygulama, manifest, `ilmek app` komutları | `docs/APP_DEVELOPMENT_GUIDE.md` |

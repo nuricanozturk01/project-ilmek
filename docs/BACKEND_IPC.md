@@ -107,7 +107,7 @@ PROTOCOL.md §10, implemented and tested:
   to 30 s) and **abandons it after repeated failures** until an administrator runs
   `ilmek app restart`. Other applications are unaffected.
 - A write whose commit status is unknown to the client is recovered by repeating it with the same
-  operation ID (see [APP_DEVELOPMENT](APP_DEVELOPMENT.md)); the host never guesses a rollback.
+  operation ID (see [APP_DEVELOPMENT_GUIDE](APP_DEVELOPMENT_GUIDE.md)); the host never guesses a rollback.
 - The backend IPC cannot reach other applications, the registry, file downloads or arbitrary
   sockets; it is not a proxy.
 

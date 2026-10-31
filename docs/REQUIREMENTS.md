@@ -734,10 +734,10 @@ ilmek/
   docs/
     ARCHITECTURE.md
     PROTOCOL.md
-    NETWORK_SETUP.md
+    NETWORK_AND_DISCOVERY.md
     SECURITY.md
-    APP_DEVELOPMENT.md
-    OPERATIONS.md
+    APP_DEVELOPMENT_GUIDE.md
+    BACKUP_AND_OPERATIONS.md
     TEST_REPORT.md
     HARDWARE_INVENTORY.md
     decisions/
@@ -885,9 +885,9 @@ Bu eksikler, protokol ve uygulama geliştirmesini durdurmak zorunda değildir. A
 - **README:** Gerçek kurulum/çalıştırma/build komutları, ürün sınırları ve hızlı başlangıç. Bu şartname gerektiğinde `docs/REQUIREMENTS.md` altında korunur.
 - **ARCHITECTURE:** Rol ayrımı, veri akışı, process ve trust sınırları.
 - **PROTOCOL:** Bu teslimattaki normatif sözleşme; implementasyonla birlikte tutarlı tutulacak. Yerel backend IPC alanları da burada tanımlı.
-- **NETWORK_SETUP:** NODE-A/NODE-B radyo, IP, route, DHCP ve firewall kurulumları; rollback.
+- **NETWORK_AND_DISCOVERY:** NODE-A/NODE-B radyo, IP, route, DHCP ve firewall kurulumları; rollback.
 - **SECURITY:** Katılım, CA, yayıncı anahtarları, iptal, WebView/SDK sınırları ve gerçek kısıtlar.
-- **APP_DEVELOPMENT:** Sıfırdan statik ve dinamik uygulama oluşturma, N uygulama yayınlama, güncelleme ve kaldırma.
+- **APP_DEVELOPMENT_GUIDE:** Sıfırdan statik ve dinamik uygulama oluşturma, N uygulama yayınlama, güncelleme ve kaldırma.
 - **OPERATIONS:** Servis yönetimi, veri dizinleri, backup, restore ve hata teşhisi.
 - **HARDWARE_INVENTORY:** Cihaz modeli/OS/adaptör bilgileri ve doğrulama durumu.
 - **TEST_REPORT:** Test ID, ortam, komut, gözlenen sonuç; çalıştırılmayanlar açıkça işaretli.

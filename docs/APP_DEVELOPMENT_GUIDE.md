@@ -10,6 +10,17 @@ examples were run by `scripts/smoke/*.sh` and `scripts/quickstart.sh`; anything 
 (or `ilmek host start`) wrote on this machine. Examples in `examples/`: `hello-html` and `announcements` (static),
 `forum` and `notes` (with backends, SQLite persistence, writes with operation IDs, events).
 
+## Quick start: add a new application
+
+1. Start a node: `ilmek node` (see [RUN_NODES_AND_CLIENTS](RUN_NODES_AND_CLIENTS.md)).
+2. Scaffold: `ilmek app init --namespace <ns> --slug <name> ./<name>` (creates `app.toml` and `assets/index.html`).
+3. Write the page in `assets/` (HTML/CSS/JS, or a built Angular app). Talk to the backend only through `window.ilmek`.
+4. Need a backend? Pick one:
+   - Java (Spring Boot): [starter README](../java/ilmek-spring-boot-starter/README.md), example in [EXAMPLE_TODO_APP](EXAMPLE_TODO_APP.md).
+   - Rust: section "A dynamic application (Rust backend)" below.
+5. Package and publish: `ilmek app pack <dir> --out <pkg>`, `ilmek app install <pkg>`, `ilmek app set-backend <ns>/<name> --exe <exe>`, `ilmek app start <ns>/<name>`, `ilmek app publish <ns>/<name>`.
+6. Open `ilmek://<ns>/<name>` in the desktop client.
+
 ## Prerequisites
 
 - A running node (`ilmek node`) or extra host (`ilmek host start`) on the machine where you install.
@@ -106,7 +117,7 @@ ilmek_app_sdk::run(MIGRATIONS, MyBackend::new).await
 record and any events are committed in **one** SQLite transaction, so a retry with the same
 operation ID returns the original result, and the same ID with a different body is refused with
 `OPERATION_CONFLICT`. Validate input (`deny_unknown_fields`, length limits) and take the author
-from `context.principal_id`, never from the body. Details: [IPC](IPC.md).
+from `context.principal_id`, never from the body. Details: [IPC](BACKEND_IPC.md).
 
 Put the compiled backend on the host and bind it to the application (an administrator decision):
 

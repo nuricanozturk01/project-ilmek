@@ -1,8 +1,8 @@
 # İlmek — Başlangıçtan Rehber (Türkçe)
 
 Bu rehber, projeyi hiç bilmeyen biri için yazıldı. Her şey bu dalın (`feat/simple-no-security`)
-gerçek davranışına göredir. İlk gerçek deneme adımları: [FIRST_DEMO](FIRST_DEMO.md). Ayrıntılı ve teknik belgeler: [ARCHITECTURE](ARCHITECTURE.md),
-[PROTOCOL](../PROTOCOL.md), [NETWORK_SETUP](NETWORK_SETUP.md), [OPERATIONS](OPERATIONS.md).
+gerçek davranışına göredir. İlk gerçek deneme adımları: [TWO_MACHINE_DEMO](TWO_MACHINE_DEMO.md). Ayrıntılı ve teknik belgeler: [ARCHITECTURE](ARCHITECTURE.md),
+[PROTOCOL](../PROTOCOL.md), [NETWORK_AND_DISCOVERY](NETWORK_AND_DISCOVERY.md), [BACKUP_AND_OPERATIONS](BACKUP_AND_OPERATIONS.md).
 
 > **Önemli uyarı.** Bu dalda **güvenlik yoktur**: trafik şifrelenmez, kimse kimliğini kanıtlamaz,
 > paketler imzalanmaz, ağa bağlanan herkes katılıp uygulama yayınlayabilir. Yalnızca güvendiğiniz,
@@ -44,81 +44,15 @@ flowchart LR
 | **Cihaz kimliği** | Her cihazın kendi ürettiği rastgele numara. Kanıtlanmaz; cihazları ayırmak içindir |
 | **Beacon** | Node'un UDP 47400 portunda "buradayım" diye cevap vermesi |
 
-## 3. İlk demo: bir Linux node, bir Mac istemci
+## 3. İlk demo ve başka host eklemek
 
-```mermaid
-sequenceDiagram
-    participant L as Linux (node)
-    participant M as Mac (istemci)
-    L->>L: ilmek node (kayıt + uygulama sunucusu + beacon)
-    L->>L: forum paketlenir, kurulur, yayınlanır
-    M->>L: ilmek join (UDP yayını: node nerede?)
-    L-->>M: topluluk bilgisi (adres = cevabın geldiği IP)
-    M->>L: ilmek://nuri/forum çözümle (kayıt sunucusu)
-    M->>L: paketi indir, SHA-256 doğrula (uygulama sunucusu)
-    M->>L: forum.topics.list çağır
-    L-->>M: sonuç
-```
+Bir Linux node ve bir Mac istemci ile ilk deneme: [TWO_MACHINE_DEMO](TWO_MACHINE_DEMO.md).
+Kısa başlatma komutları (node, join, ek host, çok istemci): [RUN_NODES_AND_CLIENTS](RUN_NODES_AND_CLIENTS.md).
+Ağ ve keşif ayrıntıları: [NETWORK_AND_DISCOVERY](NETWORK_AND_DISCOVERY.md).
 
-### Linux'ta (node)
+Kısaca: bir makinede `ilmek node`, diğerlerinde `ilmek join`; ek uygulama sunucusu için `ilmek host start`.
 
-```sh
-git clone <bu depo> && cd project-ilmek
-scripts/quickstart.sh
-```
-
-Betik derler, node'u başlatır, `forum` ve `merhaba` örneklerini yayınlar ve komutları yazdırır.
-Elle yapmak isterseniz:
-
-```sh
-cargo build -p ilmek-cli -p ilmek-example-forum
-target/debug/ilmek node                          # bu terminal açık kalır
-# ikinci terminalde:
-target/debug/ilmek app pack examples/forum/app --out /tmp/forum-pkg
-target/debug/ilmek app install /tmp/forum-pkg
-target/debug/ilmek app set-backend nuri/forum --exe target/debug/ilmek-forum-backend
-target/debug/ilmek app start nuri/forum
-target/debug/ilmek app publish nuri/forum
-```
-
-Linux'ta güvenlik duvarı açıksa: UDP **47400** ve TCP **47401–47402** portlarına izin verin
-([NETWORK_SETUP](NETWORK_SETUP.md)).
-
-### Mac'te (istemci)
-
-Rust kurulu olmalı. Linux'tan hiçbir dosya veya kod kopyalamanız gerekmez:
-
-```sh
-cargo build -p ilmek-cli
-target/debug/ilmek join                          # node'u ağda arar ve katılır
-target/debug/ilmek resolve ilmek://nuri/forum
-target/debug/ilmek call ilmek://nuri/forum forum.topics.list
-```
-
-`join`, node'u UDP yayınıyla **ve** ağdaki TCP 47401 taramasıyla aynı anda arar; biri yeter. Bulunamazsa
-(farklı alt ağ, güvenlik duvarı) yalnızca Linux'un adresini verin, başka bir şey yazmanız gerekmez:
-`ilmek join --registry 192.168.1.10:47401`. Bu yalnızca TCP kullanır; topluluk numarasını node'un
-cevabından kendisi öğrenir. Linux'ta adres için `ip -4 route get 1.1.1.1` çıktısındaki `src`.
-
-Masaüstü penceresi için `cd apps/client && bun run tauri dev` ve "Bul ve katıl" düğmesi.
-
-### Chrome'dan `ilmek://` açmak
-
-Masaüstü istemci İlmek'in kendi tarayıcısıdır: adres çubuğu, katalog ve her uygulama için ayrı
-pencere. Kurulunca `ilmek://` bağlantılarının sahibi olarak kaydolur; Chrome'a `ilmek://nuri/forum`
-yazınca (Chrome bir kez "açılsın mı?" sorar) uygulama istemcide açılır. İstemci zaten açıksa aynı
-programda yeni sekme olur. Adımlar: [FIRST_DEMO](FIRST_DEMO.md) bölüm 6. Linux'ta denendi;
-macOS'ta `.app` paketi ve Chrome ile **denenmedi**.
-
-## 4. Başka bir makine de uygulama sunsun
-
-```sh
-ilmek host start        # node'u bulur, katılır, kendini kaydeder
-```
-
-Kendi adresini bilmesi gerekmez: kayıt sunucusu, bağlantının geldiği adresi kaydeder.
-
-## 5. Veriler nerede?
+## 4. Veriler nerede?
 
 `$ILMEK_HOME` (varsayılan `~/.ilmek`) altında:
 
@@ -130,16 +64,16 @@ Kendi adresini bilmesi gerekmez: kayıt sunucusu, bağlantının geldiği adresi
 | `registry.toml`, `host.toml` | ayarlar (ilk çalıştırmada yazılır, sonra elle düzenlenebilir) |
 
 Yedekleme: `ilmek backup registry --out ...`, `ilmek backup host --out ...`
-([OPERATIONS](OPERATIONS.md)).
+([BACKUP_AND_OPERATIONS](BACKUP_AND_OPERATIONS.md)).
 
-## 6. Bir uygulama nasıl yazılır?
+## 5. Bir uygulama nasıl yazılır?
 
-[APP_DEVELOPMENT](APP_DEVELOPMENT.md): HTML/CSS/JavaScript sayfası + (isteğe bağlı) Rust arka ucu.
+[APP_DEVELOPMENT_GUIDE](APP_DEVELOPMENT_GUIDE.md): HTML/CSS/JavaScript sayfası + (isteğe bağlı) Rust arka ucu.
 Sayfa yalnızca `window.ilmek` SDK'sı üzerinden kendi arka ucuna konuşur; başka bir adrese
 bağlanamaz. Yazma işlemleri işlem kimliği taşır: yanıt kaybolsa bile tekrar gönderilen işlem iki
 kez uygulanmaz.
 
-## 7. Hangi test edildi, hangisi edilmedi?
+## 6. Hangi test edildi, hangisi edilmedi?
 
 | Durum | Ne |
 | --- | --- |
@@ -148,7 +82,7 @@ kez uygulanmaz.
 
 Ayrıntı: [TEST_REPORT](TEST_REPORT.md).
 
-## 8. Sık sorulanlar
+## 7. Sık sorulanlar
 
 **`ilmek join` "no node found" diyor.** Node çalışıyor mu? Güvenlik duvarında UDP 47400 açık mı? Aynı
 alt ağda mısınız? Değilse `--registry IP:47401` kullanın.

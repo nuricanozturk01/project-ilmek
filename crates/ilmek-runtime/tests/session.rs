@@ -314,6 +314,7 @@ async fn pages_receive_only_their_own_verified_files_under_a_strict_policy() {
     let headers: std::collections::HashMap<_, _> = entry.headers.iter().cloned().collect();
     assert!(headers["Content-Security-Policy"].contains("default-src 'none'"));
     assert_eq!(headers["X-Content-Type-Options"], "nosniff");
+    assert_eq!(headers["Access-Control-Allow-Origin"], "*");
 
     for hostile in [
         "/manifest.json",

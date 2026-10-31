@@ -173,7 +173,7 @@ SQLite with forward-only migrations and a schema-version check (a database from 
 refused). Registry and host write business data and deduplication results in one transaction;
 write transactions start with `BEGIN IMMEDIATE`, so two processes touching the same database wait
 for each other instead of failing with "database is locked". Backups use SQLite's online backup API
-([OPERATIONS](OPERATIONS.md)). Package versions are immutable directories; user data lives beside
+([BACKUP_AND_OPERATIONS](BACKUP_AND_OPERATIONS.md)). Package versions are immutable directories; user data lives beside
 them and is kept on removal unless `--purge-data`.
 
 ## Not built

@@ -14,8 +14,8 @@ Environment: one Linux x86_64 dev box; nothing else was available.
   `ilmek-network` crates removed; `ilmek node`, `ilmek host start`, `ilmek join`; UDP discovery
   (`ilmek-core::discovery`); host address filled by the registry; client `host_address`; automatic join
   in the CLI and in the desktop client; `BEGIN IMMEDIATE` for write transactions; docs rewritten
-  (README, ARCHITECTURE, NETWORK_SETUP, OPERATIONS, SECURITY, TEST_REPORT, REHBER, PROTOCOL.md,
-  APP_DEVELOPMENT, IPC, decision 0005).
+  (README, ARCHITECTURE, NETWORK_AND_DISCOVERY, OPERATIONS, SECURITY, TEST_REPORT, OVERVIEW_TR, PROTOCOL.md,
+  APP_DEVELOPMENT_GUIDE, IPC, decision 0005).
 - Joining no longer depends on UDP: given an address it uses TCP only (the community id comes from the
   registry's refusal of a `HELLO` for a made-up community), and without an address it runs the UDP beacon
   and a TCP scan of the local /24 in parallel (`ilmek-core::discovery`). Nodes built before this change do
@@ -33,9 +33,9 @@ Environment: one Linux x86_64 dev box; nothing else was available.
 1. Try the demo on two real computers (Linux node, Mac client): `ilmek node`, `ilmek join`. Report
    whether UDP broadcast discovery works on that network; fix `discover_on` if the OS needs
    per-interface broadcast addresses.
-2. Build the desktop client as a `.app` on the Mac (`cd apps/client && bun run tauri build --bundles app`), open it, join, then `open ilmek://nuri/forum` and Chrome (docs/FIRST_DEMO.md §6). Reports are needed: macOS URL-scheme registration is untested.
+2. Build the desktop client as a `.app` on the Mac (`cd apps/client && bun run tauri build --bundles app`), open it, join, then `open ilmek://nuri/forum` and Chrome (docs/TWO_MACHINE_DEMO.md §6). Reports are needed: macOS URL-scheme registration is untested.
 3. Run `scripts/e2e/isolation-probe.sh` on a machine with a display (not re-run on this branch).
-4. Start `ilmek-node.service` on a throwaway machine and correct OPERATIONS.md.
+4. Start `ilmek-node.service` on a throwaway machine and correct BACKUP_AND_OPERATIONS.md.
 5. Decide when and how to add security back (new protocol version; see SECURITY.md).
 6. Commit when the owner asks; decide whether `main` keeps the secure design alongside.
 

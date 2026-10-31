@@ -1,4 +1,4 @@
-> **Dikkat:** Bu belge `main` dalının (TLS, sertifika, iki node, `ilmek-identity`/`ilmek-network` crate'leri) revizyon `8da5f7b` halini anlatır. `feat/simple-no-security` dalında bu yapı değişti; güncel anlatım için [README](../README.md), [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) ve [docs/REHBER.md](../docs/REHBER.md) okunmalıdır. Bu seri bu dal için güncellenmedi.
+> **Dikkat:** Bu belge `main` dalının (TLS, sertifika, iki node, `ilmek-identity`/`ilmek-network` crate'leri) revizyon `8da5f7b` halini anlatır. `feat/simple-no-security` dalında bu yapı değişti; güncel anlatım için [README](../README.md), [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) ve [docs/OVERVIEW_TR.md](../docs/OVERVIEW_TR.md) okunmalıdır. Bu seri bu dal için güncellenmedi.
 
 # 02 — Depo Yapısı ve Araç Zinciri
 

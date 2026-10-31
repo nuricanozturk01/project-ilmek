@@ -64,9 +64,9 @@ varsayımlar çıkarıldı, doğruluk kuralları yazıldı.
 
 | # | Dosya | İçerik | Ana kaynaklar |
 |---|---|---|---|
-| 01 | `01-genel-bakis.md` | Proje ne, kim için, hangi problemi çözüyor. Roller: registry, host, yayıncı, istemci, yönlendirici düğüm. Registry proxy değildir. Portlar 47401 (kontrol/uygulama) ve 47402 (kayıt/enrollment). Bir uygulamanın hayatı (yayınla → çöz → indir → çalıştır → çağır → iptal). Sabit tanımlayıcılar. HTTP/WebSocket neden yok. Neyin test edildiği/edilmediği. `docs/REHBER.md` ile ilişkisi. | `README.md`, `docs/ARCHITECTURE.md`, `docs/REHBER.md`, `docs/REQUIREMENTS.md` |
+| 01 | `01-genel-bakis.md` | Proje ne, kim için, hangi problemi çözüyor. Roller: registry, host, yayıncı, istemci, yönlendirici düğüm. Registry proxy değildir. Portlar 47401 (kontrol/uygulama) ve 47402 (kayıt/enrollment). Bir uygulamanın hayatı (yayınla → çöz → indir → çalıştır → çağır → iptal). Sabit tanımlayıcılar. HTTP/WebSocket neden yok. Neyin test edildiği/edilmediği. `docs/OVERVIEW_TR.md` ile ilişkisi. | `README.md`, `docs/ARCHITECTURE.md`, `docs/OVERVIEW_TR.md`, `docs/REQUIREMENTS.md` |
 | 02 | `02-depo-yapisi-ve-arac-zinciri.md` | Cargo workspace (üyeler, `[workspace.dependencies]`, lint'ler), pnpm workspace, `rust-toolchain.toml`, `.nvmrc`, lockfile'lar, `clippy.toml`, `rustfmt.toml`, `.prettierrc`; crate bağımlılık yönü (`cargo metadata` ile doğrulanarak); klasör haritası. | kök dosyalar, her `Cargo.toml`, `package.json` |
-| 03 | `03-ag-topolojisi.md` | Fiziksel: iki düğüm, AP + düğümler arası Wi-Fi, uç cihazlar, bağımsız host. Mantıksal: DNS/DHCP yok mu var mı (kodla doğrulanır), adresleme, port akışları, kontrol/veri düzlemi. Donanım gereksinimleri; gerçekte ne test edilmedi. | `docs/NETWORK_SETUP.md`, `docs/HARDWARE_INVENTORY.md`, `configs/*.example`, `docs/REHBER.md` §3 |
+| 03 | `03-ag-topolojisi.md` | Fiziksel: iki düğüm, AP + düğümler arası Wi-Fi, uç cihazlar, bağımsız host. Mantıksal: DNS/DHCP yok mu var mı (kodla doğrulanır), adresleme, port akışları, kontrol/veri düzlemi. Donanım gereksinimleri; gerçekte ne test edilmedi. | `docs/NETWORK_AND_DISCOVERY.md`, `docs/HARDWARE_INVENTORY.md`, `configs/*.example`, `docs/OVERVIEW_TR.md` §3 |
 
 ### Bölüm B — Protokol (`ilmek-protocol`, `PROTOCOL.md`)
 
@@ -93,7 +93,7 @@ varsayımlar çıkarıldı, doğruluk kuralları yazıldı.
 
 | # | Dosya | İçerik | Ana kaynaklar |
 |---|---|---|---|
-| 15 | `15-sqlite-migrasyon-ve-yedek.md` | `Store` açma (WAL, `synchronous=FULL`, `foreign_keys=ON` — doğrulandı), ileri-yönlü migrasyon, şema sürümü kontrolü (yeni DB reddi), `unsigned.rs`, çevrimiçi yedek, ağaç yedeği/geri yükleme, doğrulama. | `ilmek-store/src/*`, `tests/store.rs`, `tests/backup.rs`, `docs/OPERATIONS.md` |
+| 15 | `15-sqlite-migrasyon-ve-yedek.md` | `Store` açma (WAL, `synchronous=FULL`, `foreign_keys=ON` — doğrulandı), ileri-yönlü migrasyon, şema sürümü kontrolü (yeni DB reddi), `unsigned.rs`, çevrimiçi yedek, ağaç yedeği/geri yükleme, doğrulama. | `ilmek-store/src/*`, `tests/store.rs`, `tests/backup.rs`, `docs/BACKUP_AND_OPERATIONS.md` |
 | 16 | `16-registry-cekirdegi.md` | Başlatma (`init.rs`), ayarlar, şema, `Registry` tipi, TLS sunucusu (`server.rs`), servis döngüsü, hız sınırlayıcı (`limiter.rs`), eş yönetimi (`peers.rs`), işlem kaydı (`operations.rs`), `files.rs`, `time_util.rs`, yetki kapısı (`gate.rs`). | `ilmek-registry/src/{lib,registry,settings,schema,init,files,time_util,server,service,limiter,peers,operations,gate,error}.rs` |
 | 17 | `17-kayit-yonetim-ve-iptal.md` | Tek kullanımlık davet/token, ENROLL akışı ve CSR işleme (CA kimliği seçer), yenileme, operatör eylemleri (`admin.rs`), iptal snapshot'ları, sayfalı `GET_TRUST`. | `enroll.rs`, `admin.rs`, `snapshots.rs`, `trust_api.rs`, `tests/registry.rs`, `tests/renewal.rs` |
 | 18 | `18-katalog-isimler-hostlar-leaseler.md` | `catalog.rs` baştan sona: namespace sahipliği, uygulama kayıtları, yayıncı yetkisi, host kaydı, lease ve heartbeat, çözümleme (resolve), çakışma/yarış davranışı. | `catalog.rs`, `tests/registry.rs` |
@@ -105,7 +105,7 @@ varsayımlar çıkarıldı, doğruluk kuralları yazıldı.
 | 19 | `19-paket-olusturma-ve-dogrulama.md` | Paket dizin yapısı (`manifest.json`, `manifest.sig`, `assets/`), `pack`, `verify`, hash, yol güvenliği, hata türleri. | `ilmek-package/src/*`, `tests/package.rs` |
 | 20 | `20-host-cekirdegi.md` | `Host`, `manager`, ayarlar, `paths`, `schema`, `store` (host DB erişimi), `stats` (ölçülemeyen = `None`), `logs`, `slots.rs` (`CallGate` ve `AppSlot`), çok uygulamalı model. | `host.rs`, `manager.rs`, `settings.rs`, `paths.rs`, `schema.rs`, `store.rs`, `stats.rs`, `logs.rs`, `slots.rs`, `error.rs` |
 | 21 | `21-kurulum-baslatma-ve-supervisor.md` | Stage → doğrula → atomik aktivasyon (`install.rs`), süreç başlatma (`launcher.rs`), uygulama başına supervisor görevi: başlat, sağlık, yeniden başlat sınırı, durdur. Çökme/dayanıklılık testleri. | `install.rs`, `launcher.rs`, `supervisor.rs`, `tests/install.rs`, `tests/resilience.rs` |
-| 22 | `22-host-servisi-ipc-ve-abonelikler.md` | Host'un ILMEK/1 uç noktası (manifest, asset, çağrı, abonelik), arka uç ile loopback IPC (`link.rs`, `ipc.rs`, `docs/IPC.md`), çağıran kimliğinin sertifikadan türetilmesi, abonelik yönetimi. | `service.rs`, `link.rs`, `subscriptions.rs`, `ilmek-protocol/src/ipc.rs`, `docs/IPC.md`, `tests/e2e.rs` |
+| 22 | `22-host-servisi-ipc-ve-abonelikler.md` | Host'un ILMEK/1 uç noktası (manifest, asset, çağrı, abonelik), arka uç ile loopback IPC (`link.rs`, `ipc.rs`, `docs/BACKEND_IPC.md`), çağıran kimliğinin sertifikadan türetilmesi, abonelik yönetimi. | `service.rs`, `link.rs`, `subscriptions.rs`, `ilmek-protocol/src/ipc.rs`, `docs/BACKEND_IPC.md`, `tests/e2e.rs` |
 | 23 | `23-host-registry-baglantisi-ve-yayin.md` | `registry_link.rs` (kayıt, lease yenileme, trust yenileme), `publish.rs` (uygulamayı registry'de yayınlama). | `registry_link.rs`, `publish.rs` |
 | 24 | `24-rust-uygulama-sdk.md` | Backend yazarının yüzeyi: `runtime.rs`, `backend.rs`, `config.rs`, `dedupe.rs` (iş verisi + tekilleştirme aynı transaction), `events.rs` (kalıcı olay günlüğü, imleçler), `error.rs`. | `ilmek-app-sdk/src/*`, `tests/sdk.rs` |
 
@@ -125,13 +125,13 @@ varsayımlar çıkarıldı, doğruluk kuralları yazıldı.
 |---|---|---|---|
 | 30 | `30-cli.md` | `ilmek` komut ağacı (`cli.rs`), her alt komut modülü (`community`, `identity`, `publisher`, `app`, `device`, `backup`, `doctor`, `network`, `serve`), çıktı biçimi, hata eşleme. Komutlar gerçekten `--help` ile çalıştırılıp doğrulanır. | `ilmek-cli/src/*`, `crates/ilmek-cli/tests/network.rs` |
 | 31 | `31-ag-kurulumu-ilmek-network.md` | `NodeConfig` doğrulaması, `Plan`, üretilen dosyalar (`render.rs`), `apply` + anlık görüntü (değişiklikten önce kayıt), `rollback`, `status`, `system.rs` (OS sınırı), `cidr.rs`, yönetim bağlantısını koruma kuralları. | `ilmek-network/src/*`, `tests/node.rs`, `configs/*` |
-| 32 | `32-dagitim-yedekleme-ve-isletim.md` | systemd birimleri, sysusers/tmpfiles, `.deb`, yedek/geri yükleme alıştırması, sertifika yenileme, `docs/OPERATIONS.md`; `scripts/smoke/*`. | `deploy/`, `scripts/`, `docs/OPERATIONS.md` |
+| 32 | `32-dagitim-yedekleme-ve-isletim.md` | systemd birimleri, sysusers/tmpfiles, `.deb`, yedek/geri yükleme alıştırması, sertifika yenileme, `docs/BACKUP_AND_OPERATIONS.md`; `scripts/smoke/*`. | `deploy/`, `scripts/`, `docs/BACKUP_AND_OPERATIONS.md` |
 
 ### Bölüm H — Örnekler, test, güvenlik, durum
 
 | # | Dosya | İçerik | Ana kaynaklar |
 |---|---|---|---|
-| 33 | `33-ornek-uygulamalar.md` | forum, notes (backend'li), announcements, hello-html (statik), isolation-probe: manifest, HTML/JS, backend, SDK kullanımı, veri. `docs/APP_DEVELOPMENT.md`. Yeni uygulama yazma adımları. | `examples/*`, `docs/APP_DEVELOPMENT.md` |
+| 33 | `33-ornek-uygulamalar.md` | forum, notes (backend'li), announcements, hello-html (statik), isolation-probe: manifest, HTML/JS, backend, SDK kullanımı, veri. `docs/APP_DEVELOPMENT_GUIDE.md`. Yeni uygulama yazma adımları. | `examples/*`, `docs/APP_DEVELOPMENT_GUIDE.md` |
 | 34 | `34-test-stratejisi.md` | `ilmek-testing` yardımcıları, birim/entegrasyon/e2e katmanları, smoke betikleri, izolasyon probu (`scripts/e2e`), testlerin çalıştırılıp sonucun kaydı. Neyi kanıtlıyor, neyi kanıtlamıyor. | `ilmek-testing/*`, tüm `tests/`, `scripts/`, `docs/TEST_REPORT.md` |
 | 35 | `35-guvenlik-modeli.md` | Güven sınırları, tehdit→savunma→kod karşılığı tablosu, güvenilir backend ≠ sandbox, sayfa izolasyonu, anahtar saklama, DoS sınırları. | `docs/SECURITY.md` + koda bakarak doğrulama |
 | 36 | `36-kabul-matrisi-ve-kalan-isler.md` | A01–A24 ve P01–P24 durumları (`docs/TEST_REPORT.md`'den, mümkün olanlar yeniden çalıştırılarak), bilinen kusurlar, bloke olanlar ve gereken donanım/erişim. | `docs/TEST_REPORT.md`, `docs/REQUIREMENTS.md` §26, `PROTOCOL.md` §20 |
@@ -184,8 +184,8 @@ Yazım sırasında bu çizelge işaretlenir; boşluk bulunursa plan güncellenir
 - Çapraz bağlantı: `[bkz. 13](13-oturum-sunucu-tarafi.md)`.
 - Plan değişirse önce bu dosya güncellenir (tablo, sayılar, kapsam çizelgesi).
 - Sıfırdan öğrenen biri için: her belge yeni terimi ilk geçtiği yerde tanımlar; 37. belgede sözlük.
-- `docs/REHBER.md` mevcut bir giriş kılavuzu. Tekrar etmek yerine, burada koda inen ayrıntı verilir
-  ve REHBER'e atıf yapılır; REHBER'in koda aykırı bir ifadesi bulunursa 8. kural uygulanır.
+- `docs/OVERVIEW_TR.md` mevcut bir giriş kılavuzu. Tekrar etmek yerine, burada koda inen ayrıntı verilir
+  ve OVERVIEW_TR'e atıf yapılır; OVERVIEW_TR'in koda aykırı bir ifadesi bulunursa 8. kural uygulanır.
 
 ## İlerleme tablosu
 

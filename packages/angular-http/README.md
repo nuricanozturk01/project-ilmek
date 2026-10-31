@@ -63,3 +63,11 @@ If `window.ilmek` is missing, or `call` rejects, the request fails with an `Http
 ## Scripts
 
 `bun run build` (tsc to `dist/`), `bun run test`, `bun run typecheck`, `bun run lint`.
+
+## Install gotcha: one Angular copy only
+
+With a `file:` dependency, npm symlinks this package by default. Its own `@angular/common` and
+`@angular/core` dev dependencies then resolve next to the package, so the app gets two Angular copies and
+`HttpClient` silently ignores the interceptor (the request falls through with
+`Failed to parse URL from /api/...`). Put `install-links=true` in the app's `.npmrc` (as
+`examples/rest-notes/frontend-angular` does), or install a packed tarball.

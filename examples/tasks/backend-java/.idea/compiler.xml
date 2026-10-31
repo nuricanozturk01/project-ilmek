@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <bytecodeTargetLevel target="25" />
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_STRING" value="-parameters" />
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="ilmek-spring-boot-starter" options="" />
+      <module name="ilmek-spring-boot-starter.starter" options="" />
+      <module name="ilmek-spring-boot-starter.starter.main" options="" />
+      <module name="ilmek-spring-boot-starter.starter.test" options="" />
+      <module name="ilmek-spring-boot-starter.web-adapter" options="" />
+      <module name="ilmek-spring-boot-starter.web-adapter.main" options="" />
+    </option>
+  </component>
+</project>

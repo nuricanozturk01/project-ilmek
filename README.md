@@ -66,7 +66,7 @@ cp -R "target/release/bundle/macos/Ilmek.app" /Applications/ && open "/Applicati
 open "ilmek://nuri/forum"                                    # veya Chrome adres çubuğuna yaz
 ```
 
-Adım adım ve sorun giderme: [FIRST_DEMO](docs/FIRST_DEMO.md). Linux, macOS ve Windows için ayrı kılavuz: [PLATFORMS](docs/PLATFORMS.md).
+Adım adım ve sorun giderme: [TWO_MACHINE_DEMO](docs/TWO_MACHINE_DEMO.md). Linux, macOS ve Windows için ayrı kılavuz: [INSTALL_BY_PLATFORM](docs/INSTALL_BY_PLATFORM.md).
 
 ## The first demo: one Linux node, one Mac
 
@@ -111,12 +111,12 @@ The **desktop client is İlmek's browser**: it has an address bar, a catalog, an
 application in its own tab (`cd apps/client && bun run tauri dev`; its **Find and join** button
 does the same discovery). It also registers itself as the handler of `ilmek://` links, so typing
 `ilmek://nuri/forum` in Chrome (or `open ilmek://nuri/forum` in a terminal) opens the app in it
-([FIRST_DEMO](docs/FIRST_DEMO.md)). On Linux the window, a second start handing a link to the running
+([TWO_MACHINE_DEMO](docs/TWO_MACHINE_DEMO.md)). On Linux the window, a second start handing a link to the running
 instance, `xdg-open ilmek://…`, and the rendering of a static page and of the forum were verified;
 **nothing was run on macOS or Windows**, and Chrome itself was not used.
 
 **More machines** that should also host applications run `ilmek host start`: it finds the node,
-joins, and registers itself. See [NETWORK_SETUP](docs/NETWORK_SETUP.md).
+joins, and registers itself. See [NETWORK_AND_DISCOVERY](docs/NETWORK_AND_DISCOVERY.md).
 
 ## Commands
 
@@ -125,9 +125,9 @@ joins, and registers itself. See [NETWORK_SETUP](docs/NETWORK_SETUP.md).
 | `ilmek node` | registry + application host + discovery beacon in one process; first run creates everything |
 | `ilmek host start` | an extra application host that finds the node and joins by itself |
 | `ilmek join [--registry IP:PORT]` | join explicitly (every other command also joins automatically when needed) |
-| `ilmek app init \| pack \| install \| update \| start \| stop \| list \| publish …` | build, run and publish applications ([APP_DEVELOPMENT](docs/APP_DEVELOPMENT.md)) |
+| `ilmek app init \| pack \| install \| update \| start \| stop \| list \| publish …` | build, run and publish applications ([APP_DEVELOPMENT_GUIDE](docs/APP_DEVELOPMENT_GUIDE.md)) |
 | `ilmek resolve \| fetch \| call \| diagnose ilmek://ns/app` | use and debug an application |
-| `ilmek backup …` | back up and restore registry and host data ([OPERATIONS](docs/OPERATIONS.md)) |
+| `ilmek backup …` | back up and restore registry and host data ([BACKUP_AND_OPERATIONS](docs/BACKUP_AND_OPERATIONS.md)) |
 
 Data lives in `$ILMEK_HOME` (default `~/.ilmek`).
 
@@ -149,11 +149,11 @@ Data lives in `$ILMEK_HOME` (default `~/.ilmek`).
 | `deploy/systemd/` | service units for a node and for an extra host |
 | `scripts/` | quickstart, loopback multi-process smoke tests, backup/restore exercise |
 
-Documentation: [PLATFORMS](docs/PLATFORMS.md) · [FIRST_DEMO](docs/FIRST_DEMO.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [NETWORK_SETUP](docs/NETWORK_SETUP.md) ·
-[SECURITY](docs/SECURITY.md) · [APP_DEVELOPMENT](docs/APP_DEVELOPMENT.md) ·
-[OPERATIONS](docs/OPERATIONS.md) · [IPC](docs/IPC.md) · [TEST_REPORT](docs/TEST_REPORT.md) ·
-[PROTOCOL](PROTOCOL.md) · [REHBER (Türkçe)](docs/REHBER.md) · [decisions](docs/decisions) ·
-[PROGRESS](docs/PROGRESS.md)
+Documentation: [INSTALL_BY_PLATFORM](docs/INSTALL_BY_PLATFORM.md) · [TWO_MACHINE_DEMO](docs/TWO_MACHINE_DEMO.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [NETWORK_AND_DISCOVERY](docs/NETWORK_AND_DISCOVERY.md) ·
+[SECURITY](docs/SECURITY.md) · [APP_DEVELOPMENT_GUIDE](docs/APP_DEVELOPMENT_GUIDE.md) ·
+[BACKUP_AND_OPERATIONS](docs/BACKUP_AND_OPERATIONS.md) · [BACKEND_IPC](docs/BACKEND_IPC.md) · [TEST_REPORT](docs/TEST_REPORT.md) ·
+[PROTOCOL](PROTOCOL.md) · [OVERVIEW_TR (Türkçe)](docs/OVERVIEW_TR.md) · [decisions](docs/decisions) ·
+[PROJECT_STATUS](docs/PROJECT_STATUS.md)
 
 ## Build and test
 

@@ -71,3 +71,16 @@ The adapter sets the request header `X-Ilmek-Principal` to the host-supplied pri
 ```
 
 The test sources contain a small `@RestController` application and drive the registered handlers, including a retried write over the real backend IPC client and a check that no port is listening.
+
+## Gradle: composite build needs a substitution
+
+The Gradle project is called `web-adapter`, not `ilmek-spring-web-adapter`, so `includeBuild` alone does not
+resolve `dev.ilmek:ilmek-spring-web-adapter`. Add a substitution in the consumer's `settings.gradle.kts`:
+
+```kotlin
+includeBuild("../../../java/ilmek-spring-boot-starter") {
+    dependencySubstitution {
+        substitute(module("dev.ilmek:ilmek-spring-web-adapter")).using(project(":web-adapter"))
+    }
+}
+```

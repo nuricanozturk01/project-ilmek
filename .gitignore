@@ -6,3 +6,5 @@
 node_modules
 packages/*/dist
 apps/*/dist
+.claude/
+graphify-out/

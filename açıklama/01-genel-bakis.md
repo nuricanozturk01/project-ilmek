@@ -1,4 +1,4 @@
-> **Dikkat:** Bu belge `main` dalının (TLS, sertifika, iki node, `ilmek-identity`/`ilmek-network` crate'leri) revizyon `8da5f7b` halini anlatır. `feat/simple-no-security` dalında bu yapı değişti; güncel anlatım için [README](../README.md), [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) ve [docs/REHBER.md](../docs/REHBER.md) okunmalıdır. Bu seri bu dal için güncellenmedi.
+> **Dikkat:** Bu belge `main` dalının (TLS, sertifika, iki node, `ilmek-identity`/`ilmek-network` crate'leri) revizyon `8da5f7b` halini anlatır. `feat/simple-no-security` dalında bu yapı değişti; güncel anlatım için [README](../README.md), [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) ve [docs/OVERVIEW_TR.md](../docs/OVERVIEW_TR.md) okunmalıdır. Bu seri bu dal için güncellenmedi.
 
 # 01 — Genel Bakış: İlmek nedir, ne yapar, nasıl bir bütündür
 
@@ -27,8 +27,8 @@ zihinde doğru çerçeveyi kurmaktır.
 ## 2. Önce bilmen gerekenler
 
 Hiçbir önkoşul yok. Yeni terimler ilk geçtikleri yerde tanımlanır. Proje daha basit bir dille
-`docs/REHBER.md` içinde de anlatılıyor (760 satır, Türkçe). Bu serinin farkı, her iddiayı koda
-bağlaması ve sonraki belgelerde kodu satır satır açmasıdır. REHBER ile çelişen bir yer bulursam
+`docs/OVERVIEW_TR.md` içinde de anlatılıyor (760 satır, Türkçe). Bu serinin farkı, her iddiayı koda
+bağlaması ve sonraki belgelerde kodu satır satır açmasıdır. OVERVIEW_TR ile çelişen bir yer bulursam
 belgenin sonunda "Bulunan tutarsızlıklar" altında yazarım.
 
 ---
@@ -186,7 +186,7 @@ Aşağıdaki tablo `docs/ARCHITECTURE.md` "Roles" tablosunun açılmış halidir
 
 ## 7. Bir uygulamanın hayatı (yüksek seviyeden)
 
-Aşağıdaki akışlar `docs/ARCHITECTURE.md` "Main flows" ve `docs/REHBER.md` §4–5'in özetidir
+Aşağıdaki akışlar `docs/ARCHITECTURE.md` "Main flows" ve `docs/OVERVIEW_TR.md` §4–5'in özetidir
 **[BELGE]**. Her adımın kodu sonraki belgelerde açılır; yanında hangi belgeye bakacağın yazıyor.
 
 ### Adım 0 — Topluluğu kurmak (yönetici)
@@ -305,9 +305,9 @@ Kaynak büyüklüğü **[ÇALIŞTIRILDI]** (`.rs/.ts/.tsx/.js/.sql` satırları,
 Kabaca ölçek göstermek içindir, kesin kod boyutu ölçümü değildir.)
 
 Dokümanlar: `README.md`, `PROTOCOL.md` (607 satır, normatif), `docs/REQUIREMENTS.md`
-(924 satır, orijinal şartname), `docs/ARCHITECTURE.md`, `SECURITY.md`, `OPERATIONS.md`,
-`NETWORK_SETUP.md`, `IPC.md`, `APP_DEVELOPMENT.md`, `HARDWARE_INVENTORY.md`, `TEST_REPORT.md`,
-`PROGRESS.md`, `REHBER.md`, `docs/decisions/0001–0004`. Ayrıntılı klasör haritası belge 02'de.
+(924 satır, orijinal şartname), `docs/ARCHITECTURE.md`, `SECURITY.md`, `BACKUP_AND_OPERATIONS.md`,
+`NETWORK_AND_DISCOVERY.md`, `BACKEND_IPC.md`, `APP_DEVELOPMENT_GUIDE.md`, `HARDWARE_INVENTORY.md`, `TEST_REPORT.md`,
+`PROJECT_STATUS.md`, `OVERVIEW_TR.md`, `docs/decisions/0001–0004`. Ayrıntılı klasör haritası belge 02'de.
 
 ### 9.1 Bu işte ne "hazır" ne "yazdığımız"
 
@@ -374,7 +374,7 @@ uygulama + ağ kurulum araçları** setidir. Fark önemlidir: loopback testi Wi-
   olurdu. İsim bilgisi küçük ve seyrek değişir, veri büyük ve sık; ayrı tutmak ölçeği düşük
   donanımda mümkün kılar.
 - **Host'ta çok uygulama, ayrı süreçler:** Bir uygulamanın çökmesi diğerlerini düşürmesin diye
-  (`REHBER.md` ve `TEST_REPORT.md` A13: bir arka uç çökerken diğerleri ayakta).
+  (`OVERVIEW_TR.md` ve `TEST_REPORT.md` A13: bir arka uç çökerken diğerleri ayakta).
 - **İmzalı paket + iki yönlü TLS:** Ağ güvenilmez varsayılır; Wi-Fi parolasını bilen biri
   uygulama yayınlayamaz ya da başkası gibi davranamaz.
 - **Operation ID + aynı transaction'da tekilleştirme:** Zayıf Wi-Fi'de cevap kaybı olağan;
@@ -417,7 +417,7 @@ Cevaplar: (1) §3.2 ve §6; (2) §4; (3) §5.1; (4) §7 Adım 1; (5) §8 madde 2
 - Bulunan tutarsızlık: `docs/REQUIREMENTS.md` §11 paket adı olarak `ilmek-node` sayıyor; depoda
   `ilmek-node` adlı crate **yok**, düğüm işi `ilmek-network` crate'inde. `docs/ARCHITECTURE.md`
   da `ilmek-network` diyor. Davranış değişikliği değil, adlandırma farkı; belge 02 ve 31'de ele alınacak.
-- Bulunan başka tutarsızlık: `docs/PROGRESS.md` "nothing committed" diyor, ama `git log`
-  commit'ler gösteriyor ve `git status` temizdi. PROGRESS.md eski kalmış olabilir.
+- Bulunan başka tutarsızlık: `docs/PROJECT_STATUS.md` "nothing committed" diyor, ama `git log`
+  commit'ler gösteriyor ve `git status` temizdi. PROJECT_STATUS.md eski kalmış olabilir.
 
 Sonraki: [02 — Depo yapısı ve araç zinciri](02-depo-yapisi-ve-arac-zinciri.md)

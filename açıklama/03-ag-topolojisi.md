@@ -1,4 +1,4 @@
-> **Dikkat:** Bu belge `main` dalının (TLS, sertifika, iki node, `ilmek-identity`/`ilmek-network` crate'leri) revizyon `8da5f7b` halini anlatır. `feat/simple-no-security` dalında bu yapı değişti; güncel anlatım için [README](../README.md), [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) ve [docs/REHBER.md](../docs/REHBER.md) okunmalıdır. Bu seri bu dal için güncellenmedi.
+> **Dikkat:** Bu belge `main` dalının (TLS, sertifika, iki node, `ilmek-identity`/`ilmek-network` crate'leri) revizyon `8da5f7b` halini anlatır. `feat/simple-no-security` dalında bu yapı değişti; güncel anlatım için [README](../README.md), [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) ve [docs/OVERVIEW_TR.md](../docs/OVERVIEW_TR.md) okunmalıdır. Bu seri bu dal için güncellenmedi.
 
 # 03 — Ağ Topolojisi
 
@@ -27,7 +27,7 @@ Düğümleri kuran aracın iç işleyişi (`ilmek network`) 31. belgede; burada 
 
 ## 4. Kod turu
 
-### 4.1 Hedef topoloji **[BELGE]** (`docs/NETWORK_SETUP.md:10-23`, `docs/REHBER.md` §3)
+### 4.1 Hedef topoloji **[BELGE]** (`docs/NETWORK_AND_DISCOVERY.md:10-23`, `docs/OVERVIEW_TR.md` §3)
 
 ```
  telefonlar/PC'ler ~~ ILMEK-A ~~ [wlan0 NODE-A wlan1] ~~ ILMEK-TRANSIT ~~ [wlan1 NODE-B wlan0] ~~ ILMEK-B ~~ telefonlar/PC'ler
@@ -48,11 +48,11 @@ birebir uyumlu (okundu) **[KOD]**. Adresler programa gömülü değil: `NodeConf
 (`crates/ilmek-network/src/config.rs:9`). **[KOD]**
 
 Önemli kararlar (belgeden ve koddan):
-- **NAT yok, varsayılan rota yok.** İlmek ağları internete çıkmaz, yalnızca birbirine ulaşır (`NETWORK_SETUP.md:20`; plan notu `plan.rs:148-150`:
+- **NAT yok, varsayılan rota yok.** İlmek ağları internete çıkmaz, yalnızca birbirine ulaşır (`NETWORK_AND_DISCOVERY.md:20`; plan notu `plan.rs:148-150`:
   "Nothing is masqueraded and no default route to an upstream network is created"). **[KOD]**
 - **Wi-Fi hem erişim hem düğümler arası bağ.** Bluetooth V1 dışı. İkinci radyo NODE-A'da AP, NODE-B'de station.
   Kodda `TransitMode::{AccessPoint, Station}` (`config.rs:82-87`). **[KOD]**
-- **Uygulama düğümde değil, ayrı host'ta.** Düğüm "yolu açar" (REHBER §3). Registry NODE-A'ya konabilir ama zorunlu değil
+- **Uygulama düğümde değil, ayrı host'ta.** Düğüm "yolu açar" (OVERVIEW_TR §3). Registry NODE-A'ya konabilir ama zorunlu değil
   ("any reachable machine works", `registry.toml.example:1`). **[BELGE]**
 
 ### 4.2 DNS yok, DHCP var **[KOD]**
@@ -119,7 +119,7 @@ chain forward { type filter hook forward priority 0; policy drop;
 - `input`: düğümün **kendisine** gelen trafikte, alt ağlar dışından gelen İlmek TCP portları düşürülür. Politika "accept": başka hiçbir şey engellenmez.
 - `forward`: düğümün **üzerinden geçen** trafik varsayılan olarak düşürülür; yalnızca alt ağlar arasında İlmek TCP portları ve temel ICMP geçer.
 - Alt ağlar belirtilmezse: kullanıcı ağı + transit ağ + her rota hedefi (`config.rs:144-153`); referans plan için `10.77.10.0/24`, `10.77.254.0/30`, `10.77.20.0/24` — bu birim testle doğrulandı (`config::tests::the_reference_configuration_is_valid_with_derived_firewall_subnets`) **[ÇALIŞTIRILDI]**.
-- **Dikkat:** `forward` politikası "drop" olduğundan bu düğüm İlmek dışı trafiği de iletmez. `NETWORK_SETUP.md:95-96` bunu açıkça uyarı olarak yazar. **[BELGE]**
+- **Dikkat:** `forward` politikası "drop" olduğundan bu düğüm İlmek dışı trafiği de iletmez. `NETWORK_AND_DISCOVERY.md:95-96` bunu açıkça uyarı olarak yazar. **[BELGE]**
 - Kurallar yalnızca `ip` (IPv4) üzerine yazılı; IPv6 için ayrı bir kural yok ve `sysctl` yalnızca `net.ipv4.ip_forward = 1` yapar (`render.rs:77-79`). IPv6'nın nasıl davrandığı ölçülmedi. **[TEST EDİLMEDİ]**
 - Düğümün güvenlik duvarı, **host makinelerinin** kendi güvenlik duvarını değiştirmez; host'a doğrudan (aynı ağdan) gelen trafiği düğüm görmez. **[YORUM]**
 
@@ -147,7 +147,7 @@ Adım 1–5'in tamamının tek bir gerçek ağda çalıştığına dair elimizde
 - **Düğüm yalnızca IP düzeyinde:** uygulama mantığı düğümde yok; bu yüzden eski, zayıf bilgisayarlar düğüm olabilir ve düğüm arızası yalnızca ağlar arası bağı keser (A15 senaryosu).
 - **DNS'siz:** DNS sunucusu, saldırı yüzeyi ve bağımlılık ekler; IP SAN'lı sertifikalar ve bootstrap profili aynı işi kapalı ağda daha az parçayla yapar.
 - **Ayrı nftables tablosu:** mevcut kuralları bozmadan eklenir/silinir; `rollback` tek tabloyu siler.
-- **Sabit 2 düğüm:** daha fazla düğüm ve dinamik yönlendirme "later work" (`NETWORK_SETUP.md:135-136`).
+- **Sabit 2 düğüm:** daha fazla düğüm ve dinamik yönlendirme "later work" (`NETWORK_AND_DISCOVERY.md:135-136`).
 
 ## 7. Güvenlik ve hata durumları
 
@@ -155,7 +155,7 @@ Adım 1–5'in tamamının tek bir gerçek ağda çalıştığına dair elimizde
 - `country` (iki büyük harf) zorunlu; olmadan AP üretilmez (`config.rs:166-168`). SSID/arayüz adı/MAC/kanal doğrulanır; üretilen dosyalara girecek değerler güvenli alfabeyle sınırlı (`config.rs:264-324`). **[KOD]**
 - DHCP: aralık kullanıcı ağı içinde olmalı, düğümün kendi adresi aralıkta olamaz, rezervasyonlar aralık dışında olmalı (`config.rs:197-233`). Rotalar doğrudan bağlı ağlarla çakışamaz (`config.rs:235-257`). **[KOD]**
 - Transit kaybı: NODE-B'nin radyosu kapanırsa yerel servisler çalışır, ağlar arası çağrılar hata verir (A15). **[BELGE]**, **[TEST EDİLMEDİ]**.
-- Radyo/sürücü uyumsuzluğu (AP modu desteklenmiyor, iki radyo aynı anda çalışmıyor) kodla tespit edilmez; insan `iw list` ile bakmalı (`NETWORK_SETUP.md:137-138`).
+- Radyo/sürücü uyumsuzluğu (AP modu desteklenmiyor, iki radyo aynı anda çalışmıyor) kodla tespit edilmez; insan `iw list` ile bakmalı (`NETWORK_AND_DISCOVERY.md:137-138`).
 
 ## 8. Testler
 
@@ -171,7 +171,7 @@ kabul maddeleri **kanıtlanmış değil**; rapor durumu 36. belgede.
 
 ## 9. Sınırlar ve bilinen eksikler
 
-- **`apply` hiçbir gerçek düğümde çalıştırılmadı.** `NETWORK_SETUP.md:3-8` ve `HARDWARE_INVENTORY.md:1-6` bunu açıkça yazıyor. **[BELGE]**
+- **`apply` hiçbir gerçek düğümde çalıştırılmadı.** `NETWORK_AND_DISCOVERY.md:3-8` ve `HARDWARE_INVENTORY.md:1-6` bunu açıkça yazıyor. **[BELGE]**
 - **A01 BLOCKED:** iki düğüm, Android telefonlar ve diğer bilgisayarlar sağlanmadı. Yalnızca geliştirme makinesi (Linux Mint 22.3, MT7922 Wi-Fi, 16 CPU/32 GB) salt-okunur komutlarla incelendi; `iw` ve `hostapd` kurulu değil, dolayısıyla Wi-Fi'nin AP modu desteği **bilinmiyor**. Bu makine düğüm değildir ve `apply` onu varsayılan olarak reddeder (Wi-Fi'si varsayılan rotayı taşıyor). **[BELGE]**
 - Loopback testi Wi-Fi testi değildir; tek makinedeki testler topolojiyi kanıtlamaz.
 - Yalnızca iki düğüm planı; üçüncü düğüm, alternatif rota, dinamik yönlendirme yok. Yalnızca Linux + systemd. Yalnızca IPv4.
@@ -195,7 +195,7 @@ Cevaplar: (1) `10.77.10.0/24`, `10.77.20.0/24`, `10.77.254.0/30`; iki düğüm a
 - Alıntılanan `dhcp` ve `firewall` şablonları `render.rs` metninden okunup özetlendi (tam birebir alıntı değil, kısaltılmış; kısaltmalar kod bloğunda `;` ile gösterildi).
 - Anılan tip/fonksiyonlar `grep`/okuma ile doğrulandı: `NodeConfig`, `TransitMode`, `Firewall`, `firewall_subnets`, `render::{dhcp,firewall,sysctl,network_manager}`, `management_interfaces`, `endpoint_allowed`, `CommunityProfile.registry_{control,enroll}`.
 - Satır numaraları bu revizyonda `cat -n` çıktısından alındı.
-- Tutarsızlık yok: `NETWORK_SETUP.md` ile kod (DHCP-only, ayrı tablo, rota, güvenlik duvarı) uyumlu. Belge `ilmek diagnose` komutunu anıyor (`NETWORK_SETUP.md:130`); komutun varlığı 30. belgede doğrulanacak, burada kontrol edilmedi.
+- Tutarsızlık yok: `NETWORK_AND_DISCOVERY.md` ile kod (DHCP-only, ayrı tablo, rota, güvenlik duvarı) uyumlu. Belge `ilmek diagnose` komutunu anıyor (`NETWORK_AND_DISCOVERY.md:130`); komutun varlığı 30. belgede doğrulanacak, burada kontrol edilmedi.
 - Protokol belgesindeki port kuralı okunmadı; 04'te karşılaştırılacak.
 
 ## 12. Köprü
