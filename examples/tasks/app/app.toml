@@ -1,0 +1,3 @@
+permissions = ["app.call", "app.subscribe", "storage.local"]
+backend_required = true
+entrypoint = "index.html"
