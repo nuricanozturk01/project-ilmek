@@ -13,6 +13,8 @@ java {
     }
 }
 
+extra["jackson-bom.version"] = "2.22.4"
+
 repositories {
     mavenCentral()
 }

@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-// Starter store beans exist only when these packages are scanned; see the starter's IlmekAutoConfiguration.
+// The starter store beans exist only when these packages are scanned.
 @SpringBootApplication
 @EntityScan(basePackageClasses = {TasksApplication.class, IlmekOperation.class})
 @EnableJpaRepositories(basePackageClasses = {TasksApplication.class, IlmekOperationRepository.class})

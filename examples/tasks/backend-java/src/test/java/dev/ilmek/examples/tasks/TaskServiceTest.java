@@ -20,8 +20,10 @@ import dev.ilmek.sdk.store.IlmekOperationsService;
 import dev.ilmek.sdk.store.OperationConflictException;
 import dev.ilmek.sdk.wire.ErrorCode;
 import dev.ilmek.sdk.wire.MethodKind;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,11 +81,11 @@ class TaskServiceTest {
 
     @Test
     void listReturnsEmptyThenPopulatedTasks() {
-        assertEquals(0, readObject(invoke("tasks.list", null, EMPTY)).get("tasks").size());
+        assertEquals(0, readObject(invoke("tasks.list", EMPTY)).get("tasks").size());
 
         createTask(OP_CREATE, "Buy milk");
 
-        JsonNode list = readObject(invoke("tasks.list", null, EMPTY)).get("tasks");
+        JsonNode list = readObject(invoke("tasks.list", EMPTY)).get("tasks");
         assertEquals(1, list.size());
         assertEquals("Buy milk", list.get(0).get("title").asText());
         assertFalse(list.get(0).get("done").asBoolean());
@@ -171,10 +173,10 @@ class TaskServiceTest {
                 () -> handle.invoke().apply(context, body));
     }
 
-    private byte[] invoke(String method, String operationId, byte[] body) {
+    private byte[] invoke(String method, byte[] body) {
         IlmekMethodRegistry.MethodHandle handle = registry.find(method).orElseThrow();
         assertEquals(MethodKind.READ, handle.kind());
-        return handle.invoke().apply(new IlmekCallContext(APP, PRINCIPAL, operationId, null), body);
+        return handle.invoke().apply(new IlmekCallContext(APP, PRINCIPAL, null, null), body);
     }
 
     private static String payloadHash(String method, byte[] body) {
@@ -188,7 +190,7 @@ class TaskServiceTest {
             digest.update((byte) 0);
             digest.update(body);
             return HexFormat.of().formatHex(digest.digest());
-        } catch (java.security.NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
     }
@@ -200,7 +202,7 @@ class TaskServiceTest {
     private static JsonNode readObject(byte[] bytes) {
         try {
             return JSON.readTree(bytes);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new AssertionError("response is not JSON", e);
         }
     }
