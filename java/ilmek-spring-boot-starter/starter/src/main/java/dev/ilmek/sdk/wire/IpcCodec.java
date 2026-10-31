@@ -34,88 +34,77 @@ public final class IpcCodec {
         ObjectNode data = MAPPER.createObjectNode();
         String type;
         byte[] body = new byte[0];
-        switch (message) {
-            case IpcMessage.Hello m -> {
-                type = "IPC_HELLO";
-                data.put("token", token("token", m.token()));
-                data.put("app_id", uuid("app_id", m.appId()));
+        if (message instanceof IpcMessage.Hello m) {
+            type = "IPC_HELLO";
+            data.put("token", token("token", m.token()));
+            data.put("app_id", uuid("app_id", m.appId()));
+        } else if (message instanceof IpcMessage.Ready m) {
+            type = "IPC_READY";
+            data.put("app_id", uuid("app_id", m.appId()));
+        } else if (message instanceof IpcMessage.Call m) {
+            type = "IPC_CALL";
+            data.put("app_id", uuid("app_id", m.appId()));
+            data.put("client_app_version", version("client_app_version", m.clientAppVersion()));
+            data.put("method", method("method", m.method()));
+            data.put("operation_id", optionalUuid("operation_id", m.operationId()));
+            data.put("payload_hash", hash("payload_hash", m.payloadHash()));
+            data.put("principal_id", uuid("principal_id", m.principalId()));
+            body = m.body().bytes();
+        } else if (message instanceof IpcMessage.Result m) {
+            type = "IPC_RESULT";
+            data.put("app_id", uuid("app_id", m.appId()));
+            data.put("operation_id", optionalUuid("operation_id", m.operationId()));
+            body = m.body().bytes();
+        } else if (message instanceof IpcMessage.Error m) {
+            type = "IPC_ERROR";
+            data.put("code", java.util.Objects.requireNonNull(m.code(), "code").name());
+            data.put("message", text512("message", m.message()));
+            data.put("retryable", m.retryable());
+            data.put("retry_after_ms", optionalU64("retry_after_ms", m.retryAfterMs()));
+            ObjectNode details = data.putObject("details");
+            for (Map.Entry<String, JsonNode> entry : m.details().entrySet()) {
+                details.set(entry.getKey(), entry.getValue());
             }
-            case IpcMessage.Ready m -> {
-                type = "IPC_READY";
-                data.put("app_id", uuid("app_id", m.appId()));
-            }
-            case IpcMessage.Call m -> {
-                type = "IPC_CALL";
-                data.put("app_id", uuid("app_id", m.appId()));
-                data.put("client_app_version", version("client_app_version", m.clientAppVersion()));
-                data.put("method", method("method", m.method()));
-                data.put("operation_id", optionalUuid("operation_id", m.operationId()));
-                data.put("payload_hash", hash("payload_hash", m.payloadHash()));
-                data.put("principal_id", uuid("principal_id", m.principalId()));
-                body = m.body().bytes();
-            }
-            case IpcMessage.Result m -> {
-                type = "IPC_RESULT";
-                data.put("app_id", uuid("app_id", m.appId()));
-                data.put("operation_id", optionalUuid("operation_id", m.operationId()));
-                body = m.body().bytes();
-            }
-            case IpcMessage.Error m -> {
-                type = "IPC_ERROR";
-                data.put("code", java.util.Objects.requireNonNull(m.code(), "code").name());
-                data.put("message", text512("message", m.message()));
-                data.put("retryable", m.retryable());
-                data.put("retry_after_ms", optionalU64("retry_after_ms", m.retryAfterMs()));
-                ObjectNode details = data.putObject("details");
-                for (Map.Entry<String, JsonNode> entry : m.details().entrySet()) {
-                    details.set(entry.getKey(), entry.getValue());
-                }
-            }
-            case IpcMessage.Subscribe m -> {
-                type = "IPC_SUBSCRIBE";
-                data.put("app_id", uuid("app_id", m.appId()));
-                data.put("client_app_version", version("client_app_version", m.clientAppVersion()));
-                data.put("topic", method("topic", m.topic()));
-                data.put("cursor", optionalCursor("cursor", m.cursor()));
-                data.put("principal_id", uuid("principal_id", m.principalId()));
-            }
-            case IpcMessage.Subscribed m -> {
-                type = "IPC_SUBSCRIBED";
-                data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
-                data.put("app_id", uuid("app_id", m.appId()));
-                data.put("topic", method("topic", m.topic()));
-                data.put("cursor", cursor("cursor", m.cursor()));
-                data.put("window", u64("window", m.window()));
-            }
-            case IpcMessage.Event m -> {
-                type = "IPC_EVENT";
-                data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
-                data.put("app_id", uuid("app_id", m.appId()));
-                data.put("topic", method("topic", m.topic()));
-                data.put("sequence", u64("sequence", m.sequence()));
-                data.put("event_id", uuid("event_id", m.eventId()));
-                data.put("cursor", cursor("cursor", m.cursor()));
-                body = m.body().bytes();
-            }
-            case IpcMessage.EventAck m -> {
-                type = "IPC_EVENT_ACK";
-                data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
-                data.put("sequence", u64("sequence", m.sequence()));
-                data.put("cursor", cursor("cursor", m.cursor()));
-            }
-            case IpcMessage.EventAcked m -> {
-                type = "IPC_EVENT_ACKED";
-                data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
-                data.put("sequence", u64("sequence", m.sequence()));
-            }
-            case IpcMessage.Unsubscribe m -> {
-                type = "IPC_UNSUBSCRIBE";
-                data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
-            }
-            case IpcMessage.Unsubscribed m -> {
-                type = "IPC_UNSUBSCRIBED";
-                data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
-            }
+        } else if (message instanceof IpcMessage.Subscribe m) {
+            type = "IPC_SUBSCRIBE";
+            data.put("app_id", uuid("app_id", m.appId()));
+            data.put("client_app_version", version("client_app_version", m.clientAppVersion()));
+            data.put("topic", method("topic", m.topic()));
+            data.put("cursor", optionalCursor("cursor", m.cursor()));
+            data.put("principal_id", uuid("principal_id", m.principalId()));
+        } else if (message instanceof IpcMessage.Subscribed m) {
+            type = "IPC_SUBSCRIBED";
+            data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
+            data.put("app_id", uuid("app_id", m.appId()));
+            data.put("topic", method("topic", m.topic()));
+            data.put("cursor", cursor("cursor", m.cursor()));
+            data.put("window", u64("window", m.window()));
+        } else if (message instanceof IpcMessage.Event m) {
+            type = "IPC_EVENT";
+            data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
+            data.put("app_id", uuid("app_id", m.appId()));
+            data.put("topic", method("topic", m.topic()));
+            data.put("sequence", u64("sequence", m.sequence()));
+            data.put("event_id", uuid("event_id", m.eventId()));
+            data.put("cursor", cursor("cursor", m.cursor()));
+            body = m.body().bytes();
+        } else if (message instanceof IpcMessage.EventAck m) {
+            type = "IPC_EVENT_ACK";
+            data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
+            data.put("sequence", u64("sequence", m.sequence()));
+            data.put("cursor", cursor("cursor", m.cursor()));
+        } else if (message instanceof IpcMessage.EventAcked m) {
+            type = "IPC_EVENT_ACKED";
+            data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
+            data.put("sequence", u64("sequence", m.sequence()));
+        } else if (message instanceof IpcMessage.Unsubscribe m) {
+            type = "IPC_UNSUBSCRIBE";
+            data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
+        } else if (message instanceof IpcMessage.Unsubscribed m) {
+            type = "IPC_UNSUBSCRIBED";
+            data.put("subscription_id", uuid("subscription_id", m.subscriptionId()));
+        } else {
+            throw new IllegalStateException("unhandled IPC message " + message);
         }
         ObjectNode envelope = MAPPER.createObjectNode();
         envelope.put("type", type);

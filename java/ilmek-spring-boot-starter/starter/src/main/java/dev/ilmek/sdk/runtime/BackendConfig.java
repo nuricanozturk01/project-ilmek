@@ -42,7 +42,9 @@ public record BackendConfig(
 
     private static byte[] readBounded(InputStream in, Duration deadline) {
         FutureTask<byte[]> task = new FutureTask<>(() -> in.readNBytes(MAX_BYTES + 1));
-        Thread.ofVirtual().name("ilmek-backend-config").start(task);
+        Thread reader = new Thread(task, "ilmek-backend-config");
+        reader.setDaemon(true);
+        reader.start();
         byte[] bytes;
         try {
             bytes = task.get(deadline.toNanos(), TimeUnit.NANOSECONDS);

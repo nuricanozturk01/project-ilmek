@@ -39,6 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -131,7 +132,9 @@ public final class IlmekBackendClient {
 
     private void startWriter(Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
-        Thread.ofPlatform().name("ilmek-ipc-writer").daemon(true).start(() -> writeLoop(out, socket));
+        Thread writer = new Thread(() -> writeLoop(out, socket), "ilmek-ipc-writer");
+        writer.setDaemon(true);
+        writer.start();
     }
 
     private void writeLoop(OutputStream out, Socket socket) {
@@ -175,7 +178,7 @@ public final class IlmekBackendClient {
     }
 
     private void serve(Socket socket, InputStream in, FrameDecoder decoder, byte[] buffer) throws IOException {
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("ilmek-backend-worker"));
         try {
             while (true) {
                 Frame frame = readFrame(socket, in, decoder, buffer, NO_DEADLINE);
@@ -193,16 +196,16 @@ public final class IlmekBackendClient {
                     respond(decoded.requestId(), error(ErrorCode.FORBIDDEN, "community is not served by this backend", false));
                     continue;
                 }
-                switch (message) {
-                    case IpcMessage.Call call -> dispatch(executor,
-                            () -> respond(decoded.requestId(), answerCall(call)));
-                    case IpcMessage.Subscribe subscribe -> openSubscription(executor, decoded.requestId(), subscribe);
-                    case IpcMessage.EventAck ack -> respond(decoded.requestId(), acknowledge(ack));
-                    case IpcMessage.Unsubscribe unsubscribe ->
-                            respond(decoded.requestId(), unsubscribe(unsubscribe));
-                    default -> {
-                        return;
-                    }
+                if (message instanceof IpcMessage.Call call) {
+                    dispatch(executor, () -> respond(decoded.requestId(), answerCall(call)));
+                } else if (message instanceof IpcMessage.Subscribe subscribe) {
+                    openSubscription(executor, decoded.requestId(), subscribe);
+                } else if (message instanceof IpcMessage.EventAck ack) {
+                    respond(decoded.requestId(), acknowledge(ack));
+                } else if (message instanceof IpcMessage.Unsubscribe unsubscribe) {
+                    respond(decoded.requestId(), unsubscribe(unsubscribe));
+                } else {
+                    return;
                 }
             }
         } catch (FrameFormatException e) {
@@ -214,6 +217,14 @@ public final class IlmekBackendClient {
             subscriptions.values().forEach(Subscription::cancel);
             executor.shutdownNow();
         }
+    }
+
+    private static ThreadFactory daemonThreads(String name) {
+        return task -> {
+            Thread thread = new Thread(task, name);
+            thread.setDaemon(true);
+            return thread;
+        };
     }
 
     private static boolean isCommunityScoped(IpcMessage message) {

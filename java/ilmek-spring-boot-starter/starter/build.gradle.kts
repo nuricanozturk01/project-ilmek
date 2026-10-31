@@ -6,7 +6,7 @@ group = "dev.ilmek"
 version = "0.1.0-SNAPSHOT"
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release.set(21)
+    options.release.set(17)
     options.encoding = "UTF-8"
 }
 

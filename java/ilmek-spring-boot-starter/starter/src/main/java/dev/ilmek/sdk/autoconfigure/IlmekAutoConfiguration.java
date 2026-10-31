@@ -100,8 +100,10 @@ public class IlmekAutoConfiguration {
     private static void startClientThread(ApplicationContext context, ConfigInput configInput,
                                           IlmekMethodRegistry registry, IlmekOperationsService operations,
                                           IlmekEventsService events, IntConsumer processExit) {
-        Thread.ofPlatform().name(CLIENT_THREAD).daemon(false).start(
-                () -> runClient(context, configInput, registry, operations, events, processExit));
+        Thread thread = new Thread(
+                () -> runClient(context, configInput, registry, operations, events, processExit), CLIENT_THREAD);
+        thread.setDaemon(false);
+        thread.start();
     }
 
     private static void runClient(ApplicationContext context, ConfigInput configInput,
