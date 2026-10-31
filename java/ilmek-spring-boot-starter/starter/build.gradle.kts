@@ -17,6 +17,7 @@ repositories {
 dependencies {
     api(platform("org.springframework.boot:spring-boot-dependencies:3.3.13"))
     api("org.springframework:spring-context")
+    api("org.springframework.boot:spring-boot-autoconfigure")
     implementation(platform("com.fasterxml.jackson:jackson-bom:2.22.4"))
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
