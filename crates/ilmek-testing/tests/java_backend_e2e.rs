@@ -178,7 +178,7 @@ async fn plain_write_creates_a_task_that_the_next_read_shows() {
         .write("tasks.create", br#"{"title":"sut al"}"#, None)
         .await
         .unwrap();
-    let task = json_of(&created.body);
+    let task = json_of(&created.body)["task"].clone();
     assert_eq!(task["title"], "sut al");
     assert_eq!(task["done"], false);
     assert!(task["id"].is_i64(), "the backend assigns an integer id");
@@ -262,7 +262,7 @@ async fn a_subscriber_receives_the_event_after_a_create() {
         .expect("the stream stays open");
     let event = json_of(&delivered.body);
     assert_eq!(event["type"], "created");
-    assert_eq!(event["task"]["title"], "olay");
+    assert_eq!(event["title"], "olay");
     subscription.acknowledge(&delivered).await.unwrap();
     subscription.unsubscribe().await.unwrap();
 }
