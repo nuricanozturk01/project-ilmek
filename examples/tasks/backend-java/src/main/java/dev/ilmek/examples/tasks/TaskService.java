@@ -11,6 +11,7 @@ import dev.ilmek.sdk.store.IlmekEventsService;
 import dev.ilmek.sdk.wire.ErrorCode;
 import dev.ilmek.sdk.wire.MethodKind;
 import java.io.IOException;
+import java.util.List;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -40,26 +41,81 @@ public class TaskService {
 
     @IlmekMethod(name = "tasks.create", kind = MethodKind.WRITE)
     public byte[] create(IlmekCallContext context, byte[] body) {
-        JsonNode title = parse(body).path("title");
-        if (!title.isTextual() || title.asText().isBlank() || title.asText().length() > MAX_TITLE_CHARS) {
-            throw new AppException(ErrorCode.INVALID_MESSAGE, "title must be 1 to 200 characters", false);
-        }
-        Task task = tasks.save(new Task(title.asText().strip()));
-        events.append(EVENTS_TOPIC, event("created", task));
-        return bytes(view(task));
+        Task task = tasks.save(new Task(title(parse(body))));
+        publish(event("created").put("id", task.getId()).put("title", task.getTitle()));
+        return taskResponse(task);
     }
 
     @IlmekMethod(name = "tasks.complete", kind = MethodKind.WRITE)
     public byte[] complete(IlmekCallContext context, byte[] body) {
-        JsonNode id = parse(body).path("id");
+        JsonNode request = parse(body);
+        Task task = find(request);
+        boolean done = done(request);
+        task.setDone(done);
+        publish(event(done ? "completed" : "reopened").put("id", task.getId()));
+        return taskResponse(task);
+    }
+
+    @IlmekMethod(name = "tasks.update", kind = MethodKind.WRITE)
+    public byte[] update(IlmekCallContext context, byte[] body) {
+        JsonNode request = parse(body);
+        String title = title(request);
+        Task task = find(request);
+        task.rename(title);
+        publish(event("updated").put("id", task.getId()));
+        return taskResponse(task);
+    }
+
+    @IlmekMethod(name = "tasks.delete", kind = MethodKind.WRITE)
+    public byte[] delete(IlmekCallContext context, byte[] body) {
+        Task task = find(parse(body));
+        tasks.delete(task);
+        publish(event("deleted").put("id", task.getId()));
+        return bytes(json.createObjectNode().put("deleted", task.getId()));
+    }
+
+    @IlmekMethod(name = "tasks.clear_completed", kind = MethodKind.WRITE)
+    public byte[] clearCompleted(IlmekCallContext context, byte[] body) {
+        parse(body);
+        List<Task> completed = tasks.findByDone(true);
+        tasks.deleteAll(completed);
+        if (!completed.isEmpty()) {
+            publish(event("cleared").put("count", completed.size()));
+        }
+        return bytes(json.createObjectNode().put("removed", completed.size()));
+    }
+
+    private Task find(JsonNode request) {
+        JsonNode id = request.path("id");
         if (!id.isIntegralNumber()) {
             throw new AppException(ErrorCode.INVALID_MESSAGE, "id must be an integer", false);
         }
-        Task task = tasks.findById(id.asLong())
+        return tasks.findById(id.asLong())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "task not found", false));
-        task.complete();
-        events.append(EVENTS_TOPIC, event("completed", task));
-        return bytes(view(task));
+    }
+
+    private String title(JsonNode request) {
+        JsonNode title = request.path("title");
+        String text = title.isTextual() ? title.asText().strip() : "";
+        if (text.isEmpty() || text.length() > MAX_TITLE_CHARS) {
+            throw new AppException(ErrorCode.INVALID_MESSAGE, "title must be 1 to 200 characters", false);
+        }
+        return text;
+    }
+
+    private boolean done(JsonNode request) {
+        JsonNode done = request.path("done");
+        if (done.isMissingNode()) {
+            return true;
+        }
+        if (!done.isBoolean()) {
+            throw new AppException(ErrorCode.INVALID_MESSAGE, "done must be a boolean", false);
+        }
+        return done.booleanValue();
+    }
+
+    private byte[] taskResponse(Task task) {
+        return bytes(json.createObjectNode().set("task", view(task)));
     }
 
     private ObjectNode view(Task task) {
@@ -70,11 +126,12 @@ public class TaskService {
         return node;
     }
 
-    private byte[] event(String type, Task task) {
-        ObjectNode node = json.createObjectNode();
-        node.put("type", type);
-        node.set("task", view(task));
-        return bytes(node);
+    private ObjectNode event(String type) {
+        return json.createObjectNode().put("type", type);
+    }
+
+    private void publish(ObjectNode event) {
+        events.append(EVENTS_TOPIC, bytes(event));
     }
 
     private JsonNode parse(byte[] body) {

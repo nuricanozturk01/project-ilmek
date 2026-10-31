@@ -40,7 +40,11 @@ public class Task {
         return done;
     }
 
-    public void complete() {
-        done = true;
+    public void rename(String title) {
+        this.title = title;
+    }
+
+    public void setDone(boolean done) {
+        this.done = done;
     }
 }

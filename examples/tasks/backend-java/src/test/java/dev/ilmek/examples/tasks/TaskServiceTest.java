@@ -25,6 +25,8 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,6 +44,7 @@ class TaskServiceTest {
     private static final String OP_REJECTED = "0190f5a0-0000-7000-8000-0000000000c2";
     private static final String OP_COMPLETE = "0190f5a0-0000-7000-8000-0000000000d1";
     private static final byte[] EMPTY = new byte[0];
+    private static final AtomicLong OPERATIONS = new AtomicLong(0xe000);
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -83,7 +86,7 @@ class TaskServiceTest {
     void listReturnsEmptyThenPopulatedTasks() {
         assertEquals(0, readObject(invoke("tasks.list", EMPTY)).get("tasks").size());
 
-        createTask(OP_CREATE, "Buy milk");
+        createTask("Buy milk");
 
         JsonNode list = readObject(invoke("tasks.list", EMPTY)).get("tasks");
         assertEquals(1, list.size());
@@ -93,17 +96,169 @@ class TaskServiceTest {
 
     @Test
     void createPersistsRowAndAppendsOneEvent() {
-        JsonNode created = createTask(OP_CREATE, "Buy milk");
+        JsonNode created = createTask("Buy milk");
 
         assertEquals("Buy milk", created.get("title").asText());
         assertFalse(created.get("done").asBoolean());
         assertEquals(1, tasks.count());
         assertEquals(1, events.countForTopic("tasks.events"));
 
-        IlmekEvent event = events.since("tasks.events", null).get(0);
-        JsonNode eventBody = readObject(event.getBody());
+        JsonNode eventBody = events().get(0);
         assertEquals("created", eventBody.get("type").asText());
-        assertEquals(created.get("id").asLong(), eventBody.get("task").get("id").asLong());
+        assertEquals(created.get("id").asLong(), eventBody.get("id").asLong());
+        assertEquals("Buy milk", eventBody.get("title").asText());
+        assertFalse(eventBody.has("task"));
+    }
+
+    @Test
+    void createResponseWrapsTaskInObject() {
+        JsonNode response = writeObject("tasks.create", "{\"title\":\"Buy milk\"}");
+
+        assertTrue(response.get("task").get("id").isIntegralNumber());
+        assertEquals("Buy milk", response.get("task").get("title").asText());
+        assertFalse(response.get("task").get("done").asBoolean());
+    }
+
+    @Test
+    void createTrimsTitle() {
+        assertEquals("Buy milk", createTask("  Buy milk \t").get("title").asText());
+    }
+
+    @Test
+    void createRejectsBlankAndOversizedTitles() {
+        for (String title : List.of("", "   ", "x".repeat(201), " " + "x".repeat(200) + " x")) {
+            AppException rejected = assertThrows(AppException.class,
+                    () -> write("tasks.create", newOperation(), body(titleBody(title))));
+            assertEquals(ErrorCode.INVALID_MESSAGE, rejected.code());
+        }
+        assertEquals(0, tasks.count());
+        assertEquals(0, events().size());
+    }
+
+    @Test
+    void createAcceptsTwoHundredCharacterTitle() {
+        String title = "x".repeat(200);
+
+        assertEquals(title, createTask(title).get("title").asText());
+        assertEquals(title, tasks.findAll().get(0).getTitle());
+    }
+
+    @Test
+    void createEventCarriesTypeIdAndTitle() {
+        long id = createTask("Buy milk").get("id").asLong();
+
+        assertEquals(1, events().size());
+        assertEquals("created", events().get(0).get("type").asText());
+        assertEquals(id, events().get(0).get("id").asLong());
+        assertEquals("Buy milk", events().get(0).get("title").asText());
+    }
+
+    @Test
+    void updateRenamesTaskAndAppendsEvent() {
+        long id = createTask("Buy milk").get("id").asLong();
+
+        JsonNode updated = writeObject("tasks.update", "{\"id\":" + id + ",\"title\":\"  Buy bread \"}").get("task");
+
+        assertEquals(id, updated.get("id").asLong());
+        assertEquals("Buy bread", updated.get("title").asText());
+        assertEquals("Buy bread", tasks.findById(id).orElseThrow().getTitle());
+        assertEquals("updated", events().get(1).get("type").asText());
+        assertEquals(id, events().get(1).get("id").asLong());
+    }
+
+    @Test
+    void updateOnUnknownIdReturnsNotFound() {
+        AppException missing = assertThrows(AppException.class,
+                () -> write("tasks.update", newOperation(), body("{\"id\":999999,\"title\":\"Buy bread\"}")));
+
+        assertEquals(ErrorCode.NOT_FOUND, missing.code());
+        assertEquals(0, events().size());
+    }
+
+    @Test
+    void updateRejectsBlankTitle() {
+        long id = createTask("Buy milk").get("id").asLong();
+
+        AppException rejected = assertThrows(AppException.class,
+                () -> write("tasks.update", newOperation(), body("{\"id\":" + id + ",\"title\":\"  \"}")));
+
+        assertEquals(ErrorCode.INVALID_MESSAGE, rejected.code());
+        assertEquals("Buy milk", tasks.findById(id).orElseThrow().getTitle());
+        assertEquals(1, events().size());
+    }
+
+    @Test
+    void completeWithoutDoneFieldMarksTaskDone() {
+        long id = createTask("Buy milk").get("id").asLong();
+
+        JsonNode completed = writeObject("tasks.complete", "{\"id\":" + id + "}").get("task");
+
+        assertTrue(completed.get("done").asBoolean());
+        assertEquals("completed", events().get(1).get("type").asText());
+        assertEquals(id, events().get(1).get("id").asLong());
+    }
+
+    @Test
+    void completeWithDoneFalseReopensTask() {
+        long id = createTask("Buy milk").get("id").asLong();
+        writeObject("tasks.complete", "{\"id\":" + id + ",\"done\":true}");
+
+        JsonNode reopened = writeObject("tasks.complete", "{\"id\":" + id + ",\"done\":false}").get("task");
+
+        assertFalse(reopened.get("done").asBoolean());
+        assertFalse(tasks.findById(id).orElseThrow().isDone());
+        assertEquals("reopened", events().get(2).get("type").asText());
+        assertEquals(id, events().get(2).get("id").asLong());
+    }
+
+    @Test
+    void deleteRemovesRowAndAppendsEvent() {
+        long id = createTask("Buy milk").get("id").asLong();
+
+        JsonNode deleted = writeObject("tasks.delete", "{\"id\":" + id + "}");
+
+        assertEquals(id, deleted.get("deleted").asLong());
+        assertEquals(0, tasks.count());
+        assertEquals("deleted", events().get(1).get("type").asText());
+        assertEquals(id, events().get(1).get("id").asLong());
+    }
+
+    @Test
+    void deleteOnUnknownIdReturnsNotFound() {
+        AppException missing = assertThrows(AppException.class,
+                () -> write("tasks.delete", newOperation(), body("{\"id\":999999}")));
+
+        assertEquals(ErrorCode.NOT_FOUND, missing.code());
+        assertEquals(0, events().size());
+    }
+
+    @Test
+    void clearCompletedRemovesOnlyDoneTasksAndReturnsCount() {
+        long open = createTask("Keep me").get("id").asLong();
+        long first = createTask("Done one").get("id").asLong();
+        long second = createTask("Done two").get("id").asLong();
+        writeObject("tasks.complete", "{\"id\":" + first + "}");
+        writeObject("tasks.complete", "{\"id\":" + second + "}");
+
+        JsonNode result = writeObject("tasks.clear_completed", "{}");
+
+        assertEquals(2, result.get("removed").asInt());
+        assertEquals(List.of(open), tasks.findAll().stream().map(Task::getId).toList());
+        JsonNode last = events().get(events().size() - 1);
+        assertEquals("cleared", last.get("type").asText());
+        assertEquals(2, last.get("count").asInt());
+    }
+
+    @Test
+    void clearCompletedWithNothingDoneAppendsNoEvent() {
+        createTask("Open");
+        int before = events().size();
+
+        JsonNode result = writeObject("tasks.clear_completed", "{}");
+
+        assertEquals(0, result.get("removed").asInt());
+        assertEquals(before, events().size());
+        assertEquals(1, tasks.count());
     }
 
     @Test
@@ -143,9 +298,9 @@ class TaskServiceTest {
 
     @Test
     void completeMarksTaskDoneAndAppendsEvent() {
-        long id = createTask(OP_CREATE, "Buy milk").get("id").asLong();
+        long id = createTask("Buy milk").get("id").asLong();
 
-        JsonNode completed = readObject(write("tasks.complete", OP_COMPLETE, body("{\"id\":" + id + "}")));
+        JsonNode completed = writeObject("tasks.complete", "{\"id\":" + id + "}").get("task");
 
         assertTrue(completed.get("done").asBoolean());
         assertTrue(tasks.findById(id).orElseThrow().isDone());
@@ -161,8 +316,26 @@ class TaskServiceTest {
         assertEquals(0, events.countForTopic("tasks.events"));
     }
 
-    private JsonNode createTask(String operationId, String title) {
-        return readObject(write("tasks.create", operationId, body("{\"title\":\"" + title + "\"}")));
+    private JsonNode createTask(String title) {
+        return writeObject("tasks.create", titleBody(title)).get("task");
+    }
+
+    private JsonNode writeObject(String method, String json) {
+        return readObject(write(method, newOperation(), body(json)));
+    }
+
+    private List<JsonNode> events() {
+        return events.since("tasks.events", null).stream()
+                .map(event -> readObject(event.getBody()))
+                .toList();
+    }
+
+    private static String newOperation() {
+        return String.format("0190f5a0-0000-7000-8000-%012x", OPERATIONS.incrementAndGet());
+    }
+
+    private static String titleBody(String title) {
+        return JSON.createObjectNode().put("title", title).toString();
     }
 
     private byte[] write(String method, String operationId, byte[] body) {
