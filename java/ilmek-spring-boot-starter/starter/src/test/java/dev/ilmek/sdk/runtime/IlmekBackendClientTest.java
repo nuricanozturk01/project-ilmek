@@ -35,8 +35,12 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -126,7 +130,7 @@ class IlmekBackendClientTest {
 
     @Test
     void dispatchesIpcCallToRegisteredReadMethodAndRepliesWithResult() throws Exception {
-        Methods methods = new Methods();
+        Methods methods = new Methods(events);
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
             Thread client = startClient(host.port(), registryOf(methods), failure);
@@ -148,7 +152,7 @@ class IlmekBackendClientTest {
 
     @Test
     void dispatchesWriteCallThroughOperationsService() throws Exception {
-        Methods methods = new Methods();
+        Methods methods = new Methods(events);
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
             Thread client = startClient(host.port(), registryOf(methods), failure);
@@ -178,7 +182,7 @@ class IlmekBackendClientTest {
     void unknownMethodRepliesWithNotFoundError() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(300);
@@ -196,7 +200,7 @@ class IlmekBackendClientTest {
     void readMethodCarryingOperationIdRepliesInvalidMessage() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(310);
@@ -213,7 +217,7 @@ class IlmekBackendClientTest {
     void writeMethodWithoutOperationIdRepliesInvalidMessage() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(320);
@@ -230,7 +234,7 @@ class IlmekBackendClientTest {
     void nonObjectReadResultRepliesWithInternalError() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(330);
@@ -247,7 +251,7 @@ class IlmekBackendClientTest {
     void emptyObjectReadResultRepliesWithResult() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(340);
@@ -263,18 +267,30 @@ class IlmekBackendClientTest {
     }
 
     @Test
-    void raceLosingFirstWriteRepliesWithOperationPending() throws Exception {
+    void backToBackDuplicateWritesRunTheBusinessSideEffectOnce() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
-            String request = id(350);
-            host.send(call("notes.race", id(351), "{}"), request);
+            String operation = id(420);
+            host.send(call("notes.record", operation, "{\"n\":1}"), id(421));
+            host.send(call("notes.record", operation, "{\"n\":1}"), id(422));
 
-            IpcMessage.Error error = host.readError(request);
-            assertEquals(ErrorCode.OPERATION_PENDING, error.code());
-            assertTrue(error.retryable());
+            IpcCodec.Decoded first = host.read();
+            IpcCodec.Decoded second = host.read();
+            assertEquals(Set.of(id(421), id(422)), Set.of(first.requestId(), second.requestId()));
+            for (IpcCodec.Decoded reply : List.of(first, second)) {
+                if (reply.message() instanceof IpcMessage.Result result) {
+                    assertEquals(operation, result.operationId());
+                    assertEquals("{\"recorded\":true}", text(result.body().bytes()));
+                } else {
+                    IpcMessage.Error error = assertInstanceOf(IpcMessage.Error.class, reply.message());
+                    assertEquals(ErrorCode.OPERATION_PENDING, error.code());
+                    assertTrue(error.retryable());
+                }
+            }
+            assertEquals(1, events.since(TOPIC, null).size());
             host.disconnect();
             client.join(5_000);
         }
@@ -282,7 +298,7 @@ class IlmekBackendClientTest {
 
     @Test
     void conflictingRetryRepliesWithOperationConflict() throws Exception {
-        Methods methods = new Methods();
+        Methods methods = new Methods(events);
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
             Thread client = startClient(host.port(), registryOf(methods), failure);
@@ -307,7 +323,7 @@ class IlmekBackendClientTest {
     void businessExceptionKeepsItsCodeAndLoopContinues() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             host.send(call("notes.forbidden", null, "{}"), id(370));
@@ -335,7 +351,7 @@ class IlmekBackendClientTest {
         floorRepository.save(new IlmekEventFloor(TOPIC, 5));
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(380);
@@ -354,7 +370,7 @@ class IlmekBackendClientTest {
         events.append(TOPIC, "{\"n\":1}".getBytes(UTF_8));
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(390);
@@ -368,16 +384,16 @@ class IlmekBackendClientTest {
     }
 
     @Test
-    void subscribeSendsSubscribedThenOneEventPerRecord() throws Exception {
-        events.append(TOPIC, "{\"n\":1}".getBytes(UTF_8));
-        events.append(TOPIC, "{\"n\":2}".getBytes(UTF_8));
+    void subscribeFromCursorSendsRetainedEventsAfterIt() throws Exception {
+        events.append(TOPIC, obj(1));
+        events.append(TOPIC, obj(2));
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(400);
-            host.send(subscribe(TOPIC, null), request);
+            host.send(subscribe(TOPIC, EventCursor.encode(TOPIC, 0)), request);
 
             IpcCodec.Decoded subscribed = host.read();
             assertEquals(request, subscribed.requestId());
@@ -385,34 +401,99 @@ class IlmekBackendClientTest {
             assertEquals(TOPIC, header.topic());
             assertEquals(16L, header.window());
             assertEquals(EventCursor.encode(TOPIC, 0), header.cursor());
-
-            for (long sequence = 1; sequence <= 2; sequence++) {
-                IpcCodec.Decoded frame = host.read();
-                assertEquals(request, frame.requestId());
-                IpcMessage.Event event = assertInstanceOf(IpcMessage.Event.class, frame.message());
-                assertEquals(header.subscriptionId(), event.subscriptionId());
-                assertEquals(sequence, event.sequence());
-                assertEquals(EventCursor.encode(TOPIC, sequence), event.cursor());
-                assertArrayEquals(("{\"n\":" + sequence + "}").getBytes(UTF_8), event.body().bytes());
-            }
+            assertEvent(host.read(), request, header.subscriptionId(), 1);
+            assertEvent(host.read(), request, header.subscriptionId(), 2);
             host.disconnect();
             client.join(5_000);
         }
     }
 
     @Test
-    void nonObjectEventBodyRepliesWithInternalErrorBeforeSubscribed() throws Exception {
+    void nonObjectEventBodyEndsSubscriptionWithInternalError() throws Exception {
         events.append(TOPIC, "[]".getBytes(UTF_8));
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             String request = id(410);
-            host.send(subscribe(TOPIC, null), request);
+            host.send(subscribe(TOPIC, EventCursor.encode(TOPIC, 0)), request);
 
+            IpcCodec.Decoded subscribed = host.read();
+            assertInstanceOf(IpcMessage.Subscribed.class, subscribed.message());
             IpcMessage.Error error = host.readError(request);
             assertEquals(ErrorCode.INTERNAL, error.code());
+            host.disconnect();
+            client.join(5_000);
+        }
+    }
+
+    @Test
+    void boundaryCursorWindowsEventsUntilAcknowledged() throws Exception {
+        events.append(TOPIC, obj(1));
+        events.append(TOPIC, obj(2));
+        try (FakeHost host = new FakeHost()) {
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
+            host.handshake();
+
+            String request = id(430);
+            host.send(subscribe(TOPIC, null), request);
+            IpcCodec.Decoded subscribed = host.read();
+            IpcMessage.Subscribed header = assertInstanceOf(IpcMessage.Subscribed.class, subscribed.message());
+            String subscription = header.subscriptionId();
+            assertEquals(16L, header.window());
+            assertEquals(EventCursor.encode(TOPIC, 2), header.cursor());
+
+            for (int n = 3; n <= 20; n++) {
+                events.append(TOPIC, obj(n));
+            }
+            for (long sequence = 3; sequence <= 18; sequence++) {
+                assertEvent(host.read(), request, subscription, sequence);
+            }
+            assertNull(host.tryRead(Duration.ofMillis(600)));
+
+            host.send(new IpcMessage.EventAck(subscription, 3, EventCursor.encode(TOPIC, 3)), id(431));
+            IpcCodec.Decoded acked = host.read();
+            assertEquals(id(431), acked.requestId());
+            assertEquals(new IpcMessage.EventAcked(subscription, 3), acked.message());
+            assertEvent(host.read(), request, subscription, 19);
+            assertNull(host.tryRead(Duration.ofMillis(300)));
+
+            host.send(new IpcMessage.EventAck(subscription, 19, EventCursor.encode(TOPIC, 21)), id(432));
+            assertEquals(ErrorCode.INVALID_MESSAGE, host.readError(id(432)).code());
+
+            host.send(new IpcMessage.EventAck(subscription, 19, EventCursor.encode(TOPIC, 19)), id(433));
+            assertEquals(new IpcMessage.EventAcked(subscription, 19), host.read().message());
+            assertEvent(host.read(), request, subscription, 20);
+            assertNull(host.tryRead(Duration.ofMillis(300)));
+
+            host.send(new IpcMessage.EventAck(id(999), 1, EventCursor.encode(TOPIC, 1)), id(434));
+            assertEquals(ErrorCode.NOT_FOUND, host.readError(id(434)).code());
+            host.disconnect();
+            client.join(5_000);
+        }
+    }
+
+    @Test
+    void unsubscribeStopsDeliveryAndAcknowledges() throws Exception {
+        try (FakeHost host = new FakeHost()) {
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
+            host.handshake();
+
+            String request = id(440);
+            host.send(subscribe(TOPIC, null), request);
+            String subscription = assertInstanceOf(IpcMessage.Subscribed.class, host.read().message())
+                    .subscriptionId();
+
+            host.send(new IpcMessage.Unsubscribe(subscription), id(441));
+            IpcCodec.Decoded unsubscribed = host.read();
+            assertEquals(id(441), unsubscribed.requestId());
+            assertEquals(new IpcMessage.Unsubscribed(subscription), unsubscribed.message());
+
+            events.append(TOPIC, obj(1));
+            assertNull(host.tryRead(Duration.ofMillis(600)));
             host.disconnect();
             client.join(5_000);
         }
@@ -422,7 +503,7 @@ class IlmekBackendClientTest {
     void malformedFrameEndsTheServingLoop() throws Exception {
         try (FakeHost host = new FakeHost()) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            Thread client = startClient(host.port(), registryOf(new Methods()), failure);
+            Thread client = startClient(host.port(), registryOf(new Methods(events)), failure);
             host.handshake();
 
             host.sendRaw("GARBAGE-NOT-A-FRAME".getBytes(UTF_8));
@@ -431,6 +512,23 @@ class IlmekBackendClientTest {
             assertFalse(client.isAlive());
             assertNull(failure.get());
         }
+    }
+
+    private static String text(byte[] bytes) {
+        return new String(bytes, UTF_8);
+    }
+
+    private static byte[] obj(int n) {
+        return bytes("{\"n\":" + n + "}");
+    }
+
+    private static void assertEvent(IpcCodec.Decoded frame, String request, String subscription, long sequence) {
+        assertEquals(request, frame.requestId());
+        IpcMessage.Event event = assertInstanceOf(IpcMessage.Event.class, frame.message());
+        assertEquals(subscription, event.subscriptionId());
+        assertEquals(sequence, event.sequence());
+        assertEquals(EventCursor.encode(TOPIC, sequence), event.cursor());
+        assertEquals(TOPIC, event.topic());
     }
 
     private static String id(long n) {
@@ -475,6 +573,17 @@ class IlmekBackendClientTest {
 
     static final class Methods {
         final AtomicInteger writes = new AtomicInteger();
+        private final IlmekEventsService events;
+
+        Methods(IlmekEventsService events) {
+            this.events = events;
+        }
+
+        @IlmekMethod(name = "notes.record", kind = MethodKind.WRITE)
+        byte[] record(IlmekCallContext context, byte[] body) {
+            events.append(TOPIC, body);
+            return bytes("{\"recorded\":true}");
+        }
 
         @IlmekMethod(name = "notes.echo", kind = MethodKind.READ)
         byte[] echo(IlmekCallContext context, byte[] body) {
@@ -563,6 +672,17 @@ class IlmekBackendClientTest {
             out.flush();
         }
 
+        IpcCodec.Decoded tryRead(Duration wait) throws IOException {
+            socket.setSoTimeout((int) wait.toMillis());
+            try {
+                return read();
+            } catch (SocketTimeoutException e) {
+                return null;
+            } finally {
+                socket.setSoTimeout(5_000);
+            }
+        }
+
         void disconnect() throws IOException {
             if (socket != null) {
                 socket.close();
@@ -588,7 +708,7 @@ class IlmekBackendClientTest {
                 if (n < 0) {
                     throw new EOFException("client closed the connection");
                 }
-                decoder.push(java.util.Arrays.copyOf(buffer, n));
+                decoder.push(Arrays.copyOf(buffer, n));
             }
         }
     }

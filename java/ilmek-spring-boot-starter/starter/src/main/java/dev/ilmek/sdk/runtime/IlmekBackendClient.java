@@ -25,12 +25,13 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -50,8 +52,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 public final class IlmekBackendClient {
 
     private static final long NO_DEADLINE = Long.MAX_VALUE;
+    private static final long SLOW_CONSUMER_NANOS = TimeUnit.SECONDS.toNanos(30);
+    private static final long POLL_MILLIS = 250;
     private static final int READ_BUFFER_BYTES = 8_192;
     private static final int MAX_IN_FLIGHT = 64;
+    private static final int MAX_SUBSCRIPTIONS = 8;
     private static final int OUTBOUND_CAPACITY = 256;
     private static final int EVENT_WINDOW = 16;
     private static final int MAX_BODY_BYTES = 262_144;
@@ -69,6 +74,7 @@ public final class IlmekBackendClient {
     private final IlmekEventsService events;
     private final BlockingQueue<byte[]> outbound = new ArrayBlockingQueue<>(OUTBOUND_CAPACITY);
     private final Semaphore inFlight = new Semaphore(MAX_IN_FLIGHT);
+    private final Map<String, Subscription> subscriptions = new ConcurrentHashMap<>();
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -187,15 +193,18 @@ public final class IlmekBackendClient {
                 } catch (IpcFormatException | StrictJsonException e) {
                     return;
                 }
-                switch (decoded.message()) {
-                    case IpcMessage.Call call -> dispatch(executor, decoded.requestId(), decoded.communityId(),
+                IpcMessage message = decoded.message();
+                if (isCommunityScoped(message) && !communityId.equals(decoded.communityId())) {
+                    respond(decoded.requestId(), error(ErrorCode.FORBIDDEN, "community is not served by this backend", false));
+                    continue;
+                }
+                switch (message) {
+                    case IpcMessage.Call call -> dispatch(executor,
                             () -> respond(decoded.requestId(), answerCall(call)));
-                    case IpcMessage.Subscribe subscribe -> dispatch(executor, decoded.requestId(),
-                            decoded.communityId(), () -> answerSubscribe(decoded.requestId(), subscribe));
-                    case IpcMessage.EventAck ack ->
-                            respond(decoded.requestId(), error(ErrorCode.NOT_FOUND, "unknown subscription", false));
+                    case IpcMessage.Subscribe subscribe -> openSubscription(executor, decoded.requestId(), subscribe);
+                    case IpcMessage.EventAck ack -> respond(decoded.requestId(), acknowledge(ack));
                     case IpcMessage.Unsubscribe unsubscribe ->
-                            respond(decoded.requestId(), new IpcMessage.Unsubscribed(unsubscribe.subscriptionId()));
+                            respond(decoded.requestId(), unsubscribe(unsubscribe));
                     default -> {
                         return;
                     }
@@ -207,16 +216,17 @@ public final class IlmekBackendClient {
             Thread.currentThread().interrupt();
         } finally {
             closed.set(true);
+            subscriptions.values().forEach(Subscription::cancel);
             executor.shutdownNow();
         }
     }
 
-    private void dispatch(ExecutorService executor, String requestId, String requestCommunity, Runnable task)
-            throws InterruptedException {
-        if (!communityId.equals(requestCommunity)) {
-            respond(requestId, error(ErrorCode.FORBIDDEN, "community is not served by this backend", false));
-            return;
-        }
+    private static boolean isCommunityScoped(IpcMessage message) {
+        return message instanceof IpcMessage.Call || message instanceof IpcMessage.Subscribe
+                || message instanceof IpcMessage.EventAck || message instanceof IpcMessage.Unsubscribe;
+    }
+
+    private void dispatch(ExecutorService executor, Runnable task) throws InterruptedException {
         inFlight.acquire();
         executor.execute(() -> {
             try {
@@ -260,23 +270,25 @@ public final class IlmekBackendClient {
         }
     }
 
-    private void answerSubscribe(String requestId, IpcMessage.Subscribe subscribe) {
+    private void openSubscription(ExecutorService executor, String requestId, IpcMessage.Subscribe subscribe) {
         if (!appId.equals(subscribe.appId())) {
             respond(requestId, error(ErrorCode.FORBIDDEN, "application is not served by this backend", false));
             return;
         }
+        if (subscriptions.size() >= MAX_SUBSCRIPTIONS) {
+            respond(requestId, error(ErrorCode.RESOURCE_EXHAUSTED, "too many subscriptions", true));
+            return;
+        }
         String topic = subscribe.topic();
-        List<IlmekEvent> batch;
         long start;
         try {
-            batch = events.since(topic, subscribe.cursor());
-            for (IlmekEvent event : batch) {
-                if (!isSendableObject(event.getBody())) {
-                    throw new AppException(ErrorCode.INTERNAL, "event body must be a JSON object", false);
-                }
+            if (subscribe.cursor() == null) {
+                start = events.latestSequence(topic);
+            } else {
+                start = EventCursor.decode(subscribe.cursor()).map(EventCursor.Parsed::sequence)
+                        .orElseThrow(() -> new IllegalArgumentException("invalid cursor"));
+                events.since(topic, subscribe.cursor());
             }
-            start = subscribe.cursor() == null ? 0L
-                    : EventCursor.decode(subscribe.cursor()).map(EventCursor.Parsed::sequence).orElse(0L);
         } catch (AppException e) {
             respond(requestId, error(e.code(), e.getMessage(), e.retryable()));
             return;
@@ -287,14 +299,71 @@ public final class IlmekBackendClient {
             respond(requestId, error(ErrorCode.INTERNAL, "subscription failed", false));
             return;
         }
-        String subscriptionId = newUuidV7();
-        respond(requestId, new IpcMessage.Subscribed(subscriptionId, appId, topic,
+        Subscription subscription = new Subscription(newUuidV7(), topic, requestId, start);
+        respond(requestId, new IpcMessage.Subscribed(subscription.id, appId, topic,
                 EventCursor.encode(topic, start), EVENT_WINDOW));
-        for (IlmekEvent event : batch) {
-            respond(requestId, new IpcMessage.Event(subscriptionId, appId, topic, event.getSequence(),
-                    event.getEventId(), EventCursor.encode(topic, event.getSequence()),
-                    new IpcMessage.Body(event.getBody())));
+        subscriptions.put(subscription.id, subscription);
+        executor.execute(() -> stream(subscription));
+    }
+
+    private void stream(Subscription subscription) {
+        try {
+            while (subscription.isActive() && !closed.get()) {
+                long position = subscription.position();
+                if (events.latestSequence(subscription.topic) <= position) {
+                    subscription.pause(POLL_MILLIS);
+                    continue;
+                }
+                List<IlmekEvent> batch = events.since(subscription.topic,
+                        EventCursor.encode(subscription.topic, position));
+                for (IlmekEvent event : batch) {
+                    if (!subscription.awaitWindowSlot()) {
+                        return;
+                    }
+                    if (!isSendableObject(event.getBody())) {
+                        respond(subscription.requestId,
+                                error(ErrorCode.INTERNAL, "event body must be a JSON object", false));
+                        return;
+                    }
+                    subscription.recordSent(event.getSequence());
+                    respond(subscription.requestId, new IpcMessage.Event(subscription.id, appId,
+                            subscription.topic, event.getSequence(), event.getEventId(),
+                            EventCursor.encode(subscription.topic, event.getSequence()),
+                            new IpcMessage.Body(event.getBody())));
+                }
+            }
+        } catch (AppException e) {
+            respond(subscription.requestId, error(e.code(), e.getMessage(), e.retryable()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (RuntimeException e) {
+            respond(subscription.requestId, error(ErrorCode.INTERNAL, "subscription failed", false));
+        } finally {
+            subscription.cancel();
+            subscriptions.remove(subscription.id);
         }
+    }
+
+    private IpcMessage acknowledge(IpcMessage.EventAck ack) {
+        Subscription subscription = subscriptions.get(ack.subscriptionId());
+        if (subscription == null) {
+            return error(ErrorCode.NOT_FOUND, "unknown subscription", false);
+        }
+        if (ack.sequence() > subscription.position()
+                || !ack.cursor().equals(EventCursor.encode(subscription.topic, ack.sequence()))) {
+            return error(ErrorCode.INVALID_MESSAGE, "acknowledgement is ahead of delivery or has a foreign cursor",
+                    false);
+        }
+        subscription.acknowledge(ack.sequence());
+        return new IpcMessage.EventAcked(ack.subscriptionId(), ack.sequence());
+    }
+
+    private IpcMessage unsubscribe(IpcMessage.Unsubscribe unsubscribe) {
+        Subscription subscription = subscriptions.remove(unsubscribe.subscriptionId());
+        if (subscription != null) {
+            subscription.cancel();
+        }
+        return new IpcMessage.Unsubscribed(unsubscribe.subscriptionId());
     }
 
     private static byte[] invokeObject(IlmekMethodRegistry.MethodHandle handle, IlmekCallContext context,
@@ -400,7 +469,70 @@ public final class IlmekBackendClient {
         try {
             socket.close();
         } catch (IOException ignored) {
-            // the socket is being discarded; nothing further can be done with a failed close
+        }
+    }
+
+    private static final class Subscription {
+
+        private final String id;
+        private final String topic;
+        private final String requestId;
+        private final ArrayDeque<Long> unacknowledged = new ArrayDeque<>();
+        private long position;
+        private long progressDeadlineNanos;
+        private boolean active = true;
+
+        Subscription(String id, String topic, String requestId, long start) {
+            this.id = id;
+            this.topic = topic;
+            this.requestId = requestId;
+            this.position = start;
+        }
+
+        synchronized long position() {
+            return position;
+        }
+
+        synchronized boolean isActive() {
+            return active;
+        }
+
+        synchronized void recordSent(long sequence) {
+            position = sequence;
+            unacknowledged.addLast(sequence);
+        }
+
+        synchronized void acknowledge(long sequence) {
+            while (!unacknowledged.isEmpty() && unacknowledged.peekFirst() <= sequence) {
+                unacknowledged.pollFirst();
+            }
+            progressDeadlineNanos = System.nanoTime() + SLOW_CONSUMER_NANOS;
+            notifyAll();
+        }
+
+        synchronized boolean awaitWindowSlot() throws InterruptedException {
+            if (unacknowledged.size() >= EVENT_WINDOW) {
+                progressDeadlineNanos = System.nanoTime() + SLOW_CONSUMER_NANOS;
+            }
+            while (active && unacknowledged.size() >= EVENT_WINDOW) {
+                long remaining = progressDeadlineNanos - System.nanoTime();
+                if (remaining <= 0) {
+                    throw new AppException(ErrorCode.SLOW_CONSUMER, "no acknowledgement progress", false);
+                }
+                TimeUnit.NANOSECONDS.timedWait(this, remaining);
+            }
+            return active;
+        }
+
+        synchronized void pause(long millis) throws InterruptedException {
+            if (active) {
+                wait(millis);
+            }
+        }
+
+        synchronized void cancel() {
+            active = false;
+            notifyAll();
         }
     }
 }

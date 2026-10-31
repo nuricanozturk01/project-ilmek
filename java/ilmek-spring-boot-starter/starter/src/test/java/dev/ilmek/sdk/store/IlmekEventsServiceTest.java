@@ -227,4 +227,16 @@ class IlmekEventsServiceTest {
         assertEquals(1, floors.findById("busy").orElseThrow().getFloorSequence());
         assertEquals(1, events.since("quiet", EventCursor.encode("quiet", 0)).size());
     }
+
+    @Test
+    void latestSequenceIsZeroForEmptyTopicAndTracksAppendsPerTopic() {
+        assertEquals(0, events.latestSequence("empty.topic"));
+        events.append("latest.a", "a".getBytes(UTF_8));
+        events.append("latest.a", "b".getBytes(UTF_8));
+        events.append("latest.b", "c".getBytes(UTF_8));
+
+        assertEquals(2, events.latestSequence("latest.a"));
+        assertEquals(1, events.latestSequence("latest.b"));
+        assertThrows(IllegalArgumentException.class, () -> events.latestSequence(""));
+    }
 }

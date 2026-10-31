@@ -53,6 +53,12 @@ public class IlmekEventsService {
     }
 
     @Transactional(readOnly = true)
+    public long latestSequence(String topic) {
+        requireTopic(topic);
+        return repository.maxSequence(topic);
+    }
+
+    @Transactional(readOnly = true)
     public long countForTopic(String topic) {
         return repository.countByTopic(topic);
     }
