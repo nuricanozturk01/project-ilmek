@@ -42,8 +42,8 @@ Environment: Linux x86_64, Angular 22.2.4 build, Tauri client built from `apps/c
 
 | Check | Status | Command | Observed |
 | --- | --- | --- | --- |
-| Angular unit tests | PASS (from Task 12) | `npm test` | `Tests 8 passed (8)` |
-| Angular production build | PASS (from Task 12) | `npm run build` | `index.html` has 0 `<style>` and 0 inline scripts |
+| Angular unit tests | PASS (HEAD 3f7ac2c) | `npm test` | `Tests 23 passed (23)` |
+| Angular production build | PASS (HEAD 3f7ac2c) | `npm run build` | exit 0; `index.html` has 0 `<style>` tags and 0 inline scripts (script tags carry `src` only) |
 | Tauri client build | PASS | `cargo build -p ilmek-client-app --manifest-path src-tauri/Cargo.toml` (from `apps/client`) | `Finished` with exit 0 |
 | Client window opens | PASS | `target/debug/ilmek-client "ilmek://nuri/tasks"` | window `İlmek` present, geometry 1100x760 |
 | Todo UI renders styled (list, add, complete, live update) | BLOCKED | screenshot via `gnome-screenshot -f` after launch | captures showed only the desktop wallpaper; the İlmek window did not appear in the captures, so rendering and styling were not observed |
