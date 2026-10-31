@@ -26,7 +26,7 @@ if [ -L "$assets" ]; then
   exit 1
 fi
 
-(cd "$ng_project" && ng build --configuration production)
+(cd "$ng_project" && npx --no-install ng build --configuration production)
 
 shopt -s nullglob
 browsers=("$ng_project"/dist/*/browser)
