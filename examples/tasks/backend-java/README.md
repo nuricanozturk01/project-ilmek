@@ -30,10 +30,8 @@ Commands and observed results from this run:
 | R3-4 conflicting retry gives `OPERATION_CONFLICT` | PASS | same | `reusing_an_operation_id_with_a_different_body_is_a_conflict ... ok` |
 | R3-5 subscribe receives the flat `created` event | PASS | same | `a_subscriber_receives_the_event_after_a_create ... ok` |
 | R3-6 SIGKILL backend, host restart, replay same operation id | PASS | same | `a_backend_kill_then_host_restart_keeps_the_write_and_replays_it_once ... ok` |
-| Suite summary | PASS | same | `test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.57s` |
+| Suite summary (at HEAD `936e688`) | PASS | same | `test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.52s` |
 
 Earlier (not re-run in this pass): before the durability fix, R3-6 failed under the parallel suite because the replay created a new row instead of returning the stored result. A standalone H2 `kill -9` after commit showed the default URL lost the row and `WRITE_DELAY=0` kept it.
-
-Not verified: the Tauri GUI rendering of the Angular app (see `examples/tasks/frontend-angular/README.md`), and any physical Wi-Fi or multi-host run.
 
 Not verified: the Tauri GUI rendering of the Angular app (see `examples/tasks/frontend-angular/README.md`), and any physical Wi-Fi or multi-host run.
