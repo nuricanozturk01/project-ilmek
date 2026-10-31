@@ -21,6 +21,7 @@ import dev.ilmek.sdk.store.IlmekEventRepository;
 import dev.ilmek.sdk.store.IlmekEventsService;
 import dev.ilmek.sdk.store.IlmekOperationRepository;
 import dev.ilmek.sdk.store.IlmekOperationsService;
+import dev.ilmek.sdk.store.IlmekJpaTest;
 import dev.ilmek.sdk.store.IlmekStoreTestConfiguration;
 import dev.ilmek.sdk.wire.ErrorCode;
 import dev.ilmek.sdk.wire.Frame;
@@ -46,14 +47,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@DataJpaTest
+@IlmekJpaTest
 @ContextConfiguration(classes = IlmekStoreTestConfiguration.class)
 @Import({IlmekOperationsService.class, IlmekEventsService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

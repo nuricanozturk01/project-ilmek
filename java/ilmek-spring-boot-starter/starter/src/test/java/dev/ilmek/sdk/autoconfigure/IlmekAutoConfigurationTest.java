@@ -18,6 +18,7 @@ import dev.ilmek.sdk.store.IlmekEventsService;
 import dev.ilmek.sdk.store.IlmekOperationRepository;
 import dev.ilmek.sdk.store.IlmekOperationsService;
 import dev.ilmek.sdk.store.IlmekStoreTestConfiguration;
+import dev.ilmek.sdk.store.JpaAutoConfigurations;
 import dev.ilmek.sdk.wire.Frame;
 import dev.ilmek.sdk.wire.FrameDecoder;
 import dev.ilmek.sdk.wire.IpcCodec;
@@ -46,11 +47,6 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
-import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationListener;
@@ -69,12 +65,7 @@ class IlmekAutoConfigurationTest {
     private final String database = "ilmek-" + UUID.randomUUID();
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(
-                    DataSourceAutoConfiguration.class,
-                    HibernateJpaAutoConfiguration.class,
-                    JpaRepositoriesAutoConfiguration.class,
-                    TransactionAutoConfiguration.class,
-                    IlmekAutoConfiguration.class))
+            .withConfiguration(JpaAutoConfigurations.with(IlmekAutoConfiguration.class))
             .withPropertyValues(
                     "spring.datasource.url=jdbc:h2:mem:" + database + ";DB_CLOSE_DELAY=-1",
                     "spring.jpa.hibernate.ddl-auto=create-drop")
@@ -295,7 +286,7 @@ class IlmekAutoConfigurationTest {
     static class AutoConfigurationPackageHolder {
     }
 
-    @EntityScan(basePackageClasses = AppNote.class)
+    @AutoConfigurationPackage(basePackageClasses = AppNote.class)
     @EnableJpaRepositories(basePackageClasses = AppNoteRepository.class)
     static class AppStoreConfiguration {
     }
