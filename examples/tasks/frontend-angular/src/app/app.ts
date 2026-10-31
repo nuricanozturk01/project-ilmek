@@ -81,7 +81,7 @@ export class App implements OnInit, OnDestroy {
 
   protected async saveEdit(task: Task, input: HTMLInputElement): Promise<void> {
     const title = input.value.trim();
-    if (!title) {
+    if (!title || title === task.title) {
       this.cancelEdit();
       return;
     }

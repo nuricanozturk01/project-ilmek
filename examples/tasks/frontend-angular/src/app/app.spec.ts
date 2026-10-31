@@ -332,6 +332,22 @@ describe('App (todo)', () => {
     expect(itemTexts(fixture)).toEqual(['Buy oat milk']);
   });
 
+  it('leaves edit mode without calling tasks.update when the title is unchanged', async () => {
+    const mock = installMock([{ id: 1, title: 'Buy milk', done: false }]);
+    const fixture = await render();
+
+    buttonNamed(rows(fixture)[0], 'Edit').click();
+    fixture.detectChanges();
+    const editor = rows(fixture)[0].querySelector('input[type="text"]') as HTMLInputElement;
+    editor.value = '  Buy milk ';
+    pressKey(editor, 'Enter');
+    await settle(fixture);
+
+    expect(mock.call.mock.calls.some(([method]) => method === 'tasks.update')).toBe(false);
+    expect(rows(fixture)[0].querySelector('input[type="text"]')).toBeNull();
+    expect(itemTexts(fixture)).toEqual(['Buy milk']);
+  });
+
   it('cancels an edit on Escape without calling tasks.update', async () => {
     const mock = installMock([{ id: 1, title: 'Buy milk', done: false }]);
     const fixture = await render();
