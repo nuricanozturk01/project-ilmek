@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Angular HttpClient interceptor that routes /api calls over ilmek",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT OR Apache-2.0",
   "private": true,
   "main": "./dist/index.js",
   "module": "./dist/index.js",

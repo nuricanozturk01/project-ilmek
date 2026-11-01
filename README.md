@@ -113,6 +113,7 @@ Data lives in `$ILMEK_HOME` (default `~/.ilmek`). Ports: 47400/udp discovery, 47
 | [TEST_REPORT](docs/TEST_REPORT.md) | what was run and what was not |
 | [decisions](docs/decisions) | design decision records |
 | [OVERVIEW_TR](docs/OVERVIEW_TR.md) | Turkish summary |
+| [site/](site) | the project web page (English and Turkish) published with GitHub Pages: what İlmek is, the protocol, the CLI, building and deploying apps |
 | [REQUIREMENTS](docs/REQUIREMENTS.md) | original product specification of the secure design on `main` (archived, Turkish) |
 
 ## Build and test
@@ -139,3 +140,10 @@ Java and Angular parts have their own test commands in [JAVA_ANGULAR](docs/JAVA_
 - Application backends are trusted local processes, not a sandbox. The HTML/JS of an application
   runs in an isolated WebView with a strict content policy (observed on Linux/WebKitGTK only; see [SECURITY](docs/SECURITY.md)).
 - The registry is a single writer; there is no failover.
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT)
+at your option. Unless you explicitly state otherwise, any contribution intentionally submitted for
+inclusion in this project, as defined in the Apache-2.0 license, is dual licensed as above, without
+any additional terms or conditions.
