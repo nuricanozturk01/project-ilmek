@@ -1,0 +1,504 @@
+<div class="hero">
+  <ul class="eyebrow"><li>ILMEK/1</li><li>TCP</li><li>no cloud</li><li>no public internet</li><li>Rust</li></ul>
+  <h1>Your own small internet, <em>without the internet.</em></h1>
+  <p class="lead">İlmek lets one computer act as a <strong>node</strong>. You publish applications on it, and any other computer on the same network finds the node by itself and opens them at addresses like <code>ilmek://nuri/forum</code>. It speaks its own protocol, <strong>ILMEK/1</strong>, directly over TCP: no HTTP, no cloud, no public internet.</p>
+  <div class="stitch" aria-hidden="true"></div>
+  <div class="cta">
+    <a class="btn primary" href="#run">Run a node</a>
+    <a class="btn" href="#apps">Build an app</a>
+    <a class="btn" href="#protocol">Read the protocol</a>
+  </div>
+  <div class="notice" role="note">
+    <strong>No security in this version.</strong>
+    <p>Nothing is encrypted, nothing proves who a device is, and anyone on the network can join and publish. Packages are checked for corruption (SHA-256) but are not signed. Use it only on a closed network you trust. The secure design (TLS 1.3, certificates, signed packages) is specified on the <code>main</code> branch.</p>
+  </div>
+  <ol class="path">
+    <li><a href="#what"><b>What and why</b><span>2 minutes</span></a></li>
+    <li><a href="#how"><b>How it works</b><span>one example, step by step</span></a></li>
+    <li><a href="#run"><b>Run it</b><span>a node and a second computer</span></a></li>
+    <li><a href="#protocol"><b>The protocol</b><span>frames, messages, guarantees</span></a></li>
+    <li><a href="#apps"><b>Build an app</b><span>and deploy it</span></a></li>
+  </ol>
+</div>
+
+<section id="what" data-nav="What and why">
+  <h2>What is İlmek, and why was it made?</h2>
+  <p><strong>What.</strong> İlmek (Turkish for a knitting stitch or loop) is a small application network. A <em>node</em> holds a registry (a directory of names) and an application host (which stores and runs applications). Applications are made of ordinary HTML, CSS and JavaScript, optionally with a backend process that keeps data. A <em>client</em> — the <code>ilmek</code> command or the desktop window — resolves a name such as <code>ilmek://nuri/forum</code>, downloads the application from the host that serves it, verifies it, and runs it.</p>
+  <p><strong>Why.</strong> The project's goal is a community application network that works <em>without</em> the public internet, cloud services or mobile data: people on one local network can publish and use applications among themselves. A first demo should not require certificates, tokens or special radio hardware, so this version keeps only what is needed: one Linux machine as the node, any other computers as clients, every machine joining by itself. The decision record is <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/decisions/0005-simple-no-security.md">0005</a>.</p>
+  <div class="grid">
+    <div class="card"><h4>Offline by design</h4><p>Everything runs over plain IP on your own network. Nothing contacts the internet.</p></div>
+    <div class="card"><h4>Joins by itself</h4><p>A new machine finds the node with a UDP broadcast or a TCP scan. No files or tokens to copy.</p></div>
+    <div class="card"><h4>The registry is not a proxy</h4><p>It only answers “who serves this name”. Applications are downloaded from, and called on, the host directly.</p></div>
+    <div class="card"><h4>Many apps, one host</h4><p>Each application has its own identity, data directory, backend process and lifecycle.</p></div>
+    <div class="card"><h4>Safe writes</h4><p>Every state-changing call carries an operation ID, so a retry after a lost reply is applied only once.</p></div>
+    <div class="card"><h4>Sandboxed pages</h4><p>Downloaded HTML/JS runs in an isolated WebView and can only talk to its own backend through the SDK.</p></div>
+  </div>
+</section>
+
+<section id="concepts" data-nav="Concepts">
+  <h2>Concepts</h2>
+  @@fig:arch@@
+  <table>
+    <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+    <tr><td>Node</td><td>The machine running <code>ilmek node</code>: a registry, an application host and a discovery beacon in one process. The first run creates everything it needs. Linux is recommended.</td></tr>
+    <tr><td>Registry</td><td>The directory of the community: namespaces, registered hosts, application records (name, version, manifest hash, which host). One registry per community, no failover. It never carries application traffic.</td></tr>
+    <tr><td>Host</td><td>Stores installed application packages and runs their backends. Serves manifests, files and calls. A node includes one host; <code>ilmek host start</code> adds more hosts on other machines.</td></tr>
+    <tr><td>Backend</td><td>An optional process that keeps an application's data (for example the Rust <em>forum</em> or a Spring Boot app). The host starts it, restarts it with backoff if it crashes, and talks to it over loopback only. It is trusted code chosen by the host's administrator, not a sandbox.</td></tr>
+    <tr><td>Client</td><td>Opens applications: the <code>ilmek</code> command or the desktop window (a small browser for <code>ilmek://</code> addresses with one tab per application).</td></tr>
+    <tr><td>Community</td><td>The set of devices that share one registry. Created by the first <code>ilmek node</code>; every message carries its <code>community_id</code>.</td></tr>
+    <tr><td>Namespace and slug</td><td>The two parts of an address: <code>ilmek://<strong>nuri</strong>/<strong>forum</strong></code>. The first device that registers a namespace owns it.</td></tr>
+    <tr><td>Device id</td><td>A random UUIDv7 each device creates for itself. It is declared, not proven: it tells devices apart and records ownership, nothing more.</td></tr>
+    <tr><td>Beacon</td><td>The node's UDP listener (port 47400) that answers “where is the node?” probes.</td></tr>
+    <tr><td>Package</td><td>An application as published: a <code>manifest.json</code> plus an <code>assets/</code> folder, with a SHA-256 for every file.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="how" data-nav="How it works">
+  <h2>How it works: opening one address</h2>
+  <p>Take <code>ilmek://nuri/forum</code> typed into the desktop client. Here is everything that happens, in order. The same steps are explained message by message in the <a href="#protocol">protocol section</a>.</p>
+  <ol>
+    <li><strong>Find the node</strong> (only on the very first use of a device): a UDP probe or a TCP scan, see <a href="#protocol-finding-the-node">Finding the node</a>. The result is saved.</li>
+    <li><strong>Resolve</strong> <code>nuri/forum</code> at the registry. It answers with the application's current version, the SHA-256 of its manifest and the address of the host that serves it.</li>
+    <li><strong>Download and verify</strong> from that host: the manifest first, then every file on a separate connection. Each file is checked by size and SHA-256, and the package is only activated if everything matches.</li>
+    <li><strong>Run the page</strong> in an isolated frame. Its only way out is the SDK (<code>window.ilmek</code>), which can call methods of <em>this</em> application's backend and nothing else.</li>
+    <li><strong>Call the backend</strong>: the page's call becomes an <code>APP_CALL</code> to the host, which forwards it over loopback to the backend process. A write carries an operation ID so a retry cannot apply it twice.</li>
+  </ol>
+  @@seq:open@@
+</section>
+
+<section id="run" data-nav="Run a node">
+  <h2>Run a node and use it</h2>
+  <p>You need <a href="https://rustup.rs">Rust</a> (the repository pins the toolchain) and two computers that can reach each other over IP — same Wi-Fi, switch or phone hotspot, without “AP isolation”. Get the code: <code>git clone https://github.com/nuricanozturk01/project-ilmek &amp;&amp; cd project-ilmek</code>.</p>
+
+  <h3>1. Start the node (Linux)</h3>
+<pre><code>sudo ufw allow 47400/udp &amp;&amp; sudo ufw allow 47401:47402/tcp   # only if a firewall is active
+scripts/quickstart.sh</code></pre>
+  <p>The script builds the CLI and the forum backend, starts <code>ilmek node</code>, then installs and publishes two examples: <code>ilmek://nuri/forum</code> (with a Rust backend) and <code>ilmek://nuri/merhaba</code> (a static page). Keep the terminal open; Ctrl-C stops everything. Data goes to <code>./ilmek-demo</code>.</p>
+  <p>Without the script, a node is just <code>ilmek node</code>. Defaults:</p>
+  <div class="kv"><div><b>47400/udp</b><span>discovery beacon</span></div><div><b>47401/tcp</b><span>registry</span></div><div><b>47402/tcp</b><span>application host</span></div><div><b>$ILMEK_HOME</b><span>data, default ~/.ilmek</span></div></div>
+
+  <h3>2. Join from another computer</h3>
+<pre><code>cargo build -p ilmek-cli
+target/debug/ilmek join                       # finds the node by itself
+target/debug/ilmek resolve ilmek://nuri/forum
+target/debug/ilmek call ilmek://nuri/forum forum.topics.create --write \
+    --body '{"title":"Hello","body":"it works"}'
+target/debug/ilmek call ilmek://nuri/forum forum.topics.list
+target/debug/ilmek fetch ilmek://nuri/merhaba # download and verify a package</code></pre>
+  <p>Nothing is copied from the node. If discovery fails (different subnet, firewall), give only the node's address: <code>ilmek join --registry NODE_IP:47401</code>.</p>
+
+  <h3>3. The desktop client</h3>
+  <p>The desktop client is İlmek's browser: address bar, catalog, one tab per application. It registers itself as the handler of <code>ilmek://</code> links, so a link clicked or typed in a browser opens the application in it. Build it per platform following <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/INSTALL.md">INSTALL</a>; in development: <code>bun install &amp;&amp; cd apps/client &amp;&amp; bun run tauri dev</code>. Press <em>Find and join</em>, type an address, press <em>Open</em>.</p>
+
+  <h3>What you can do with a node</h3>
+  <table>
+    <thead><tr><th>Goal</th><th>How</th></tr></thead>
+    <tbody>
+    <tr><td>Publish an application</td><td><code>ilmek app pack | install | start | publish</code> — see <a href="#apps">Build an app</a></td></tr>
+    <tr><td>Host several applications</td><td>Install more; each gets its own data directory, backend and state. <code>ilmek app start|stop|restart ns/app</code> affect only that app</td></tr>
+    <tr><td>Add another host</td><td>On a second machine: <code>ilmek host start</code> (it finds the node and registers itself), then manage its apps with <code>ilmek app …</code> on that machine</td></tr>
+    <tr><td>Add more clients</td><td><code>ilmek join</code> on each; or open the desktop client</td></tr>
+    <tr><td>See what is running</td><td><code>ilmek app list</code> (state, PID, restarts), <code>ilmek diagnose ilmek://ns/app</code></td></tr>
+    <tr><td>Back up and restore</td><td><code>ilmek backup registry|host --out DIR</code>, <code>ilmek backup restore-registry|restore-host --from DIR</code></td></tr>
+    <tr><td>Run as a service</td><td>systemd units in <code>deploy/systemd/</code> (written, <em>not yet run</em> as services)</td></tr>
+    </tbody>
+  </table>
+  <p>Example with three kinds of machines: A (<code>192.168.1.10</code>) runs <code>ilmek node</code>; B runs <code>ilmek host start --registry 192.168.1.10:47401</code> and serves its own apps; C, D, … run <code>ilmek join --registry 192.168.1.10:47401</code>. Start the node first. On one subnet with UDP 47400 open, <code>--registry</code> can be left out. Every <code>ilmek node</code> creates its own community — add machines with <code>host start</code> or <code>join</code>, not a second <code>node</code>.</p>
+
+  <h3>Troubleshooting</h3>
+  <table>
+    <thead><tr><th>Symptom</th><th>Cause / fix</th></tr></thead>
+    <tbody>
+    <tr><td><code>no node found</code></td><td>Node not running, other subnet, or a firewall blocks <code>47401-47402/tcp</code> (and <code>47400/udp</code>). Open the ports or use <code>--registry NODE_IP:47401</code>. Test: <code>nc -vz NODE_IP 47401</code>.</td></tr>
+    <tr><td><code>did not answer like an İlmek registry</code></td><td>The node was started from an older build, or another program owns the port. Rebuild and restart the node; keep node and clients on the same build.</td></tr>
+    <tr><td>App does not open</td><td><code>ilmek app list</code> must show <code>state=running</code> for it on its host.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="protocol" data-nav="The ILMEK/1 protocol">
+  <h2>The ILMEK/1 protocol</h2>
+  <p>ILMEK/1 is an application-layer protocol, in the place where HTTP lives. It does not replace TCP or IP, and it is not tunneled over HTTP, WebSocket or gRPC. The normative text is <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/PROTOCOL.md">PROTOCOL.md</a>; this section explains it, with diagrams. In this version there is no TLS.</p>
+  <div class="grid">
+    <div class="card"><h4>Binary frame + JSON</h4><p>A 12-byte header, UTF-8 JSON metadata, an optional raw body.</p></div>
+    <div class="card"><h4>Typed messages</h4><p>Not “GET /x”: a <code>type</code> such as <code>RESOLVE</code> with a typed <code>data</code> object.</p></div>
+    <div class="card"><h4>Multiplexed</h4><p>Several requests in flight on one connection, matched by <code>request_id</code>.</p></div>
+    <div class="card"><h4>Exactly-once writes</h4><p>Operation ID + payload hash + one transaction at the backend.</p></div>
+  </div>
+
+  @@fig:layers@@
+
+  <h3>Compared with HTTP</h3>
+  <table>
+    <thead><tr><th>Topic</th><th>HTTP/1.1</th><th>ILMEK/1</th></tr></thead>
+    <tbody>
+    <tr><td>Wire format</td><td>Text: request line, headers, body</td><td>Binary 12-byte prefix, then UTF-8 JSON metadata, then a raw body</td></tr>
+    <tr><td>What a request says</td><td>Method + URL + headers</td><td>A message <code>type</code> (<code>RESOLVE</code>, <code>APP_CALL</code>, …) and a typed <code>data</code> object</td></tr>
+    <tr><td>Result</td><td>Status code</td><td>A typed success message, or <code>ERROR</code> with a code, <code>retryable</code> and <code>retry_after_ms</code></td></tr>
+    <tr><td>Several requests on one connection</td><td>Responses come back in order</td><td>Several in flight (up to 16 on a control connection); responses may arrive in any order and are matched by <code>request_id</code></td></tr>
+    <tr><td>Server push</td><td>Needs SSE/WebSocket</td><td>Built in: subscriptions deliver <code>EVENT</code> frames with resumable cursors and flow control</td></tr>
+    <tr><td>Retrying a write</td><td>Up to the application</td><td>Defined: operation ID + payload hash; the same retry returns the stored result</td></tr>
+    <tr><td>Large files</td><td>Same connection</td><td>A separate <code>bulk</code> connection, resumable by offset, verified by SHA-256</td></tr>
+    <tr><td>Session</td><td>Stateless (cookies by convention)</td><td>A <code>HELLO</code>/<code>HELLO_ACK</code> handshake first; the mode (<code>control</code> or <code>bulk</code>) is fixed afterwards</td></tr>
+    <tr><td>Name lookup</td><td>DNS, then connect to the server</td><td>Registry <code>RESOLVE</code> returns the record and the host's endpoint; then connect to the host</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Addresses and name resolution</h3>
+  <p>An application address is <code>ilmek://namespace/slug</code>. Both parts match <code>[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?</code> (1–48 characters). The client asks the registry to <code>RESOLVE</code> it and gets an <em>application record</em>: <code>app_id</code>, <code>version</code>, <code>manifest_hash</code>, the host's <code>endpoint</code> (IPv4 and port), a lease expiry and an availability flag (<code>recent_heartbeat</code>, <code>stale</code> or <code>unknown</code>). The client then connects to that host. Records are cached for 60 s; if the registry is down, an earlier answer may be used for up to 24 h, marked stale.</p>
+
+  <h3>The frame</h3>
+  <p>Every message — on the network and on the local backend IPC — is one frame. The largest frame is 12 + 65536 + 262144 = 327692 bytes. A bad magic, a length over the limit or an incomplete frame closes the connection; memory is never allocated from a length before it is checked. A frame that is not complete 30 s after its first byte closes the connection. TCP reads are accumulated: one read is never assumed to be one frame.</p>
+  @@fig:frame@@
+  <p>The metadata always has exactly four fields: <code>type</code>, <code>request_id</code> (UUIDv7), <code>community_id</code> (UUIDv7) and <code>data</code> (an object). JSON metadata is strict: no duplicate keys, no BOM, no NaN, nesting at most 16 deep, unknown fields rejected. A hash is always computed over the exact bytes as sent, never over re-serialized JSON.</p>
+
+  <h3>Identifier and data types</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Form</th></tr></thead>
+    <tbody>
+    <tr><td><code>UUID</code></td><td>Lowercase canonical <strong>UUIDv7</strong> only (RFC 9562). Used for communities, devices, applications, requests, operations, sessions, subscriptions, events</td></tr>
+    <tr><td><code>U53</code></td><td>JSON integer 0…2^53−1; no floats, no negatives</td></tr>
+    <tr><td><code>Hash</code></td><td>SHA-256, 64 lowercase hex characters</td></tr>
+    <tr><td><code>Version</code></td><td><code>major.minor.patch</code>, each 0…2147483647</td></tr>
+    <tr><td><code>Method</code></td><td><code>[a-z][a-z0-9_.]{0,63}</code>, for example <code>forum.topics.create</code></td></tr>
+    <tr><td><code>Cursor</code></td><td>Opaque base64url string from the server, at most 512 characters</td></tr>
+    </tbody>
+  </table>
+
+  <h3>A connection</h3>
+  <p>A socket EOF or a timeout never means “the write was rolled back”. That is why writes carry operation IDs. A server can also send <code>DRAIN</code> (for example after 100000 requests on one connection) with a grace of at most 30 s; the client then opens a new connection.</p>
+  @@seq:handshake@@
+
+  <h3>Finding the node</h3>
+  <p>The probe is the 16 ASCII bytes <code>ILMEK-DISCOVER/1</code> over UDP; the node answers with JSON <code>{"ilmek":1,"community_id":…,"registry_id":…,"registry_port":…}</code>. The registry address is the source IP of the answer. A device that knows an address learns the community without UDP: it sends a <code>HELLO</code> with a made-up community id; the registry refuses it and names the real community in the error details.</p>
+  @@seq:discover@@
+
+  <h3>The messages</h3>
+  <p>The registry (<code>control</code> mode) understands:</p>
+  <table>
+    <thead><tr><th>Request</th><th>Answer</th><th>Purpose</th></tr></thead>
+    <tbody>
+    <tr><td><code>RESOLVE</code></td><td><code>RESOLVED</code></td><td>name → application record</td></tr>
+    <tr><td><code>LIST_APPS</code></td><td><code>APPS_LISTED</code></td><td>paged catalog (limit 1–50, cursor-based snapshot kept 5 min)</td></tr>
+    <tr><td><code>HOST_REGISTER</code></td><td><code>HOST_REGISTERED</code></td><td>a host announces itself; <code>0.0.0.0</code> lets the registry record the address the connection came from</td></tr>
+    <tr><td><code>HOST_HEARTBEAT</code></td><td><code>HEARTBEAT_ACK</code></td><td>renews the host's 90 s lease (sent every 30 s)</td></tr>
+    <tr><td><code>REGISTER_APP</code> / <code>UPDATE_APP</code> / <code>UNREGISTER_APP</code></td><td><code>APP_REGISTERED</code> / <code>APP_UPDATED</code> / <code>APP_UNREGISTERED</code></td><td>publish, update or withdraw an application; carry an operation ID</td></tr>
+    </tbody>
+  </table>
+  <p>A host (<code>control</code> mode) understands:</p>
+  <table>
+    <thead><tr><th>Request</th><th>Answer</th><th>Purpose</th></tr></thead>
+    <tbody>
+    <tr><td><code>GET_MANIFEST</code></td><td><code>MANIFEST</code></td><td>the exact stored <code>manifest.json</code> bytes</td></tr>
+    <tr><td><code>APP_CALL</code></td><td><code>APP_RESULT</code></td><td>call a backend method; body is a JSON object</td></tr>
+    <tr><td><code>SUBSCRIBE</code></td><td><code>SUBSCRIBED</code>, then <code>EVENT</code>…</td><td>stream events of a topic from a cursor</td></tr>
+    <tr><td><code>EVENT_ACK</code>, <code>UNSUBSCRIBE</code></td><td><code>EVENT_ACKED</code>, <code>UNSUBSCRIBED</code></td><td>flow control and ending a subscription</td></tr>
+    </tbody>
+  </table>
+  <p>A host in <code>bulk</code> mode understands <code>GET_ASSET</code> and <code>CANCEL</code>. Every connection also uses <code>HELLO</code>, <code>PING</code>, <code>GOODBYE</code>, and can receive <code>DRAIN</code> and <code>ERROR</code>.</p>
+
+  <details class="more"><summary>Field reference: what is inside <code>data</code></summary><div class="body">
+  <table>
+    <thead><tr><th>Message</th><th>Fields of <code>data</code></th><th>Body</th></tr></thead>
+    <tbody>
+    <tr><td><code>HELLO</code></td><td><code>version:1, client_id, mode:"control"|"bulk", client_name (≤ 64 bytes), client_version</code></td><td>empty</td></tr>
+    <tr><td><code>HELLO_ACK</code></td><td><code>version, session_id, server_id, server_role:"registry"|"host", mode, max_inflight_requests, max_subscriptions, server_time_ms</code></td><td>empty</td></tr>
+    <tr><td><code>PING</code> / <code>PONG</code></td><td><code>nonce</code> (16 bytes, base64url), echoed unchanged</td><td>empty</td></tr>
+    <tr><td><code>GOODBYE</code> / <code>GOODBYE_ACK</code></td><td><code>reason: "user"|"shutdown"|"reconnect"</code> / <code>{}</code></td><td>empty</td></tr>
+    <tr><td><code>DRAIN</code></td><td><code>reason: "request_limit"|"shutdown", grace_ms (≤ 30000)</code></td><td>empty</td></tr>
+    <tr><td><code>RESOLVE</code></td><td><code>namespace, slug</code></td><td>empty</td></tr>
+    <tr><td><code>RESOLVED</code></td><td><code>record (AppRecord), cache_ttl_seconds: 60</code></td><td>empty</td></tr>
+    <tr><td><code>LIST_APPS</code></td><td><code>query (≤ 128 bytes), limit (1–50), cursor|null</code></td><td>empty</td></tr>
+    <tr><td><code>APPS_LISTED</code></td><td><code>snapshot_id, next_cursor|null</code></td><td><code>{"records":[AppRecord,…]}</code></td></tr>
+    <tr><td><code>HOST_REGISTER</code></td><td><code>operation_id, endpoint {ip, port}, expected_revision</code></td><td>empty</td></tr>
+    <tr><td><code>HOST_REGISTERED</code></td><td><code>server_id, revision, heartbeat_interval_seconds: 30, lease_seconds: 90</code></td><td>empty</td></tr>
+    <tr><td><code>HOST_HEARTBEAT</code> / <code>HEARTBEAT_ACK</code></td><td><code>host_revision</code> / <code>lease_expires_at_ms</code></td><td>empty</td></tr>
+    <tr><td><code>REGISTER_APP</code></td><td><code>operation_id, namespace, slug, app_id, server_id, version, manifest_hash, name, description</code></td><td>empty</td></tr>
+    <tr><td><code>UPDATE_APP</code></td><td><code>operation_id, app_id, expected_revision, server_id, version, manifest_hash, name, description</code></td><td>empty</td></tr>
+    <tr><td><code>UNREGISTER_APP</code></td><td><code>operation_id, app_id, expected_revision</code></td><td>empty</td></tr>
+    <tr><td><code>APP_REGISTERED</code> / <code>APP_UPDATED</code></td><td><code>record (AppRecord)</code></td><td>empty</td></tr>
+    <tr><td><code>APP_UNREGISTERED</code></td><td><code>app_id, revision</code></td><td>empty</td></tr>
+    <tr><td><code>GET_MANIFEST</code></td><td><code>app_id, version, manifest_hash</code></td><td>empty</td></tr>
+    <tr><td><code>MANIFEST</code></td><td><code>app_id, version, manifest_hash</code></td><td>exact <code>manifest.json</code> bytes (≤ 256 KiB)</td></tr>
+    <tr><td><code>APP_CALL</code></td><td><code>app_id, client_app_version, method, operation_id|null, payload_hash</code></td><td>JSON object (≤ 256 KiB)</td></tr>
+    <tr><td><code>APP_RESULT</code></td><td><code>app_id, operation_id|null</code></td><td>JSON object (≤ 256 KiB)</td></tr>
+    <tr><td><code>SUBSCRIBE</code></td><td><code>app_id, client_app_version, topic, cursor|null</code></td><td>empty</td></tr>
+    <tr><td><code>SUBSCRIBED</code></td><td><code>subscription_id, app_id, topic, cursor, window: 16</code></td><td>empty</td></tr>
+    <tr><td><code>EVENT</code></td><td><code>subscription_id, app_id, topic, sequence, event_id, cursor</code></td><td>JSON object</td></tr>
+    <tr><td><code>EVENT_ACK</code> / <code>EVENT_ACKED</code></td><td><code>subscription_id, sequence, cursor</code> / <code>subscription_id, sequence</code></td><td>empty</td></tr>
+    <tr><td><code>UNSUBSCRIBE</code> / <code>UNSUBSCRIBED</code></td><td><code>subscription_id</code></td><td>empty</td></tr>
+    <tr><td><code>GET_ASSET</code></td><td><code>app_id, version, manifest_hash, path, asset_hash, offset</code></td><td>empty</td></tr>
+    <tr><td><code>ASSET_INFO</code></td><td><code>app_id, version, path, asset_hash, total_size, offset, chunk_size: 65536</code></td><td>empty</td></tr>
+    <tr><td><code>ASSET_CHUNK</code></td><td><code>sequence, offset</code></td><td>raw file bytes (1…65536)</td></tr>
+    <tr><td><code>ASSET_END</code></td><td><code>asset_hash, total_sent</code></td><td>empty</td></tr>
+    <tr><td><code>CANCEL</code> / <code>CANCEL_ACK</code></td><td><code>target_request_id</code> / <code>target_request_id, result: "cancelled"|"already_finished"|"not_found"</code></td><td>empty</td></tr>
+    <tr><td><code>ERROR</code></td><td><code>code, message (≤ 512 bytes), retryable, retry_after_ms|null, details (≤ 2048 bytes)</code></td><td>empty</td></tr>
+    </tbody>
+  </table>
+  <p><code>AppRecord</code> = <code>community_id, namespace, slug, app_id, publisher_id, server_id, endpoint, version, manifest_hash, name, description, revision, lease_expires_at_ms, availability</code>. Names are at most 128 and descriptions at most 2048 UTF-8 bytes.</p>
+  </div></details>
+
+  <h3>Writes that survive a lost reply</h3>
+  <p>A call that changes state carries an <code>operation_id</code> (UUIDv7, created once and kept across retries) and a <code>payload_hash</code>: the SHA-256 of</p>
+<pre><code>"ILMEK-CALL-V1" 0x00 app_id 0x00 method 0x00 body_bytes</code></pre>
+  <p>(ASCII text, single NUL bytes between the parts, the exact body bytes). The backend stores the business change <em>and</em> the deduplication record in <strong>one</strong> database transaction, keyed by (community, app, device, operation). A timeout is therefore never treated as “failed”: the user sees “checking the result” and the call is repeated.</p>
+  @@seq:write@@
+
+  <h3>Events</h3>
+  <p><code>SUBSCRIBE</code> with <code>cursor: null</code> starts after a fresh boundary (fetch the initial list with a separate <code>APP_CALL</code>; subscribing first avoids missing changes in between). With a cursor it resends everything after it. A cursor is bound to the community, device, application and topic. The server keeps at least the last 10000 events per topic, sends at most <strong>16</strong> unacknowledged events, and a connection can hold up to 8 subscriptions.</p>
+  @@seq:events@@
+
+  <h3>Files</h3>
+  <p>Files travel on a separate <code>bulk</code> connection, one active file per connection, in chunks of at most 65536 bytes with consecutive sequence numbers and offsets. Files of an installed version are immutable. The client holds incomplete files in a temporary area and checks the SHA-256 of the whole file before it becomes active.</p>
+  @@seq:resume@@
+
+  <h3>Hosts and leases</h3>
+  <p>A host registers itself and renews a 90 s lease every 30 s. A host on the registry's own machine is recorded as <code>127.0.0.1</code>; clients on other machines then reach it on the registry's address.</p>
+  @@seq:register@@
+
+  <h3>Errors</h3>
+  <p><code>ERROR</code> carries the failed request's ID. <code>retryable</code> never permits a write with a <em>new</em> operation ID. Default retry is at most 5 automatic attempts with jittered waits of up to 0.5, 1, 2, 4 and 8 seconds; <code>RATE_LIMITED</code> timing is respected.</p>
+  <details class="more"><summary>All error codes</summary><div class="body">
+  <table>
+    <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+    <tbody>
+    <tr><td><code>UNAUTHORIZED</code></td><td>Produced by no path today; reserved for when identity is added</td></tr>
+    <tr><td><code>FORBIDDEN</code></td><td>Namespace/application belongs to another device, or the endpoint is outside the allowed networks</td></tr>
+    <tr><td><code>NOT_FOUND</code></td><td>Target not found</td></tr>
+    <tr><td><code>NAME_CONFLICT</code></td><td>The name is used by another record</td></tr>
+    <tr><td><code>REVISION_CONFLICT</code></td><td>Registry/application optimistic revision mismatch</td></tr>
+    <tr><td><code>VERSION_CONFLICT</code></td><td>Requested version/hash does not match the offered content; or the same version published with different content</td></tr>
+    <tr><td><code>APP_VERSION_UNSUPPORTED</code></td><td>Client package version is incompatible with the backend</td></tr>
+    <tr><td><code>UNSUPPORTED_VERSION</code></td><td>Protocol version not supported; the connection closes</td></tr>
+    <tr><td><code>UNSUPPORTED_MESSAGE</code></td><td>Type not in the contract</td></tr>
+    <tr><td><code>INVALID_MESSAGE</code></td><td>Field, format, mode or sequence error</td></tr>
+    <tr><td><code>TOO_LARGE</code></td><td>A valid request exceeds a content limit</td></tr>
+    <tr><td><code>RATE_LIMITED</code></td><td>Request rate limit; <code>retry_after_ms</code> 0…60000</td></tr>
+    <tr><td><code>RESOURCE_EXHAUSTED</code></td><td>No queue, connection, work slot or disk resource</td></tr>
+    <tr><td><code>APP_UNAVAILABLE</code></td><td>Backend not running or not ready</td></tr>
+    <tr><td><code>OPERATION_CONFLICT</code></td><td>The same operation ID used with different content</td></tr>
+    <tr><td><code>OPERATION_PENDING</code></td><td>The same write is still being resolved; repeat with the same ID</td></tr>
+    <tr><td><code>CURSOR_EXPIRED</code></td><td>A new list, snapshot or subscription start is required</td></tr>
+    <tr><td><code>SLOW_CONSUMER</code></td><td>The event receiver does not advance its ACK; the subscription is closed</td></tr>
+    <tr><td><code>HASH_MISMATCH</code></td><td>Content or request digest mismatch</td></tr>
+    <tr><td><code>CANCELLED</code></td><td>Transfer cancelled</td></tr>
+    <tr><td><code>CANNOT_CANCEL</code></td><td>The target is not a cancellable transfer</td></tr>
+    <tr><td><code>TIMEOUT</code></td><td>The server's deadline expired; this alone does not prove the commit outcome</td></tr>
+    <tr><td><code>SERVER_DRAINING</code></td><td>A new connection must be opened</td></tr>
+    <tr><td><code>INTERNAL</code></td><td>Generic server error; no stack trace is exposed</td></tr>
+    </tbody>
+  </table></div></details>
+
+  <h3>Packages and integrity</h3>
+  <p>A package is <code>manifest.json</code> plus <code>assets/</code>. The manifest lists every file with its size and SHA-256, sorted by path, plus the application's identity, version, <code>entrypoint</code> (an <code>.html</code> file) and <code>permissions</code> (<code>app.call</code>, <code>app.subscribe</code>, <code>storage.local</code>). Limits: manifest 256 KiB, 1024 files, 100 MiB per package, paths of ASCII <code>[A-Za-z0-9._-]</code> segments up to 240 bytes, no <code>..</code>, no absolute paths, no Windows device names.</p>
+  @@fig:integrity@@
+
+  <h3>Local backend IPC</h3>
+  <p>The host talks to each backend over a random loopback port with the same frame format and <code>IPC_*</code> message types (rejected on the network port). The host writes one JSON object (token, port, community id, app id, data directory) to the backend's stdin; the backend connects and sends <code>IPC_HELLO {token, app_id}</code>, the host answers <code>IPC_READY</code>. After that the <em>host</em> sends the requests: <code>IPC_CALL</code> (an <code>APP_CALL</code> plus the host-supplied <code>principal_id</code>), <code>IPC_SUBSCRIBE</code> and acknowledgements. A <code>principal_id</code> inside a request body can never override the host's value.</p>
+
+  <h3>Limits at a glance</h3>
+  <table>
+    <thead><tr><th>Limit</th><th>Value</th></tr></thead>
+    <tbody>
+    <tr><td>Frame</td><td>metadata 1–65536 B, body 0–262144 B</td></tr>
+    <tr><td>Deadlines</td><td>connect 5 s, HELLO 5 s, frame completion 30 s, control request 15 s (client default)</td></tr>
+    <tr><td>Keep-alive</td><td>PING after 20 s idle, PONG within 10 s, server idle 90 s</td></tr>
+    <tr><td>Concurrency</td><td>1–16 requests in flight, 8 subscriptions, host default 128 connections, 16 concurrent calls per backend with a queue of 64</td></tr>
+    <tr><td>Registry</td><td>host heartbeat 30 s, lease 90 s, name cache 60 s (stale use up to 24 h)</td></tr>
+    <tr><td>Events</td><td>window 16, retention ≥ 10000 per topic, ACK stall 30 s</td></tr>
+    </tbody>
+  </table>
+  <p>The full specification is <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/PROTOCOL.md">PROTOCOL.md</a>; the code is organized as described in <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/ARCHITECTURE.md">ARCHITECTURE</a>.</p>
+</section>
+
+<section id="cli" data-nav="The ilmek command">
+  <h2>The <code>ilmek</code> command</h2>
+  <p>Build it with <code>cargo build -p ilmek-cli</code> (binary: <code>target/debug/ilmek</code>). <code>ilmek --help</code> and <code>ilmek &lt;command&gt; --help</code> list every option. Commands that need a device join the community automatically on first use.</p>
+  <table>
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+    <tr><td><code>ilmek node [--home DIR] [--registry-port N] [--host-port N] [--discovery-port N] [--local-only]</code></td><td>Registry + application host + beacon in one process. The first run creates the community and <code>registry.toml</code> / <code>host.toml</code>. <code>--local-only</code> listens on 127.0.0.1 only</td></tr>
+    <tr><td><code>ilmek host start [--registry IP:PORT] [--port N] [--home DIR]</code></td><td>An extra application host that finds the node, joins and registers itself</td></tr>
+    <tr><td><code>ilmek registry serve --config FILE</code> / <code>ilmek host serve --config FILE</code></td><td>Run only a registry, or a host from a config file (examples in <code>configs/</code>)</td></tr>
+    <tr><td><code>ilmek join [--registry IP:PORT]</code></td><td>Join explicitly</td></tr>
+    <tr><td><code>ilmek whoami</code></td><td>This device's id and registry</td></tr>
+    <tr><td><code>ilmek app init --namespace NS --slug NAME DIR</code></td><td>Scaffold a project (<code>app.toml</code>, <code>assets/index.html</code>)</td></tr>
+    <tr><td><code>ilmek app pack SOURCE --out DIR</code></td><td>Build a deterministic package; refuses unsafe paths and an existing output</td></tr>
+    <tr><td><code>ilmek app install | update PACKAGE</code></td><td>Verify and install a package, or update to a newer version (staged, atomic)</td></tr>
+    <tr><td><code>ilmek app set-backend NS/APP --exe PATH [--arg A]… [--accept-version V]…</code></td><td>Choose the backend executable (an administrator decision on the host)</td></tr>
+    <tr><td><code>ilmek app start | stop | restart NS/APP</code></td><td>Control one application's backend</td></tr>
+    <tr><td><code>ilmek app list</code></td><td>State, PID, restarts, memory, data size per application</td></tr>
+    <tr><td><code>ilmek app publish | unpublish NS/APP</code></td><td>Register or update the application in the registry, or remove it from the catalog</td></tr>
+    <tr><td><code>ilmek app rollback NS/APP --version V</code></td><td>Switch back to an installed older version</td></tr>
+    <tr><td><code>ilmek app remove NS/APP [--purge-data]</code></td><td>Remove from the host; data is kept unless <code>--purge-data</code></td></tr>
+    <tr><td><code>ilmek resolve ilmek://NS/APP</code></td><td>What the registry says about a name</td></tr>
+    <tr><td><code>ilmek fetch ilmek://NS/APP [--cache DIR] [--quota-mib N]</code></td><td>Download and verify a package into a cache</td></tr>
+    <tr><td><code>ilmek call ilmek://NS/APP METHOD [--body JSON] [--write]</code></td><td>Call a backend method; <code>--write</code> adds an operation ID kept across retries</td></tr>
+    <tr><td><code>ilmek diagnose ilmek://NS/APP</code></td><td>Step-by-step check: device → registry → name → host → package</td></tr>
+    <tr><td><code>ilmek backup registry | host --out DIR</code>, <code>ilmek backup verify --dir DIR</code>, <code>ilmek backup restore-registry | restore-host --from DIR</code></td><td>Online backup (SQLite backup API, file hashes), verification, and restore into a new or empty directory</td></tr>
+    </tbody>
+  </table>
+  <p>Environment: <code>ILMEK_HOME</code> (data directory), <code>ILMEK_DISCOVERY_PORT</code> and <code>ILMEK_REGISTRY_PORT</code> (for devices on a network that moved the ports).</p>
+</section>
+
+<section id="apps" data-nav="Build an app">
+  <h2>Build an application</h2>
+  <p>An application is a package of static files (HTML, CSS, JavaScript, images, fonts) and, optionally, a backend executable that the host runs for it. The page talks to its backend only through <code>window.ilmek</code>.</p>
+  @@fig:publish@@
+
+  <h3>1. A static application</h3>
+<pre><code>ilmek app init --namespace nuri --slug merhaba ./merhaba</code></pre>
+  <p>creates <code>merhaba/app.toml</code> and <code>merhaba/assets/index.html</code>:</p>
+<pre><code>app_id = "&lt;UUIDv7 made by app init; never change it&gt;"
+publisher_id = "&lt;UUIDv7&gt;"
+namespace = "nuri"                # the address is ilmek://nuri/merhaba
+slug = "merhaba"
+name = "merhaba"
+description = ""
+version = "1.0.0"                 # updates must increase it
+min_runtime_version = "1.0.0"
+entrypoint = "index.html"         # a file under assets/
+permissions = ["app.call"]        # app.call, app.subscribe, storage.local
+backend_required = false</code></pre>
+  <p>Edit the page in <code>assets/</code>. Everything must be a file in <code>assets/</code> referenced by a relative path: the content policy allows no CDN, no <code>fetch</code> to anywhere, no inline script or style, no <code>eval</code>, no frames.</p>
+<pre><code>ilmek app pack ./merhaba --out ./merhaba-pkg    # on any machine
+ilmek app install ./merhaba-pkg                  # on the host machine (node running)
+ilmek app start   nuri/merhaba
+ilmek app publish nuri/merhaba
+# then open ilmek://nuri/merhaba in a client</code></pre>
+  <p>The first device to publish into a namespace owns it; another device is refused with <code>FORBIDDEN</code> (the rule prevents accidents, not attacks — devices are not authenticated).</p>
+
+  <h3>2. The page side: IlmekAppSDK</h3>
+  <p>The client injects the SDK as <code>window.ilmek</code> before your script runs; you do not bundle it. The npm package <code>@ilmek/sdk</code> (in <code>packages/sdk-js</code>) provides the TypeScript types and a test transport.</p>
+<pre><code>interface IlmekAppSDK {
+  app: { id: string; version: string; path: string }
+  connection: { state(): Promise&lt;'connected' | 'disconnected'&gt;; onChange(h): () =&gt; void }
+  call&lt;T&gt;(method: string, input: unknown,
+          options?: { write?: boolean; operationId?: string; timeoutMs?: number }): Promise&lt;T&gt;
+  subscribe(topic: string, cursor: string | null, handler: (event: unknown) =&gt; void): Promise&lt;() =&gt; void&gt;
+  storage: { get(key): Promise&lt;unknown&gt;; set(key, value): Promise&lt;void&gt;; remove(key): Promise&lt;void&gt; }
+}</code></pre>
+  <ul>
+    <li><code>call</code> needs the <code>app.call</code> permission, <code>subscribe</code> needs <code>app.subscribe</code>, <code>storage</code> needs <code>storage.local</code>. Calling without the permission is refused.</li>
+    <li>Mark state-changing calls <code>write: true</code>. The SDK creates the operation ID and keeps it across retries. When a failure has <code>outcomeUnknown: true</code>, repeat the same call with <code>error.operationId</code> and show “checking the result”, not “failed”.</li>
+    <li>Errors are <code>IlmekError</code> with <code>code</code>, <code>retryable</code> and <code>outcomeUnknown</code>.</li>
+    <li>Limits: 200000 bytes of call input, timeout 1–60 s, storage values 256 KiB and 5 MiB per application. The page cannot choose a host, address or application.</li>
+  </ul>
+
+  <h3>3. A backend in Rust</h3>
+  <p>A backend implements <code>ilmek_app_sdk::Backend</code>: a table of <code>(method, Read | Write)</code> and a <code>call</code> function that receives the exact request bytes and the host-supplied device id. Unlisted methods answer <code>NOT_FOUND</code>. This skeleton compiles and was run against a real node (the crates are not published on crates.io; depend on them by path or git; the full examples are <code>examples/notes/backend</code> and <code>examples/forum/backend</code>):</p>
+<pre><code>use ilmek_app_sdk::{AppError, Backend, CallContext, MethodKind, Runtime};
+use ilmek_store::Migration;
+
+const MIGRATIONS: &amp;[Migration] = &amp;[Migration {
+    version: 1,
+    name: "init",
+    sql: "CREATE TABLE greetings (id INTEGER PRIMARY KEY, text TEXT NOT NULL) STRICT;",
+}];
+
+struct Hello;
+impl Hello { fn new(_runtime: Runtime) -&gt; Self { Self } }
+
+impl Backend for Hello {
+    fn methods(&amp;self) -&gt; &amp;'static [(&amp;'static str, MethodKind)] {
+        &amp;[("hello.say", MethodKind::Read)]
+    }
+    async fn call(&amp;self, _context: CallContext, _body: Vec&lt;u8&gt;) -&gt; Result&lt;Vec&lt;u8&gt;, AppError&gt; {
+        Ok(br#"{"message":"hello from the backend"}"#.to_vec())
+    }
+}
+
+#[tokio::main]
+async fn main() -&gt; std::process::ExitCode {
+    match ilmek_app_sdk::run(MIGRATIONS, Hello::new).await {
+        Ok(()) =&gt; std::process::ExitCode::SUCCESS,
+        Err(_) =&gt; std::process::ExitCode::FAILURE,
+    }
+}</code></pre>
+  <p>Set <code>backend_required = true</code> in <code>app.toml</code>, then:</p>
+<pre><code>ilmek app pack ./hello --out ./hello-pkg
+ilmek app install ./hello-pkg
+ilmek app set-backend demo/hello --exe /path/to/hello-backend
+ilmek app start   demo/hello
+ilmek app publish demo/hello
+ilmek call ilmek://demo/hello hello.say
+# {"message":"hello from the backend"}</code></pre>
+  <p><code>run</code> reads its configuration from stdin, opens <code>&lt;data_dir&gt;/app.db</code> (SQLite) with your forward-only migrations, connects to the host over loopback and serves calls. For a write handler use <code>runtime.operations.write(context, |tx, events| …)</code>: your change, the deduplication record and any events commit in one transaction, so a retry with the same operation ID returns the original result. Take the author from <code>context.principal_id</code>, never from the request body; validate input (<code>deny_unknown_fields</code>, length limits). Details: <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/BACKEND_IPC.md">BACKEND_IPC</a>.</p>
+  <p>The package carries only the page. The backend executable is chosen on the host with <code>ilmek app set-backend</code> — publishing alone never makes a host run new code.</p>
+
+  <h3>4. Java (Spring Boot) backends and Angular frontends</h3>
+  <p>The repository includes a Spring Boot starter and an Angular <code>HttpClient</code> interceptor. Two styles are shown: <code>examples/tasks</code> (methods annotated with <code>@IlmekMethod</code>) and <code>examples/rest-notes</code> (ordinary <code>@RestController</code> and <code>HttpClient</code> code that runs unchanged through a web adapter). Supported: Java 17, 21, 25; Spring Boot 3.5.x and 4.1.x; Angular 22.2.4 (21.2 builds). The guide, version table and limitations are in <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/JAVA_ANGULAR.md">JAVA_ANGULAR</a>. Frontend rules from the content policy: no service worker, no external URLs, no inline styles or scripts.</p>
+</section>
+
+<section id="deploy" data-nav="Deploy and operate">
+  <h2>Deploy, update and operate</h2>
+  <p>“Deploying” an application means installing its package on a host and publishing its name. The commands are the same for the node's host and for an extra host; run them on the machine that holds the host's data (same <code>ILMEK_HOME</code>).</p>
+  @@seq:publish@@
+<pre><code>ilmek app pack ./app --out ./pkg
+ilmek app install ./pkg
+ilmek app set-backend ns/app --exe /opt/ilmek/bin/my-backend   # if backend_required
+ilmek app start   ns/app
+ilmek app publish ns/app</code></pre>
+
+  <h3>Updating, rolling back, removing</h3>
+<pre><code>ilmek app pack ./app --out ./pkg-1.1.0      # raise version in app.toml first
+ilmek app update   ./pkg-1.1.0
+ilmek app publish  ns/app                    # refresh the registry record
+ilmek app rollback ns/app --version 1.0.0
+ilmek app remove   ns/app [--purge-data]
+ilmek app unpublish ns/app</code></pre>
+  <p>An update must increase the version and keep the application's identity. It is staged, verified and switched atomically; a failed or tampered update leaves the active version running. The host backs up <code>app.db</code> before it starts a backend of a different version. Going back to an older executable is <em>not</em> automatically going back to an older database schema — your application must document whether it can read newer data. The registry never moves a version backwards.</p>
+
+  <h3>Many applications, many hosts</h3>
+  <p>Each application has its own <code>app_id</code>, data directory, logs, backend process and desired state. A crashing backend is restarted with exponential backoff and abandoned after repeated failures until you run <code>ilmek app restart</code>; other applications keep running. There is no fixed application limit; capacity is what the machine can run. Per-application concurrency and queue depth are configurable (<code>app_max_inflight</code>, <code>app_queue_depth</code> in <code>host.toml</code>). Another machine running <code>ilmek host start</code> serves its own applications independently of the node.</p>
+  @@fig:lifecycle@@
+
+  <h3>Run as a service, back up, upgrade</h3>
+  <ul>
+    <li><strong>systemd:</strong> units for a node and for an extra host are in <code>deploy/systemd/</code> (user <code>ilmek</code>, <code>ILMEK_HOME=/var/lib/ilmek</code>). They were written but never started as services; check them on a throwaway machine first. Backend executables must be readable by the <code>ilmek</code> user and outside <code>/home</code>.</li>
+    <li><strong>Backup:</strong> <code>ilmek backup host --out /backup/host-DATE</code> works while the host runs; restore only into a new or empty directory; restore a backup at least once before you depend on it. The scripted exercise <code>scripts/smoke/backup-restore.sh</code> passes.</li>
+    <li><strong>Upgrade:</strong> back up, replace the binary, restart. Databases migrate forward at start-up; an older binary refuses a newer database.</li>
+    <li><strong>Diagnose:</strong> <code>ilmek diagnose ilmek://ns/app</code>, <code>ilmek app list</code>, and the logs in <code>apps/&lt;app_id&gt;/logs/</code> (rotated at 1 MiB, 3 files kept).</li>
+  </ul>
+  <p>Full operations guide: <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/BACKUP_AND_OPERATIONS.md">BACKUP_AND_OPERATIONS</a>.</p>
+</section>
+
+<section id="status" data-nav="Security and status">
+  <h2>Security and project status</h2>
+  <h3>What is and is not protected</h3>
+  @@fig:boundaries@@
+  <table>
+    <thead><tr><th>Missing in this version</th><th>Consequence</th></tr></thead>
+    <tbody>
+    <tr><td>Encryption</td><td>Anyone on the network path can read and change all traffic</td></tr>
+    <tr><td>Authentication</td><td>A device declares its id; anyone can claim any id</td></tr>
+    <tr><td>Authorization</td><td>Any device that reaches the node can join, call every application, register hosts and publish</td></tr>
+    <tr><td>Package signatures</td><td>SHA-256 catches corruption, not a malicious host</td></tr>
+    <tr><td>Discovery authentication</td><td>A machine that answers the UDP probe first is taken as the node</td></tr>
+    </tbody>
+  </table>
+  <p>What still protects you: every package file is checked by size and SHA-256 before activation; unsafe package paths are rejected; installing a package and choosing a backend executable are local administrator actions, not network operations; downloaded HTML/JS runs in a sandboxed iframe with a strict content policy (no network of its own, only the SDK bridge); frame, queue, connection and timeout limits stay in force. Application backends are trusted local processes — a separate process is not a sandbox. Read <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/SECURITY.md">SECURITY</a> before exposing a node.</p>
+
+  <h3>What has been tested</h3>
+  <table>
+    <thead><tr><th>Area</th><th>Status</th></tr></thead>
+    <tbody>
+    <tr><td>Rust workspace tests (187), JS tests, Java and Angular tests</td><td><span class="status ok">passed</span> on Linux x86_64</td></tr>
+    <tr><td>Node, host, backends and clients as separate processes over <code>127.0.0.1</code>, including UDP discovery and automatic joining</td><td><span class="status ok">passed</span></td></tr>
+    <tr><td>Backup and restore of live data; multi-application host with crashes and restarts</td><td><span class="status ok">passed</span></td></tr>
+    <tr><td>A second physical computer, real LAN broadcast discovery</td><td><span class="status no">not run</span></td></tr>
+    <tr><td>macOS, Windows, Android</td><td><span class="status no">not run</span></td></tr>
+    <tr><td>systemd units as services; Java/Angular examples installed on a node</td><td><span class="status no">not run</span></td></tr>
+    </tbody>
+  </table>
+  <p>Details and the full matrix: <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/TEST_REPORT.md">TEST_REPORT</a>.</p>
+
+  <h3>Known limits</h3>
+  <ul>
+    <li>Discovery by broadcast stays inside one subnet; give the node's address otherwise.</li>
+    <li>IPv4 only. One registry per community, no failover.</li>
+    <li>Not built: Bluetooth, routing between separate network segments, CRDT/merging, a route to the public internet.</li>
+  </ul>
+</section>

@@ -113,7 +113,7 @@ Data lives in `$ILMEK_HOME` (default `~/.ilmek`). Ports: 47400/udp discovery, 47
 | [TEST_REPORT](docs/TEST_REPORT.md) | what was run and what was not |
 | [decisions](docs/decisions) | design decision records |
 | [OVERVIEW_TR](docs/OVERVIEW_TR.md) | Turkish summary |
-| [site/](site) | the project web page (English and Turkish) published with GitHub Pages: what İlmek is, the protocol, the CLI, building and deploying apps |
+| [site/](site) | the project web page (English and Turkish) published with GitHub Pages: what İlmek is, the protocol with diagrams, the CLI, building and deploying apps. Edit `site/src/{en,tr}.html` and run `python3 scripts/build-site.py` |
 | [REQUIREMENTS](docs/REQUIREMENTS.md) | original product specification of the secure design on `main` (archived, Turkish) |
 
 ## Build and test

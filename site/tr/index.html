@@ -2,52 +2,59 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>İlmek — internetsiz, kendi küçük internetiniz</title>
-<meta name="description" content="İlmek, kendi ağınızda uygulama yayınlamanızı ve açmanızı sağlar. Kendi protokolü ILMEK/1 ile doğrudan TCP üzerinden çalışır. Bulut yok, genel internet yok.">
+<meta name="description" content="İlmek, kendi ağınızda uygulama yayınlar ve açar; kendi protokolü ILMEK/1 ile doğrudan TCP üzerinden çalışır. Bulut yok, genel internet yok.">
+<meta name="theme-color" content="#b23b22">
+<meta property="og:title" content="İlmek — internetsiz, kendi küçük internetiniz">
+<meta property="og:description" content="İlmek, kendi ağınızda uygulama yayınlar ve açar; kendi protokolü ILMEK/1 ile doğrudan TCP üzerinden çalışır. Bulut yok, genel internet yok.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M5 5l5.5 9L16 5M16 5l5.5 9L27 5M5 18l5.5 9L16 18M16 18l5.5 9L27 18' fill='none' stroke='%23b23b22' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="alternate" hreflang="en" href="../">
 </head>
 <body>
+<a class="skip" href="#top">İçeriğe geç</a>
 <header class="top">
-  <a class="brand" href="./">İlmek</a>
-  <nav>
-    <a href="#what">Nedir, neden</a>
-    <a href="#concepts">Kavramlar</a>
-    <a href="#run">Node çalıştır</a>
-    <a href="#protocol">Protokol</a>
-    <a href="#cli">CLI</a>
-    <a href="#apps">Uygulama yaz</a>
-    <a href="#deploy">Yayına al</a>
-    <a href="#status">Durum</a>
-    <a class="lang" href="../" hreflang="en">English</a>
-    <a href="https://github.com/nuricanozturk01/project-ilmek">GitHub</a>
-  </nav>
+  <a class="brand" href="./"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 5l5.5 9L16 5M16 5l5.5 9L27 5M5 18l5.5 9L16 18M16 18l5.5 9L27 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"/></svg>İlmek</a>
+  <a class="pill" href="../" hreflang="en">English</a>
+  <a class="pill gh" href="https://github.com/nuricanozturk01/project-ilmek">GitHub</a>
+  <details class="menu"><summary class="pill">Menü</summary><nav class="panel" aria-label="Bu sayfada"><a href="#what">Nedir, neden?</a><a href="#concepts">Kavramlar</a><a href="#how">Nasıl çalışır?</a><a href="#run">Node çalıştır</a><a href="#protocol">ILMEK/1 protokolü</a><a href="#cli">ilmek komutu</a><a href="#apps">Uygulama yaz</a><a href="#deploy">Yayına al ve işlet</a><a href="#status">Güvenlik ve durum</a></nav></details>
 </header>
-<main>
-
+<div class="layout">
+<nav class="side" aria-label="Bu sayfada"><a class="l1" href="#what">Nedir, neden?</a><a class="l1" href="#concepts">Kavramlar</a><a class="l1" href="#how">Nasıl çalışır?</a><a class="l1" href="#run">Node çalıştır</a><a class="l2" href="#run-1-node-u-baslatin-linux">1. Node&#x27;u başlatın (Linux)</a><a class="l2" href="#run-2-baska-bir-bilgisayardan-katilin">2. Başka bir bilgisayardan katılın</a><a class="l2" href="#run-3-masaustu-istemci">3. Masaüstü istemci</a><a class="l2" href="#run-node-ile-neler-yapilir">Node ile neler yapılır?</a><a class="l2" href="#run-sorun-giderme">Sorun giderme</a><a class="l1" href="#protocol">ILMEK/1 protokolü</a><a class="l2" href="#protocol-http-ile-karsilastirma">HTTP ile karşılaştırma</a><a class="l2" href="#protocol-adresler-ve-isim-cozumleme">Adresler ve isim çözümleme</a><a class="l2" href="#protocol-cerceve-frame">Çerçeve (frame)</a><a class="l2" href="#protocol-kimlik-ve-veri-tipleri">Kimlik ve veri tipleri</a><a class="l2" href="#protocol-bir-baglanti">Bir bağlantı</a><a class="l2" href="#protocol-node-u-bulmak">Node&#x27;u bulmak</a><a class="l2" href="#protocol-mesajlar">Mesajlar</a><a class="l2" href="#protocol-yanit-kaybolsa-da-yazma-bir-kez-uygulanir">Yanıt kaybolsa da yazma bir kez uygulanır</a><a class="l2" href="#protocol-olaylar">Olaylar</a><a class="l2" href="#protocol-dosyalar">Dosyalar</a><a class="l2" href="#protocol-host-lar-ve-kiralar">Host&#x27;lar ve kiralar</a><a class="l2" href="#protocol-hatalar">Hatalar</a><a class="l2" href="#protocol-paketler-ve-butunluk">Paketler ve bütünlük</a><a class="l2" href="#protocol-yerel-arka-uc-ipc-si">Yerel arka uç IPC&#x27;si</a><a class="l2" href="#protocol-sinirlar-bir-bakista">Sınırlar bir bakışta</a><a class="l1" href="#cli">ilmek komutu</a><a class="l1" href="#apps">Uygulama yaz</a><a class="l2" href="#apps-1-statik-uygulama">1. Statik uygulama</a><a class="l2" href="#apps-2-sayfa-tarafi-ilmekappsdk">2. Sayfa tarafı: IlmekAppSDK</a><a class="l2" href="#apps-3-rust-ile-arka-uc">3. Rust ile arka uç</a><a class="l2" href="#apps-4-java-spring-boot-arka-uc-ve-angular-on-yuz">4. Java (Spring Boot) arka uç ve Angular ön yüz</a><a class="l1" href="#deploy">Yayına al ve işlet</a><a class="l2" href="#deploy-guncelleme-geri-alma-kaldirma">Güncelleme, geri alma, kaldırma</a><a class="l2" href="#deploy-cok-uygulama-cok-host">Çok uygulama, çok host</a><a class="l2" href="#deploy-servis-olarak-calistirma-yedek-yukseltme">Servis olarak çalıştırma, yedek, yükseltme</a><a class="l1" href="#status">Güvenlik ve durum</a><a class="l2" href="#status-neyin-korundugu-neyin-korunmadigi">Neyin korunduğu, neyin korunmadığı</a><a class="l2" href="#status-ne-test-edildi">Ne test edildi?</a><a class="l2" href="#status-bilinen-sinirlar">Bilinen sınırlar</a></nav>
+<main id="top"><div class="wide">
 <div class="hero">
-  <h1>İnternetsiz,<br>kendi küçük internetiniz.</h1>
+  <ul class="eyebrow"><li>ILMEK/1</li><li>TCP</li><li>bulut yok</li><li>genel internet yok</li><li>Rust</li></ul>
+  <h1>İnternetsiz, <em>kendi küçük internetiniz.</em></h1>
   <p class="lead">İlmek'te bir bilgisayar <strong>node</strong> olur. Uygulamalarınızı oraya yayınlarsınız; aynı ağdaki diğer bilgisayarlar node'u kendiliğinden bulur ve uygulamaları <code>ilmek://nuri/forum</code> gibi adreslerle açar. Kendi protokolü <strong>ILMEK/1</strong> ile doğrudan TCP üzerinden konuşur: HTTP yok, bulut yok, genel internet yok.</p>
+  <div class="stitch" aria-hidden="true"></div>
   <div class="cta">
     <a class="btn primary" href="#run">Node çalıştır</a>
     <a class="btn" href="#apps">Uygulama yaz</a>
     <a class="btn" href="#protocol">Protokolü oku</a>
   </div>
-  <div class="notice">
+  <div class="notice" role="note">
     <strong>Bu sürümde güvenlik yoktur.</strong>
-    Hiçbir şey şifrelenmez, kimse kimliğini kanıtlamaz, ağdaki herkes katılıp uygulama yayınlayabilir. Paketler bozulmaya karşı SHA-256 ile denetlenir ama imzalı değildir. Yalnızca güvendiğiniz, kapalı bir ağda kullanın. Güvenli tasarım (TLS 1.3, sertifikalar, imzalı paketler) <code>main</code> dalında tanımlıdır.
+    <p>Hiçbir şey şifrelenmez, kimse kimliğini kanıtlamaz, ağdaki herkes katılıp uygulama yayınlayabilir. Paketler bozulmaya karşı SHA-256 ile denetlenir ama imzalı değildir. Yalnızca güvendiğiniz, kapalı bir ağda kullanın. Güvenli tasarım (TLS 1.3, sertifikalar, imzalı paketler) <code>main</code> dalında tanımlıdır.</p>
   </div>
+  <ol class="path">
+    <li><a href="#what"><b>Nedir, neden?</b><span>2 dakika</span></a></li>
+    <li><a href="#how"><b>Nasıl çalışır?</b><span>tek örnek, adım adım</span></a></li>
+    <li><a href="#run"><b>Çalıştırın</b><span>bir node ve ikinci bir bilgisayar</span></a></li>
+    <li><a href="#protocol"><b>Protokol</b><span>çerçeveler, mesajlar, garantiler</span></a></li>
+    <li><a href="#apps"><b>Uygulama yazın</b><span>ve yayına alın</span></a></li>
+  </ol>
 </div>
 
 <section id="what">
   <h2>İlmek nedir, neden yapıldı?</h2>
-  <p><strong>Nedir.</strong> İlmek küçük bir uygulama ağıdır. Bir <em>node</em> içinde bir kayıt sunucusu (isim rehberi) ve bir uygulama sunucusu (uygulamaları saklar ve çalıştırır) taşır. Uygulamalar sıradan HTML, CSS ve JavaScript'ten oluşur; isteğe bağlı olarak veriyi tutan bir arka uç süreci de olabilir. Bir <em>istemci</em> (<code>ilmek</code> komutu veya masaüstü penceresi) <code>ilmek://nuri/forum</code> gibi bir adı çözer, uygulamayı onu sunan sunucudan indirir, doğrular ve çalıştırır.</p>
+  <p><strong>Nedir.</strong> İlmek (örgüde bir ilmek: düğüm, halka) küçük bir uygulama ağıdır. Bir <em>node</em> içinde bir kayıt sunucusu (isim rehberi) ve bir uygulama sunucusu (uygulamaları saklar ve çalıştırır) taşır. Uygulamalar sıradan HTML, CSS ve JavaScript'ten oluşur; isteğe bağlı olarak veriyi tutan bir arka uç süreci de olabilir. Bir <em>istemci</em> (<code>ilmek</code> komutu veya masaüstü penceresi) <code>ilmek://nuri/forum</code> gibi bir adı çözer, uygulamayı onu sunan sunucudan indirir, doğrular ve çalıştırır.</p>
   <p><strong>Neden.</strong> Proje, genel internet, bulut hizmetleri veya mobil veri olmadan çalışan bir topluluk uygulama ağı hedefler: aynı yerel ağdaki insanlar kendi aralarında uygulama yayınlayıp kullanabilir. İlk demo için sertifika, token veya özel telsiz donanımı gerekmemeli; bu yüzden bu sürüm yalnızca gerekeni tutar: node olarak bir Linux makine, istemci olarak diğer bilgisayarlar, her makine kendiliğinden katılır. Karar kaydı: <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/decisions/0005-simple-no-security.md">0005</a> (İngilizce).</p>
   <div class="grid">
     <div class="card"><h4>Tasarımdan itibaren çevrimdışı</h4><p>Her şey kendi ağınızdaki düz IP üzerinde çalışır. İnternete hiçbir bağlantı kurulmaz.</p></div>
     <div class="card"><h4>Kendiliğinden katılır</h4><p>Yeni makine node'u UDP yayını veya TCP taramasıyla bulur. Kopyalanacak dosya ya da token yok.</p></div>
-    <div class="card"><h4>Kayıt sunucusu vekil değildir</h4><p>Kayıt sunucusu yalnızca “bu ismi kim sunuyor?” sorusunu yanıtlar. Uygulama doğrudan sunucudan indirilir ve orada çağrılır.</p></div>
+    <div class="card"><h4>Registry vekil değildir</h4><p>Yalnızca “bu ismi kim sunuyor?” sorusunu yanıtlar. Uygulama doğrudan sunucudan indirilir ve orada çağrılır.</p></div>
     <div class="card"><h4>Bir sunucuda çok uygulama</h4><p>Her uygulamanın kendi kimliği, veri klasörü, arka uç süreci ve yaşam döngüsü vardır.</p></div>
     <div class="card"><h4>Güvenli yazma</h4><p>Durum değiştiren her çağrı bir işlem kimliği taşır; yanıt kaybolduktan sonraki yeniden deneme yalnızca bir kez uygulanır.</p></div>
     <div class="card"><h4>Yalıtılmış sayfalar</h4><p>İndirilen HTML/JS yalıtılmış bir WebView'da çalışır ve yalnızca SDK üzerinden kendi arka ucuyla konuşabilir.</p></div>
@@ -56,46 +63,66 @@
 
 <section id="concepts">
   <h2>Kavramlar</h2>
-  <svg class="diagram" viewBox="0 0 640 290" role="img" aria-label="İstemci node'u UDP ile bulur, ismi kayıt sunucusunda çözer, sonra uygulama sunucusundan indirip doğrudan onu çağırır">
-    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor" class="muted"/></marker></defs>
-    <rect class="box" x="10" y="10" width="200" height="270" rx="12"/>
-    <text x="24" y="30" class="muted">Node (tek süreç: ilmek node)</text>
-    <rect class="box" x="30" y="45" width="160" height="44" rx="8"/><text x="110" y="64" text-anchor="middle">Beacon</text><text x="110" y="80" text-anchor="middle" class="muted">UDP 47400</text>
-    <rect class="acc" x="30" y="105" width="160" height="44" rx="8"/><text x="110" y="124" text-anchor="middle">Kayıt sunucusu</text><text x="110" y="140" text-anchor="middle" class="muted">TCP 47401</text>
-    <rect class="acc" x="30" y="165" width="160" height="44" rx="8"/><text x="110" y="184" text-anchor="middle">Uygulama sunucusu</text><text x="110" y="200" text-anchor="middle" class="muted">TCP 47402</text>
-    <line class="ln" x1="110" y1="209" x2="110" y2="226"/>
-    <rect class="box" x="30" y="226" width="160" height="44" rx="8"/><text x="110" y="245" text-anchor="middle">Arka uç süreçleri</text><text x="110" y="261" text-anchor="middle" class="muted">loopback IPC</text>
-    <rect class="box" x="470" y="105" width="160" height="64" rx="12"/><text x="550" y="133" text-anchor="middle">İstemci</text><text x="550" y="152" text-anchor="middle" class="muted">ilmek CLI / masaüstü</text>
-    <line class="ln dash" x1="468" y1="125" x2="192" y2="67" marker-end="url(#ah)"/><text x="262" y="68" class="muted">1 node'u bul</text>
-    <line class="ln" x1="468" y1="137" x2="192" y2="127" marker-end="url(#ah)"/><text x="262" y="124" class="muted">2 ismi çöz (RESOLVE)</text>
-    <line class="ln" x1="468" y1="150" x2="192" y2="187" marker-end="url(#ah)"/><text x="262" y="186" class="muted">3 indir, çağır</text>
-  </svg>
-  <table>
-    <tr><th>Terim</th><th>Anlamı</th></tr>
-    <tr><td><strong>Node</strong></td><td><code>ilmek node</code> çalıştıran makine: tek süreçte bir kayıt sunucusu, bir uygulama sunucusu ve bir keşif beacon'ı. İlk çalıştırma gereken her şeyi oluşturur. Linux önerilir.</td></tr>
-    <tr><td><strong>Kayıt sunucusu (registry)</strong></td><td>Topluluğun rehberi: ad alanları, kayıtlı sunucular, uygulama kayıtları (ad, sürüm, manifest özeti, hangi sunucu). Topluluk başına bir registry, yedeği yok. Uygulama trafiğini asla taşımaz.</td></tr>
-    <tr><td><strong>Uygulama sunucusu (host)</strong></td><td>Kurulu uygulama paketlerini saklar ve arka uçlarını çalıştırır. Manifest, dosya ve çağrıları sunar. Node bir host içerir; <code>ilmek host start</code> başka makinelere ek host ekler.</td></tr>
-    <tr><td><strong>Arka uç (backend)</strong></td><td>Bir uygulamanın verisini tutan isteğe bağlı süreç (örneğin Rust ile yazılmış <em>forum</em> veya bir Spring Boot uygulaması). Host onu başlatır, çökerse artan beklemeyle yeniden başlatır ve yalnızca loopback üzerinden konuşur. Host yöneticisinin seçtiği güvenilir koddur; sandbox değildir.</td></tr>
-    <tr><td><strong>İstemci</strong></td><td>Uygulamaları açar: <code>ilmek</code> komutu veya masaüstü penceresi (<code>ilmek://</code> adresleri için küçük bir tarayıcı; her uygulama ayrı sekmede).</td></tr>
-    <tr><td><strong>Topluluk (community)</strong></td><td>Aynı registry'yi paylaşan cihazlar. İlk <code>ilmek node</code> oluşturur; her mesaj <code>community_id</code> taşır.</td></tr>
-    <tr><td><strong>Ad alanı ve slug</strong></td><td>Adresin iki parçası: <code>ilmek://<strong>nuri</strong>/<strong>forum</strong></code>. Bir ad alanını ilk kaydeden cihaz sahiplenir.</td></tr>
-    <tr><td><strong>Cihaz kimliği</strong></td><td>Her cihazın kendi ürettiği rastgele UUIDv7. Bildirilir, kanıtlanmaz: cihazları ayırır ve sahipliği kaydeder, başka bir işe yaramaz.</td></tr>
-    <tr><td><strong>Beacon</strong></td><td>Node'un UDP dinleyicisi (47400); “node nerede?” sorularına yanıt verir.</td></tr>
-    <tr><td><strong>Paket</strong></td><td>Yayınlanan hâliyle uygulama: bir <code>manifest.json</code> ve <code>assets/</code> klasörü; her dosyanın SHA-256 özeti manifestte yazılıdır.</td></tr>
-  </table>
+  <figure class="fig"><p class="ft">Parçalar ve kimin kiminle konuştuğu</p>
+<div class="arch">
+ <div class="client"><b>İstemci</b><p style="margin:.2rem 0 .7rem;color:var(--muted);font-size:.9rem">ilmek komutu veya masaüstü penceresi</p>
+  <ol class="steps">
+   <li><span class="n">1</span><span>node'u bul: UDP probe veya TCP tarama</span></li>
+   <li><span class="n">2</span><span>ismi registry'de <code>RESOLVE</code> et</span></li>
+   <li><span class="n">3</span><span>doğrudan host üzerinde indir ve çağır</span></li>
+  </ol></div>
+ <div class="node"><h4>Node — tek süreç: <code>ilmek node</code></h4>
+  <div class="items">
+   <div class="it"><b><span class="n">1</span>Beacon</b><span>UDP 47400</span></div>
+   <div class="it"><b><span class="n">2</span>Registry</b><span>TCP 47401</span></div>
+   <div class="it"><b><span class="n">3</span>Uygulama sunucusu</b><span>TCP 47402</span></div>
+   <div class="it"><b>Arka uç süreçleri</b><span>loopback IPC, uygulama başına bir</span></div>
+  </div></div>
+ <div class="more-hosts"><b>Başka makineler:</b> <code>ilmek host start</code> node'u bulur, kendini kaydeder ve kendi uygulamalarını sunar. İstemciler doğrudan ondan indirir (adım 3).</div>
+</div>
+<figcaption>Registry bir rehberdir, vekil değil: uygulama trafiği doğrudan istemciden host’a gider.</figcaption></figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Terim</th><th>Anlamı</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Terim">Node</td><td data-label="Anlamı"><code>ilmek node</code> çalıştıran makine: tek süreçte bir kayıt sunucusu, bir uygulama sunucusu ve bir keşif beacon'ı. İlk çalıştırma gereken her şeyi oluşturur. Linux önerilir.</td></tr>
+    <tr><td data-label="Terim">Kayıt sunucusu (registry)</td><td data-label="Anlamı">Topluluğun rehberi: ad alanları, kayıtlı sunucular, uygulama kayıtları (ad, sürüm, manifest özeti, hangi sunucu). Topluluk başına bir registry, yedeği yok. Uygulama trafiğini asla taşımaz.</td></tr>
+    <tr><td data-label="Terim">Uygulama sunucusu (host)</td><td data-label="Anlamı">Kurulu uygulama paketlerini saklar ve arka uçlarını çalıştırır. Manifest, dosya ve çağrıları sunar. Node bir host içerir; <code>ilmek host start</code> başka makinelere ek host ekler.</td></tr>
+    <tr><td data-label="Terim">Arka uç (backend)</td><td data-label="Anlamı">Bir uygulamanın verisini tutan isteğe bağlı süreç (örneğin Rust ile yazılmış <em>forum</em> veya bir Spring Boot uygulaması). Host onu başlatır, çökerse artan beklemeyle yeniden başlatır ve yalnızca loopback üzerinden konuşur. Host yöneticisinin seçtiği güvenilir koddur; sandbox değildir.</td></tr>
+    <tr><td data-label="Terim">İstemci</td><td data-label="Anlamı">Uygulamaları açar: <code>ilmek</code> komutu veya masaüstü penceresi (<code>ilmek://</code> adresleri için küçük bir tarayıcı; her uygulama ayrı sekmede).</td></tr>
+    <tr><td data-label="Terim">Topluluk (community)</td><td data-label="Anlamı">Aynı registry'yi paylaşan cihazlar. İlk <code>ilmek node</code> oluşturur; her mesaj <code>community_id</code> taşır.</td></tr>
+    <tr><td data-label="Terim">Ad alanı ve slug</td><td data-label="Anlamı">Adresin iki parçası: <code>ilmek://<strong>nuri</strong>/<strong>forum</strong></code>. Bir ad alanını ilk kaydeden cihaz sahiplenir.</td></tr>
+    <tr><td data-label="Terim">Cihaz kimliği</td><td data-label="Anlamı">Her cihazın kendi ürettiği rastgele UUIDv7. Bildirilir, kanıtlanmaz: cihazları ayırır ve sahipliği kaydeder, başka bir işe yaramaz.</td></tr>
+    <tr><td data-label="Terim">Beacon</td><td data-label="Anlamı">Node'un UDP dinleyicisi (47400); “node nerede?” sorularına yanıt verir.</td></tr>
+    <tr><td data-label="Terim">Paket</td><td data-label="Anlamı">Yayınlanan hâliyle uygulama: bir <code>manifest.json</code> ve <code>assets/</code> klasörü; her dosyanın SHA-256 özeti manifestte yazılıdır.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="how">
+  <h2>Nasıl çalışır: tek bir adresi açmak</h2>
+  <p>Masaüstü istemciye <code>ilmek://nuri/forum</code> yazdığınızı düşünün. Olan her şey sırayla aşağıda. Aynı adımlar <a href="#protocol">protokol bölümünde</a> mesaj mesaj anlatılıyor.</p>
+  <ol>
+    <li><strong>Node'u bul</strong> (yalnızca bir cihazın ilk kullanımında): UDP probe veya TCP tarama, bkz. <a href="#protocol-node-u-bulmak">Node'u bulmak</a>. Sonuç kaydedilir.</li>
+    <li>Registry'de <code>nuri/forum</code> adını <strong>çöz</strong>. Registry uygulamanın güncel sürümünü, manifestinin SHA-256'sını ve onu sunan host'un adresini yanıtlar.</li>
+    <li>O host'tan <strong>indir ve doğrula</strong>: önce manifest, sonra her dosya ayrı bir bağlantıda. Her dosyanın boyutu ve SHA-256'sı denetlenir; her şey eşleşirse paket etkinleşir.</li>
+    <li>Sayfayı yalıtılmış bir çerçevede <strong>çalıştır</strong>. Tek çıkış yolu SDK'dır (<code>window.ilmek</code>); yalnızca <em>bu</em> uygulamanın arka ucundaki metotları çağırabilir, başka hiçbir şeyi değil.</li>
+    <li><strong>Arka ucu çağır</strong>: sayfanın çağrısı host'a bir <code>APP_CALL</code> olur, host onu loopback üzerinden arka uç sürecine iletir. Yazma işlemi bir işlem kimliği taşır; yeniden deneme onu iki kez uygulayamaz.</li>
+  </ol>
+  <figure class="fig"><p class="ft"><code>ilmek://nuri/forum</code> adresini açmak</p><div class="seq" style="--n:4"><div class="lane">İstemci</div><div class="lane">Registry</div><div class="lane">Host</div><div class="lane">Arka uç<small>loopback</small></div><div class="m r req" style="grid-column:1/3;--span:2"><b>RESOLVE</b><i>namespace nuri, slug forum</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>RESOLVED</b><i>version, manifest_hash, host adresi</i></div><div class="note ">Registry işini bitirdi. Uygulama trafiğini hiç görmez.</div><div class="m r req" style="grid-column:1/4;--span:3"><b>GET_MANIFEST</b><i>control bağlantı</i></div><div class="m l resp" style="grid-column:1/4;--span:3"><b>MANIFEST</b><i>manifest.json'ın tam byte'ları</i></div><div class="note ">Manifestin SHA-256'sı registry'deki manifest_hash'e eşit olmalı.</div><div class="m r req" style="grid-column:1/4;--span:3"><b>GET_ASSET × N</b><i>ayrı bulk bağlantı</i></div><div class="m l resp" style="grid-column:1/4;--span:3"><b>INFO · CHUNK… · END</b><i>ham dosya byte'ları</i></div><div class="note good">Her dosyanın boyutu ve SHA-256'sı denetlenir; ancak sonra paket etkinleşir ve sayfa sandbox'ta başlar.</div><div class="m r req" style="grid-column:1/4;--span:3"><b>APP_CALL</b><i>metot + gövde; yazmada operation_id</i></div><div class="m r req" style="grid-column:3/5;--span:2"><b>IPC_CALL</b><i>+ host'un eklediği principal_id</i></div><div class="m l resp" style="grid-column:3/5;--span:2"><b>IPC_RESULT</b></div><div class="m l resp" style="grid-column:1/4;--span:3"><b>APP_RESULT</b><i>aynı request_id</i></div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>Registry yalnızca “bu ismi kim sunuyor?” sorusunu yanıtlar. Sonrası istemci ile host arasında olur.</figcaption></figure>
 </section>
 
 <section id="run">
   <h2>Node çalıştırın ve kullanın</h2>
   <p><a href="https://rustup.rs">Rust</a> (depo sürümü sabitler) ve IP ile birbirine ulaşabilen iki bilgisayar gerekir — aynı Wi-Fi, switch veya telefon hotspot'u, “AP isolation” kapalı. Kodu alın: <code>git clone https://github.com/nuricanozturk01/project-ilmek &amp;&amp; cd project-ilmek</code>.</p>
 
-  <h3>1. Node'u başlatın (Linux)</h3>
+  <h3 id="run-1-node-u-baslatin-linux">1. Node'u başlatın (Linux)</h3>
 <pre><code>sudo ufw allow 47400/udp &amp;&amp; sudo ufw allow 47401:47402/tcp   # yalnızca güvenlik duvarı açıksa
 scripts/quickstart.sh</code></pre>
   <p>Betik CLI'yi ve forum arka ucunu derler, <code>ilmek node</code>'u başlatır, sonra iki örneği kurup yayınlar: <code>ilmek://nuri/forum</code> (Rust arka uçlu) ve <code>ilmek://nuri/merhaba</code> (statik sayfa). Terminal açık kalmalı; Ctrl-C hepsini durdurur. Veriler <code>./ilmek-demo</code> altına gider.</p>
-  <p>Betik olmadan node yalnızca <code>ilmek node</code>'dur. Varsayılanlar: keşif <strong>47400/udp</strong>, registry <strong>47401/tcp</strong>, host <strong>47402/tcp</strong>. Veriler <code>$ILMEK_HOME</code> altındadır (varsayılan <code>~/.ilmek</code>).</p>
+  <p>Betik olmadan node yalnızca <code>ilmek node</code>'dur. Varsayılanlar:</p>
+  <div class="kv"><div><b>47400/udp</b><span>keşif beacon'ı</span></div><div><b>47401/tcp</b><span>registry</span></div><div><b>47402/tcp</b><span>uygulama sunucusu</span></div><div><b>$ILMEK_HOME</b><span>veri, varsayılan ~/.ilmek</span></div></div>
 
-  <h3>2. Başka bir bilgisayardan katılın</h3>
+  <h3 id="run-2-baska-bir-bilgisayardan-katilin">2. Başka bir bilgisayardan katılın</h3>
 <pre><code>cargo build -p ilmek-cli
 target/debug/ilmek join                       # node'u kendisi bulur
 target/debug/ilmek resolve ilmek://nuri/forum
@@ -105,180 +132,297 @@ target/debug/ilmek call ilmek://nuri/forum forum.topics.list
 target/debug/ilmek fetch ilmek://nuri/merhaba # paketi indirir ve doğrular</code></pre>
   <p>Node'dan hiçbir şey kopyalanmaz. Keşif başarısız olursa (başka alt ağ, güvenlik duvarı) yalnızca node'un adresini verin: <code>ilmek join --registry NODE_IP:47401</code>.</p>
 
-  <h3>3. Masaüstü istemci</h3>
+  <h3 id="run-3-masaustu-istemci">3. Masaüstü istemci</h3>
   <p>Masaüstü istemci İlmek'in tarayıcısıdır: adres çubuğu, katalog, her uygulama için bir sekme. Kendini <code>ilmek://</code> bağlantılarının işleyicisi olarak kaydeder; tarayıcıda tıklanan ya da yazılan bir bağlantı uygulamayı onda açar. Platforma göre derleme: <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/docs/INSTALL.md">INSTALL</a> (İngilizce); geliştirme modunda: <code>bun install &amp;&amp; cd apps/client &amp;&amp; bun run tauri dev</code>. <em>Find and join</em>'e basın, adres yazın, <em>Open</em>'a basın.</p>
 
-  <h3>Node ile neler yapılır?</h3>
-  <table>
-    <tr><th>Amaç</th><th>Nasıl</th></tr>
-    <tr><td>Uygulama yayınlamak</td><td><code>ilmek app pack | install | start | publish</code> — bkz. <a href="#apps">Uygulama yaz</a></td></tr>
-    <tr><td>Birden çok uygulama barındırmak</td><td>Daha fazla kurun; her birinin kendi veri klasörü, arka ucu ve durumu olur. <code>ilmek app start|stop|restart ns/app</code> yalnızca o uygulamayı etkiler</td></tr>
-    <tr><td>Başka host eklemek</td><td>İkinci makinede: <code>ilmek host start</code> (node'u bulur, kendini kaydeder); uygulamalarını o makinede <code>ilmek app …</code> ile yönetin</td></tr>
-    <tr><td>Daha fazla istemci</td><td>Her birinde <code>ilmek join</code>; ya da masaüstü istemciyi açın</td></tr>
-    <tr><td>Neyin çalıştığını görmek</td><td><code>ilmek app list</code> (durum, PID, yeniden başlatma), <code>ilmek diagnose ilmek://ns/app</code></td></tr>
-    <tr><td>Yedek alıp geri yüklemek</td><td><code>ilmek backup registry|host --out DIR</code>, <code>ilmek backup restore-registry|restore-host --from DIR</code></td></tr>
-    <tr><td>Servis olarak çalıştırmak</td><td><code>deploy/systemd/</code> altındaki systemd birimleri (yazıldı, servis olarak <em>henüz çalıştırılmadı</em>)</td></tr>
-  </table>
+  <h3 id="run-node-ile-neler-yapilir">Node ile neler yapılır?</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Amaç</th><th>Nasıl</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Amaç">Uygulama yayınlamak</td><td data-label="Nasıl"><code>ilmek app pack | install | start | publish</code> — bkz. <a href="#apps">Uygulama yaz</a></td></tr>
+    <tr><td data-label="Amaç">Birden çok uygulama barındırmak</td><td data-label="Nasıl">Daha fazla kurun; her birinin kendi veri klasörü, arka ucu ve durumu olur. <code>ilmek app start|stop|restart ns/app</code> yalnızca o uygulamayı etkiler</td></tr>
+    <tr><td data-label="Amaç">Başka host eklemek</td><td data-label="Nasıl">İkinci makinede: <code>ilmek host start</code> (node'u bulur, kendini kaydeder); uygulamalarını o makinede <code>ilmek app …</code> ile yönetin</td></tr>
+    <tr><td data-label="Amaç">Daha fazla istemci</td><td data-label="Nasıl">Her birinde <code>ilmek join</code>; ya da masaüstü istemciyi açın</td></tr>
+    <tr><td data-label="Amaç">Neyin çalıştığını görmek</td><td data-label="Nasıl"><code>ilmek app list</code> (durum, PID, yeniden başlatma), <code>ilmek diagnose ilmek://ns/app</code></td></tr>
+    <tr><td data-label="Amaç">Yedek alıp geri yüklemek</td><td data-label="Nasıl"><code>ilmek backup registry|host --out DIR</code>, <code>ilmek backup restore-registry|restore-host --from DIR</code></td></tr>
+    <tr><td data-label="Amaç">Servis olarak çalıştırmak</td><td data-label="Nasıl"><code>deploy/systemd/</code> altındaki systemd birimleri (yazıldı, servis olarak <em>henüz çalıştırılmadı</em>)</td></tr>
+    </tbody>
+  </table></div>
   <p>Üç tür makineyle örnek: A (<code>192.168.1.10</code>) <code>ilmek node</code> çalıştırır; B, <code>ilmek host start --registry 192.168.1.10:47401</code> çalıştırıp kendi uygulamalarını sunar; C, D, … <code>ilmek join --registry 192.168.1.10:47401</code> çalıştırır. Önce node'u başlatın. Aynı alt ağda ve UDP 47400 açıkken <code>--registry</code> yazmak gerekmez. Her <code>ilmek node</code> kendi topluluğunu oluşturur — makine eklemek için ikinci bir <code>node</code> değil, <code>host start</code> veya <code>join</code> kullanın.</p>
 
-  <h3>Bir cihaz node'u nasıl bulur?</h3>
-  <p>Kayıtlı durumu olmayan bir cihaz iki yolu aynı anda dener ve ilk yanıtı kullanır: UDP probe (<code>ILMEK-DISCOVER/1</code>, <code>255.255.255.255:47400</code> adresine, 500 ms'de bir, en fazla 4 sn) ve kendi /24 ağında TCP 47401 taraması. Adres verilirse (<code>--registry</code>) yalnızca o TCP portu kullanılır; topluluk kimliği registry'nin yanıtından öğrenilir, yani hiçbir zaman kimlik yazmazsınız. Sonuç cihaz klasörüne kaydedilir; bu işlem bir kez yapılır. Keşif yönlendiricileri aşmaz; yalnızca IPv4.</p>
-
-  <h3>Sorun giderme</h3>
-  <table>
-    <tr><th>Belirti</th><th>Neden / çözüm</th></tr>
-    <tr><td><code>no node found</code></td><td>Node çalışmıyor, başka alt ağ, ya da güvenlik duvarı <code>47401-47402/tcp</code> (ve <code>47400/udp</code>) portlarını kapatıyor. Portları açın veya <code>--registry NODE_IP:47401</code> kullanın. Deneme: <code>nc -vz NODE_IP 47401</code>.</td></tr>
-    <tr><td><code>did not answer like an İlmek registry</code></td><td>Node eski bir derlemeden başlamış ya da portu başka bir program tutuyor. Node'u yeniden derleyip başlatın; node ve istemciler aynı derlemede olsun.</td></tr>
-    <tr><td>Uygulama açılmıyor</td><td>Barındıran host'ta <code>ilmek app list</code> çıktısında <code>state=running</code> olmalı.</td></tr>
-  </table>
+  <h3 id="run-sorun-giderme">Sorun giderme</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Belirti</th><th>Neden / çözüm</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Belirti"><code>no node found</code></td><td data-label="Neden / çözüm">Node çalışmıyor, başka alt ağ, ya da güvenlik duvarı <code>47401-47402/tcp</code> (ve <code>47400/udp</code>) portlarını kapatıyor. Portları açın veya <code>--registry NODE_IP:47401</code> kullanın. Deneme: <code>nc -vz NODE_IP 47401</code>.</td></tr>
+    <tr><td data-label="Belirti"><code>did not answer like an İlmek registry</code></td><td data-label="Neden / çözüm">Node eski bir derlemeden başlamış ya da portu başka bir program tutuyor. Node'u yeniden derleyip başlatın; node ve istemciler aynı derlemede olsun.</td></tr>
+    <tr><td data-label="Belirti">Uygulama açılmıyor</td><td data-label="Neden / çözüm">Barındıran host'ta <code>ilmek app list</code> çıktısında <code>state=running</code> olmalı.</td></tr>
+    </tbody>
+  </table></div>
 </section>
 
 <section id="protocol">
   <h2>ILMEK/1 protokolü</h2>
-  <p>ILMEK/1, HTTP'nin bulunduğu yerde, uygulama katmanında çalışan bir protokoldür: <strong>ağ → IP → TCP → ILMEK/1</strong>. TCP veya IP'nin yerini almaz; HTTP, WebSocket veya gRPC üzerinden tünellenmez. Normatif metin <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/PROTOCOL.md">PROTOCOL.md</a> (İngilizce); bu bölüm onu açıklar. Bu sürümde TLS yoktur.</p>
-
-  <h3>HTTP ile karşılaştırma</h3>
-  <table>
-    <tr><th></th><th>HTTP/1.1</th><th>ILMEK/1</th></tr>
-    <tr><td>Tel biçimi</td><td>Metin: istek satırı, başlıklar, gövde</td><td>İkili 12 byte'lık önek, ardından UTF-8 JSON metadata, ardından ham gövde</td></tr>
-    <tr><td>İstek ne söyler</td><td>Metot + URL + başlıklar</td><td>Bir mesaj <code>type</code>'ı (<code>RESOLVE</code>, <code>APP_CALL</code>, …) ve tipli bir <code>data</code> nesnesi</td></tr>
-    <tr><td>Sonuç</td><td>Durum kodu</td><td>Tipli bir başarı mesajı ya da kod, <code>retryable</code> ve <code>retry_after_ms</code> taşıyan <code>ERROR</code></td></tr>
-    <tr><td>Tek bağlantıda birden çok istek</td><td>Yanıtlar sırayla gelir</td><td>Aynı anda birkaç istek (control bağlantıda en fazla 16); yanıtlar herhangi bir sırada gelebilir ve <code>request_id</code> ile eşleşir</td></tr>
-    <tr><td>Sunucudan itme</td><td>SSE/WebSocket gerekir</td><td>Yerleşik: abonelikler, devam ettirilebilir imleçler ve akış denetimiyle <code>EVENT</code> çerçeveleri iletir</td></tr>
-    <tr><td>Yazmayı yeniden denemek</td><td>Uygulamaya bırakılmış</td><td>Tanımlı: işlem kimliği + payload özeti; aynı yeniden deneme saklanmış sonucu döndürür</td></tr>
-    <tr><td>Büyük dosyalar</td><td>Aynı bağlantı</td><td>Ayrı bir <code>bulk</code> bağlantı; ofsetle devam edilir, SHA-256 ile doğrulanır</td></tr>
-    <tr><td>Oturum</td><td>Durumsuz (çerezler gelenekle)</td><td>Önce <code>HELLO</code>/<code>HELLO_ACK</code> el sıkışması; kip (<code>control</code> veya <code>bulk</code>) sonra değişmez</td></tr>
-    <tr><td>İsim arama</td><td>DNS, sonra sunucuya bağlan</td><td>Registry'den <code>RESOLVE</code> kaydı ve host'un adresini verir; sonra host'a bağlanılır</td></tr>
-  </table>
-
-  <h3>Adresler ve isim çözümleme</h3>
-  <p>Uygulama adresi <code>ilmek://namespace/slug</code> biçimindedir. İki parça da <code>[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?</code> desenine uyar (1–48 karakter). İstemci registry'den <code>RESOLVE</code> ister ve bir <em>uygulama kaydı</em> alır: <code>app_id</code>, <code>version</code>, <code>manifest_hash</code>, host'un <code>endpoint</code>'i (IPv4 ve port), kira bitiş zamanı ve erişilebilirlik bayrağı. İstemci sonra o host'a bağlanır. Kayıtlar 60 sn önbellekte tutulur; registry kapalıysa daha önceki bir yanıt, bayat olarak işaretlenip en fazla 24 saat kullanılabilir.</p>
-
-  <h3>Çerçeve (frame)</h3>
-  <p>Ağdaki ve yerel arka uç IPC'sindeki her mesaj tek bir çerçevedir:</p>
-  <div class="frame">
-    <div class="f4">magic<small>4 byte</small><code>ILM1</code></div>
-    <div class="f4">metadata uzunluğu M<small>4 byte, big-endian</small></div>
-    <div class="f4">gövde uzunluğu B<small>4 byte, big-endian</small></div>
-    <div class="fm">metadata<small>M byte, 1…65536, UTF-8 JSON</small></div>
-    <div class="fb">gövde<small>B byte, 0…262144, ham</small></div>
+  <p>ILMEK/1, HTTP'nin bulunduğu yerde, uygulama katmanında çalışan bir protokoldür. TCP veya IP'nin yerini almaz; HTTP, WebSocket veya gRPC üzerinden tünellenmez. Normatif metin <a href="https://github.com/nuricanozturk01/project-ilmek/blob/HEAD/PROTOCOL.md">PROTOCOL.md</a> (İngilizce); bu bölüm onu diyagramlarla açıklar. Bu sürümde TLS yoktur.</p>
+  <div class="grid">
+    <div class="card"><h4>İkili çerçeve + JSON</h4><p>12 byte'lık başlık, UTF-8 JSON metadata, isteğe bağlı ham gövde.</p></div>
+    <div class="card"><h4>Tipli mesajlar</h4><p>“GET /x” değil: tipli bir <code>data</code> nesnesiyle <code>RESOLVE</code> gibi bir <code>type</code>.</p></div>
+    <div class="card"><h4>Çoklanmış</h4><p>Tek bağlantıda birkaç istek aynı anda; <code>request_id</code> ile eşleşir.</p></div>
+    <div class="card"><h4>Tam-bir-kez yazma</h4><p>İşlem kimliği + payload özeti + arka uçta tek işlem.</p></div>
   </div>
-  <p>En büyük çerçeve 12 + 65536 + 262144 = 327692 byte'tır. Kötü magic, sınırı aşan uzunluk veya tamamlanmamış çerçeve bağlantıyı kapatır; uzunluk denetlenmeden hiçbir zaman bellek ayrılmaz. İlk byte'tan 30 sn sonra tamamlanmamış çerçeve bağlantıyı kapatır. TCP okumaları biriktirilir: tek bir okumanın tek çerçeve olduğu varsayılmaz.</p>
-  <p>Metadata'nın tam olarak dört alanı vardır: <code>type</code>, <code>request_id</code> (UUIDv7), <code>community_id</code> (UUIDv7) ve <code>data</code> (nesne). JSON metadata katıdır: yinelenen anahtar yok, BOM yok, NaN yok, iç içelik en fazla 16, bilinmeyen alan reddedilir. Test fixture'larından gerçek bir çerçeve — <code>nuri/forum</code> için <code>RESOLVE</code> isteği, toplam 179 byte:</p>
-<pre><code>49 4c 4d 31   00 00 00 a7   00 00 00 00
- I  L  M  1    M = 167       B = 0
 
-{"type":"RESOLVE","request_id":"01a160e8-5066-7b4d-b5a9-5a83c695c819",
+  <figure class="fig"><p class="ft">ILMEK/1 nerede durur?</p>
+<div class="stacks">
+ <div class="stack"><h4>ILMEK/1</h4>
+  <div>Uygulamalar<small>HTML/JS sayfa + isteğe bağlı arka uç</small></div>
+  <div class="me">ILMEK/1<small>ikili çerçeveler, JSON mesajlar</small></div>
+  <div>TCP</div><div>IP</div><div class="os">Wi-Fi / Ethernet / hotspot</div></div>
+ <div class="stack"><h4>Karşılaştırma: bir web uygulaması</h4>
+  <div>Web uygulaması</div>
+  <div class="me">HTTP<small>metin istekleri ve durum kodları</small></div>
+  <div>TCP</div><div>IP</div><div class="os">Wi-Fi / Ethernet / mobil veri</div></div>
+</div>
+<figcaption>ILMEK/1, HTTP’nin yaptığı işin yerini alır; TCP veya IP’nin değil. Bu sürümde TLS katmanı yoktur (<code>main</code> daki güvenli tasarım TLS 1.3’ü TCP ile ILMEK/1 arasına koyar).</figcaption></figure>
+
+  <h3 id="protocol-http-ile-karsilastirma">HTTP ile karşılaştırma</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Konu</th><th>HTTP/1.1</th><th>ILMEK/1</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Konu">Tel biçimi</td><td data-label="HTTP/1.1">Metin: istek satırı, başlıklar, gövde</td><td data-label="ILMEK/1">İkili 12 byte'lık önek, ardından UTF-8 JSON metadata, ardından ham gövde</td></tr>
+    <tr><td data-label="Konu">İstek ne söyler</td><td data-label="HTTP/1.1">Metot + URL + başlıklar</td><td data-label="ILMEK/1">Bir mesaj <code>type</code>'ı (<code>RESOLVE</code>, <code>APP_CALL</code>, …) ve tipli bir <code>data</code> nesnesi</td></tr>
+    <tr><td data-label="Konu">Sonuç</td><td data-label="HTTP/1.1">Durum kodu</td><td data-label="ILMEK/1">Tipli bir başarı mesajı ya da kod, <code>retryable</code> ve <code>retry_after_ms</code> taşıyan <code>ERROR</code></td></tr>
+    <tr><td data-label="Konu">Tek bağlantıda birden çok istek</td><td data-label="HTTP/1.1">Yanıtlar sırayla gelir</td><td data-label="ILMEK/1">Aynı anda birkaç istek (control bağlantıda en fazla 16); yanıtlar herhangi bir sırada gelebilir ve <code>request_id</code> ile eşleşir</td></tr>
+    <tr><td data-label="Konu">Sunucudan itme</td><td data-label="HTTP/1.1">SSE/WebSocket gerekir</td><td data-label="ILMEK/1">Yerleşik: abonelikler, devam ettirilebilir imleçler ve akış denetimiyle <code>EVENT</code> çerçeveleri iletir</td></tr>
+    <tr><td data-label="Konu">Yazmayı yeniden denemek</td><td data-label="HTTP/1.1">Uygulamaya bırakılmış</td><td data-label="ILMEK/1">Tanımlı: işlem kimliği + payload özeti; aynı yeniden deneme saklanmış sonucu döndürür</td></tr>
+    <tr><td data-label="Konu">Büyük dosyalar</td><td data-label="HTTP/1.1">Aynı bağlantı</td><td data-label="ILMEK/1">Ayrı bir <code>bulk</code> bağlantı; ofsetle devam edilir, SHA-256 ile doğrulanır</td></tr>
+    <tr><td data-label="Konu">Oturum</td><td data-label="HTTP/1.1">Durumsuz (çerezler gelenekle)</td><td data-label="ILMEK/1">Önce <code>HELLO</code>/<code>HELLO_ACK</code> el sıkışması; kip (<code>control</code> veya <code>bulk</code>) sonra değişmez</td></tr>
+    <tr><td data-label="Konu">İsim arama</td><td data-label="HTTP/1.1">DNS, sonra sunucuya bağlan</td><td data-label="ILMEK/1">Registry'den <code>RESOLVE</code> kaydı ve host'un adresini verir; sonra host'a bağlanılır</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="protocol-adresler-ve-isim-cozumleme">Adresler ve isim çözümleme</h3>
+  <p>Uygulama adresi <code>ilmek://namespace/slug</code> biçimindedir. İki parça da <code>[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?</code> desenine uyar (1–48 karakter). İstemci registry'den <code>RESOLVE</code> ister ve bir <em>uygulama kaydı</em> alır: <code>app_id</code>, <code>version</code>, <code>manifest_hash</code>, host'un <code>endpoint</code>'i (IPv4 ve port), kira bitiş zamanı ve erişilebilirlik bayrağı (<code>recent_heartbeat</code>, <code>stale</code> veya <code>unknown</code>). İstemci sonra o host'a bağlanır. Kayıtlar 60 sn önbellekte tutulur; registry kapalıysa daha önceki bir yanıt, bayat olarak işaretlenip en fazla 24 saat kullanılabilir.</p>
+
+  <h3 id="protocol-cerceve-frame">Çerçeve (frame)</h3>
+  <p>Ağdaki ve yerel arka uç IPC'sindeki her mesaj tek bir çerçevedir. En büyük çerçeve 12 + 65536 + 262144 = 327692 byte'tır. Kötü magic, sınırı aşan uzunluk veya tamamlanmamış çerçeve bağlantıyı kapatır; uzunluk denetlenmeden hiçbir zaman bellek ayrılmaz. İlk byte'tan 30 sn sonra tamamlanmamış çerçeve bağlantıyı kapatır. TCP okumaları biriktirilir: tek bir okumanın tek çerçeve olduğu varsayılmaz.</p>
+  <figure class="fig"><p class="ft">Bir çerçevenin yapısı</p>
+<div class="fbar">
+ <div class="c-magic"><b>magic</b>4 B<small>ILM1</small></div>
+ <div class="c-m"><b>M</b>4 B<small>metadata uzunluğu</small></div>
+ <div class="c-b"><b>B</b>4 B<small>gövde uzunluğu</small></div>
+ <div class="c-meta"><b>metadata</b>M bytes (1…65536)<small>UTF-8 JSON</small></div>
+ <div class="c-body"><b>gövde</b>B bytes (0…262144)<small>ham byte</small></div>
+</div>
+<p style="margin:.9rem 0 .2rem;font-size:.9rem"><b>Gerçek bir çerçeve</b> — test fixture'larındaki <code>RESOLVE nuri/forum</code> isteği, toplam 179 byte:</p>
+<div class="hex" role="img" aria-label="49 4c 4d 31 00 00 00 a7 00 00 00 00 7b 22 74 79 70 65">
+ <span class="h1">49 4c 4d 31</span><span class="h2">00 00 00 a7</span><span class="h3">00 00 00 00</span><span class="h4">7b 22 74 79 70 65 22 3a 22 52 45 53 4f 4c 56 45 22 2c</span>…</div>
+<div class="hexlegend">
+ <span class="h1">49 4c 4d 31 = “ILM1”</span>
+ <span class="h2">00 00 00 a7 = M = 167</span>
+ <span class="h3">00 00 00 00 = B = 0 (gövde yok)</span>
+ <span class="h4">7b 22 74 79 … = <code>{"type":"RESOLVE",</code> …</span></div>
+<pre><code>{"type":"RESOLVE","request_id":"01a160e8-5066-7b4d-b5a9-5a83c695c819",
  "community_id":"01a160e8-5001-7e8d-beb8-a77c859b95da",
  "data":{"namespace":"nuri","slug":"forum"}}        (167 byte, telde tek satır)</code></pre>
+<figcaption>Okuyucu önce 12 byte okur, magic’i ve iki uzunluğu sınırlara karşı denetler, ancak sonra M ve B byte daha okur.</figcaption></figure>
+  <p>Metadata'nın tam olarak dört alanı vardır: <code>type</code>, <code>request_id</code> (UUIDv7), <code>community_id</code> (UUIDv7) ve <code>data</code> (nesne). JSON metadata katıdır: yinelenen anahtar yok, BOM yok, NaN yok, iç içelik en fazla 16, bilinmeyen alan reddedilir. Özet her zaman gönderilen tam byte'lar üzerinden hesaplanır; yeniden serileştirilmiş JSON üzerinden asla.</p>
 
-  <h3>Kimlik ve veri tipleri</h3>
-  <table>
-    <tr><th>Tip</th><th>Biçim</th></tr>
-    <tr><td><code>UUID</code></td><td>Yalnızca küçük harfli kanonik <strong>UUIDv7</strong> (RFC 9562). Topluluk, cihaz, uygulama, istek, işlem, oturum, abonelik ve olay kimlikleri için</td></tr>
-    <tr><td><code>U53</code></td><td>0…2^53−1 aralığında JSON tamsayısı; ondalık ve negatif yok</td></tr>
-    <tr><td><code>Hash</code></td><td>SHA-256, 64 küçük harfli hex karakter</td></tr>
-    <tr><td><code>Version</code></td><td><code>major.minor.patch</code>, her biri 0…2147483647</td></tr>
-    <tr><td><code>Method</code></td><td><code>[a-z][a-z0-9_.]{0,63}</code>, örneğin <code>forum.topics.create</code></td></tr>
-    <tr><td><code>Cursor</code></td><td>Sunucunun verdiği opak base64url dizgisi, en fazla 512 karakter</td></tr>
-  </table>
+  <h3 id="protocol-kimlik-ve-veri-tipleri">Kimlik ve veri tipleri</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tip</th><th>Biçim</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Tip"><code>UUID</code></td><td data-label="Biçim">Yalnızca küçük harfli kanonik <strong>UUIDv7</strong> (RFC 9562). Topluluk, cihaz, uygulama, istek, işlem, oturum, abonelik ve olay kimlikleri için</td></tr>
+    <tr><td data-label="Tip"><code>U53</code></td><td data-label="Biçim">0…2^53−1 aralığında JSON tamsayısı; ondalık ve negatif yok</td></tr>
+    <tr><td data-label="Tip"><code>Hash</code></td><td data-label="Biçim">SHA-256, 64 küçük harfli hex karakter</td></tr>
+    <tr><td data-label="Tip"><code>Version</code></td><td data-label="Biçim"><code>major.minor.patch</code>, her biri 0…2147483647</td></tr>
+    <tr><td data-label="Tip"><code>Method</code></td><td data-label="Biçim"><code>[a-z][a-z0-9_.]{0,63}</code>, örneğin <code>forum.topics.create</code></td></tr>
+    <tr><td data-label="Tip"><code>Cursor</code></td><td data-label="Biçim">Sunucunun verdiği opak base64url dizgisi, en fazla 512 karakter</td></tr>
+    </tbody>
+  </table></div>
 
-  <h3>Bağlantı yaşam döngüsü</h3>
-  <ol>
-    <li>TCP bağlantısı (5 sn süre sınırı).</li>
-    <li>İstemci 5 sn içinde <code>HELLO</code> gönderir: <code>{version:1, client_id, mode:"control"|"bulk", client_name, client_version}</code>. <code>client_id</code> bildirilen cihaz kimliğidir.</li>
-    <li>Sunucu <code>HELLO_ACK</code> ile yanıt verir: <code>session_id</code>, <code>server_id</code>, <code>server_role</code> (<code>registry</code> veya <code>host</code>), kip, <code>max_inflight_requests</code> ve <code>max_subscriptions</code>. Bundan önce başka istek kabul edilmez. Rol beklenen değilse istemci bağlantıyı kapatır.</li>
-    <li>İstek ve yanıtlar sürer. 20 sn boşta kalan istemci <code>PING</code> gönderir; 10 sn içinde <code>PONG</code> gelmezse bağlantı kapatılır; sunucu 90 sn sessiz kalan oturumu kapatabilir.</li>
-    <li>Normal bitiş: <code>GOODBYE</code> / <code>GOODBYE_ACK</code>. Sunucu <code>DRAIN</code> gönderebilir (örneğin tek bağlantıda 100000 istekten sonra), en fazla 30 sn süreyle; istemci yeni bağlantı açar.</li>
-  </ol>
-  <p>Soket EOF'u veya zaman aşımı hiçbir zaman “yazma geri alındı” demek değildir. Yazmaların işlem kimliği taşımasının nedeni budur.</p>
+  <h3 id="protocol-bir-baglanti">Bir bağlantı</h3>
+  <p>Soket EOF'u veya zaman aşımı hiçbir zaman “yazma geri alındı” demek değildir. Yazmaların işlem kimliği taşımasının nedeni budur. Sunucu <code>DRAIN</code> da gönderebilir (örneğin tek bağlantıda 100000 istekten sonra), en fazla 30 sn süreyle; istemci o zaman yeni bağlantı açar.</p>
+  <figure class="fig"><p class="ft">Bir bağlantı, baştan sona</p><div class="seq" style="--n:2"><div class="lane">İstemci</div><div class="lane">Sunucu<small>registry veya host</small></div><div class="m r req" style="grid-column:1/3;--span:2"><b>TCP connect</b><i>süre sınırı 5 sn</i></div><div class="m r req" style="grid-column:1/3;--span:2"><b>HELLO</b><i>5 sn içinde · client_id, mode, client_version</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>HELLO_ACK</b><i>session_id, server_role, max_inflight, max_subscriptions</i></div><div class="note good">Başka istekler ancak şimdi kabul edilir.</div><div class="m r req" style="grid-column:1/3;--span:2"><b>any request</b><i>yeni request_id (UUIDv7)</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>its response</b><i>aynı request_id; sırasız gelebilir</i></div><div class="m r req" style="grid-column:1/3;--span:2"><b>PING</b><i>20 sn giden trafik yoksa</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>PONG</b><i>10 sn içinde, yoksa istemci kapatır</i></div><div class="m r req" style="grid-column:1/3;--span:2"><b>GOODBYE</b><i>reason: user | shutdown | reconnect</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>GOODBYE_ACK</b><i>sunucu DRAIN da gönderebilir (süre ≤ 30 sn)</i></div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>Her bağlantı HELLO ile başlar. Kipi (<code>control</code> veya <code>bulk</code>) sonra değişmez.</figcaption></figure>
 
-  <h3>Mesajlar</h3>
+  <h3 id="protocol-node-u-bulmak">Node'u bulmak</h3>
+  <p>Probe, UDP üzerinden 16 ASCII byte olan <code>ILMEK-DISCOVER/1</code>'dir; node, JSON <code>{"ilmek":1,"community_id":…,"registry_id":…,"registry_port":…}</code> ile yanıtlar. Registry adresi, yanıtın kaynak IP'sidir. Adresi bilen bir cihaz topluluğu UDP olmadan öğrenir: uydurma bir topluluk kimliğiyle <code>HELLO</code> gönderir; registry reddeder ve hata ayrıntılarında gerçek topluluğu söyler.</p>
+  <figure class="fig"><p class="ft">Node'u bulmak (iki yol, birlikte başlar)</p><div class="seq" style="--n:3"><div class="lane">Cihaz<small>yeni, kayıtlı durumu yok</small></div><div class="lane">Beacon<small>UDP 47400</small></div><div class="lane">Registry<small>TCP 47401</small></div><div class="m r req" style="grid-column:1/3;--span:2"><b>ILMEK-DISCOVER/1</b><i>16 byte'lık UDP probe, 500 ms'de bir yayın (≤ 4 sn)</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>{community_id, registry_id, registry_port}</b><i>registry adresi = bu yanıtın kaynak IP'si</i></div><div class="note ">…ya da, UDP engelliyse veya adres verildiyse, paralel olarak:</div><div class="m r req" style="grid-column:1/4;--span:3"><b>HELLO</b><i>rastgele community_id; /24'teki her adreste TCP :47401 (aynı anda 64, 700 ms)</i></div><div class="m l bad" style="grid-column:1/4;--span:3"><b>ERROR community mismatch</b><i>details: {community_id, server_id, server_role: registry}</i></div><div class="note good">Cihaz <code>profile.json</code> ve <code>device.id</code> dosyalarını kaydeder. Bir daha keşif yapmaz.</div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>İlk gelen yanıt kullanılır. Adres biliniyorsa (<code>--registry</code>) yalnızca ikinci yol, o adrese karşı kullanılır.</figcaption></figure>
+
+  <h3 id="protocol-mesajlar">Mesajlar</h3>
   <p>Registry (<code>control</code> kipi) şunları anlar:</p>
-  <table>
-    <tr><th>İstek</th><th>Yanıt</th><th>Amaç</th></tr>
-    <tr><td><code>RESOLVE</code></td><td><code>RESOLVED</code></td><td>isim → uygulama kaydı</td></tr>
-    <tr><td><code>LIST_APPS</code></td><td><code>APPS_LISTED</code></td><td>sayfalı katalog (limit 1–50, 5 dk tutulan imleçli anlık görüntü)</td></tr>
-    <tr><td><code>HOST_REGISTER</code></td><td><code>HOST_REGISTERED</code></td><td>host kendini duyurur; <code>0.0.0.0</code> registry'nin bağlantının geldiği adresi kaydetmesini sağlar</td></tr>
-    <tr><td><code>HOST_HEARTBEAT</code></td><td><code>HEARTBEAT_ACK</code></td><td>host'un 90 sn'lik kirasını yeniler (30 sn'de bir gönderilir)</td></tr>
-    <tr><td><code>REGISTER_APP</code> / <code>UPDATE_APP</code> / <code>UNREGISTER_APP</code></td><td><code>APP_REGISTERED</code> / <code>APP_UPDATED</code> / <code>APP_UNREGISTERED</code></td><td>uygulamayı yayınla, güncelle ya da katalogdan çek; işlem kimliği taşır</td></tr>
-  </table>
+  <div class="table-wrap"><table>
+    <thead><tr><th>İstek</th><th>Yanıt</th><th>Amaç</th></tr></thead>
+    <tbody>
+    <tr><td data-label="İstek"><code>RESOLVE</code></td><td data-label="Yanıt"><code>RESOLVED</code></td><td data-label="Amaç">isim → uygulama kaydı</td></tr>
+    <tr><td data-label="İstek"><code>LIST_APPS</code></td><td data-label="Yanıt"><code>APPS_LISTED</code></td><td data-label="Amaç">sayfalı katalog (limit 1–50, 5 dk tutulan imleçli anlık görüntü)</td></tr>
+    <tr><td data-label="İstek"><code>HOST_REGISTER</code></td><td data-label="Yanıt"><code>HOST_REGISTERED</code></td><td data-label="Amaç">host kendini duyurur; <code>0.0.0.0</code> registry'nin bağlantının geldiği adresi kaydetmesini sağlar</td></tr>
+    <tr><td data-label="İstek"><code>HOST_HEARTBEAT</code></td><td data-label="Yanıt"><code>HEARTBEAT_ACK</code></td><td data-label="Amaç">host'un 90 sn'lik kirasını yeniler (30 sn'de bir gönderilir)</td></tr>
+    <tr><td data-label="İstek"><code>REGISTER_APP</code> / <code>UPDATE_APP</code> / <code>UNREGISTER_APP</code></td><td data-label="Yanıt"><code>APP_REGISTERED</code> / <code>APP_UPDATED</code> / <code>APP_UNREGISTERED</code></td><td data-label="Amaç">uygulamayı yayınla, güncelle ya da katalogdan çek; işlem kimliği taşır</td></tr>
+    </tbody>
+  </table></div>
   <p>Bir host (<code>control</code> kipi) şunları anlar:</p>
-  <table>
-    <tr><th>İstek</th><th>Yanıt</th><th>Amaç</th></tr>
-    <tr><td><code>GET_MANIFEST</code></td><td><code>MANIFEST</code></td><td>saklanan <code>manifest.json</code>'ın tam byte'ları</td></tr>
-    <tr><td><code>APP_CALL</code></td><td><code>APP_RESULT</code></td><td>arka uç metodunu çağır; gövde bir JSON nesnesi</td></tr>
-    <tr><td><code>SUBSCRIBE</code></td><td><code>SUBSCRIBED</code>, sonra <code>EVENT</code>…</td><td>bir konunun olaylarını bir imleçten itibaren akıt</td></tr>
-    <tr><td><code>EVENT_ACK</code>, <code>UNSUBSCRIBE</code></td><td><code>EVENT_ACKED</code>, <code>UNSUBSCRIBED</code></td><td>akış denetimi ve aboneliği bitirme</td></tr>
-  </table>
-  <p><code>bulk</code> kipindeki host <code>GET_ASSET</code> ve <code>CANCEL</code> anlar.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>İstek</th><th>Yanıt</th><th>Amaç</th></tr></thead>
+    <tbody>
+    <tr><td data-label="İstek"><code>GET_MANIFEST</code></td><td data-label="Yanıt"><code>MANIFEST</code></td><td data-label="Amaç">saklanan <code>manifest.json</code>'ın tam byte'ları</td></tr>
+    <tr><td data-label="İstek"><code>APP_CALL</code></td><td data-label="Yanıt"><code>APP_RESULT</code></td><td data-label="Amaç">arka uç metodunu çağır; gövde bir JSON nesnesi</td></tr>
+    <tr><td data-label="İstek"><code>SUBSCRIBE</code></td><td data-label="Yanıt"><code>SUBSCRIBED</code>, sonra <code>EVENT</code>…</td><td data-label="Amaç">bir konunun olaylarını bir imleçten itibaren akıt</td></tr>
+    <tr><td data-label="İstek"><code>EVENT_ACK</code>, <code>UNSUBSCRIBE</code></td><td data-label="Yanıt"><code>EVENT_ACKED</code>, <code>UNSUBSCRIBED</code></td><td data-label="Amaç">akış denetimi ve aboneliği bitirme</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>bulk</code> kipindeki host <code>GET_ASSET</code> ve <code>CANCEL</code> anlar. Her bağlantı ayrıca <code>HELLO</code>, <code>PING</code>, <code>GOODBYE</code> kullanır; <code>DRAIN</code> ve <code>ERROR</code> alabilir.</p>
 
-  <h3>Yanıt kaybolsa da yazma bir kez uygulanır</h3>
+  <details class="more"><summary>Alan başvurusu: <code>data</code> içinde ne var?</summary><div class="body">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Mesaj</th><th><code>data</code> alanları</th><th>Gövde</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Mesaj"><code>HELLO</code></td><td data-label="data alanları"><code>version:1, client_id, mode:"control"|"bulk", client_name (≤ 64 byte), client_version</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>HELLO_ACK</code></td><td data-label="data alanları"><code>version, session_id, server_id, server_role:"registry"|"host", mode, max_inflight_requests, max_subscriptions, server_time_ms</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>PING</code> / <code>PONG</code></td><td data-label="data alanları"><code>nonce</code> (16 byte, base64url), aynen geri yollanır</td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>GOODBYE</code> / <code>GOODBYE_ACK</code></td><td data-label="data alanları"><code>reason: "user"|"shutdown"|"reconnect"</code> / <code>{}</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>DRAIN</code></td><td data-label="data alanları"><code>reason: "request_limit"|"shutdown", grace_ms (≤ 30000)</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>RESOLVE</code></td><td data-label="data alanları"><code>namespace, slug</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>RESOLVED</code></td><td data-label="data alanları"><code>record (AppRecord), cache_ttl_seconds: 60</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>LIST_APPS</code></td><td data-label="data alanları"><code>query (≤ 128 byte), limit (1–50), cursor|null</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>APPS_LISTED</code></td><td data-label="data alanları"><code>snapshot_id, next_cursor|null</code></td><td data-label="Gövde"><code>{"records":[AppRecord,…]}</code></td></tr>
+    <tr><td data-label="Mesaj"><code>HOST_REGISTER</code></td><td data-label="data alanları"><code>operation_id, endpoint {ip, port}, expected_revision</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>HOST_REGISTERED</code></td><td data-label="data alanları"><code>server_id, revision, heartbeat_interval_seconds: 30, lease_seconds: 90</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>HOST_HEARTBEAT</code> / <code>HEARTBEAT_ACK</code></td><td data-label="data alanları"><code>host_revision</code> / <code>lease_expires_at_ms</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>REGISTER_APP</code></td><td data-label="data alanları"><code>operation_id, namespace, slug, app_id, server_id, version, manifest_hash, name, description</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>UPDATE_APP</code></td><td data-label="data alanları"><code>operation_id, app_id, expected_revision, server_id, version, manifest_hash, name, description</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>UNREGISTER_APP</code></td><td data-label="data alanları"><code>operation_id, app_id, expected_revision</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>APP_REGISTERED</code> / <code>APP_UPDATED</code></td><td data-label="data alanları"><code>record (AppRecord)</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>APP_UNREGISTERED</code></td><td data-label="data alanları"><code>app_id, revision</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>GET_MANIFEST</code></td><td data-label="data alanları"><code>app_id, version, manifest_hash</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>MANIFEST</code></td><td data-label="data alanları"><code>app_id, version, manifest_hash</code></td><td data-label="Gövde"><code>manifest.json</code>'ın tam byte'ları (≤ 256 KiB)</td></tr>
+    <tr><td data-label="Mesaj"><code>APP_CALL</code></td><td data-label="data alanları"><code>app_id, client_app_version, method, operation_id|null, payload_hash</code></td><td data-label="Gövde">JSON nesnesi (≤ 256 KiB)</td></tr>
+    <tr><td data-label="Mesaj"><code>APP_RESULT</code></td><td data-label="data alanları"><code>app_id, operation_id|null</code></td><td data-label="Gövde">JSON nesnesi (≤ 256 KiB)</td></tr>
+    <tr><td data-label="Mesaj"><code>SUBSCRIBE</code></td><td data-label="data alanları"><code>app_id, client_app_version, topic, cursor|null</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>SUBSCRIBED</code></td><td data-label="data alanları"><code>subscription_id, app_id, topic, cursor, window: 16</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>EVENT</code></td><td data-label="data alanları"><code>subscription_id, app_id, topic, sequence, event_id, cursor</code></td><td data-label="Gövde">JSON nesnesi</td></tr>
+    <tr><td data-label="Mesaj"><code>EVENT_ACK</code> / <code>EVENT_ACKED</code></td><td data-label="data alanları"><code>subscription_id, sequence, cursor</code> / <code>subscription_id, sequence</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>UNSUBSCRIBE</code> / <code>UNSUBSCRIBED</code></td><td data-label="data alanları"><code>subscription_id</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>GET_ASSET</code></td><td data-label="data alanları"><code>app_id, version, manifest_hash, path, asset_hash, offset</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>ASSET_INFO</code></td><td data-label="data alanları"><code>app_id, version, path, asset_hash, total_size, offset, chunk_size: 65536</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>ASSET_CHUNK</code></td><td data-label="data alanları"><code>sequence, offset</code></td><td data-label="Gövde">ham dosya byte'ları (1…65536)</td></tr>
+    <tr><td data-label="Mesaj"><code>ASSET_END</code></td><td data-label="data alanları"><code>asset_hash, total_sent</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>CANCEL</code> / <code>CANCEL_ACK</code></td><td data-label="data alanları"><code>target_request_id</code> / <code>target_request_id, result: "cancelled"|"already_finished"|"not_found"</code></td><td data-label="Gövde">boş</td></tr>
+    <tr><td data-label="Mesaj"><code>ERROR</code></td><td data-label="data alanları"><code>code, message (≤ 512 byte), retryable, retry_after_ms|null, details (≤ 2048 byte)</code></td><td data-label="Gövde">boş</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>AppRecord</code> = <code>community_id, namespace, slug, app_id, publisher_id, server_id, endpoint, version, manifest_hash, name, description, revision, lease_expires_at_ms, availability</code>. Ad en fazla 128, açıklama en fazla 2048 UTF-8 byte'tır.</p>
+  </div></details>
+
+  <h3 id="protocol-yanit-kaybolsa-da-yazma-bir-kez-uygulanir">Yanıt kaybolsa da yazma bir kez uygulanır</h3>
   <p>Durum değiştiren çağrı bir <code>operation_id</code> (UUIDv7; bir kez üretilir, yeniden denemelerde korunur) ve bir <code>payload_hash</code> taşır: şunun SHA-256'sı</p>
 <pre><code>"ILMEK-CALL-V1" 0x00 app_id 0x00 method 0x00 body_bytes</code></pre>
-  <p>(ASCII metin, parçalar arasında tek NUL byte, gövdenin tam byte'ları). Arka uç iş değişikliğini <em>ve</em> tekrar önleme kaydını <strong>tek</strong> veritabanı işleminde saklar; anahtar (topluluk, uygulama, cihaz, işlem) üçlüsüdür. Yanıt kaybolursa istemci çağrıyı yeni <code>request_id</code> ama <em>aynı</em> işlem kimliği ve gövdesiyle tekrarlar, ikinci bir yazma olmadan saklanmış sonucu alır. Aynı kimliğin farklı metot veya gövdeyle gelmesi <code>OPERATION_CONFLICT</code> verir. Bu yüzden zaman aşımı asla “başarısız” sayılmaz: kullanıcı “sonuç denetleniyor” görür ve çağrı tekrarlanır.</p>
+  <p>(ASCII metin, parçalar arasında tek NUL byte, gövdenin tam byte'ları). Arka uç iş değişikliğini <em>ve</em> tekrar önleme kaydını <strong>tek</strong> veritabanı işleminde saklar; anahtar (topluluk, uygulama, cihaz, işlem) dörtlüsüdür. Bu yüzden zaman aşımı asla “başarısız” sayılmaz: kullanıcı “sonuç denetleniyor” görür ve çağrı tekrarlanır.</p>
+  <figure class="fig"><p class="ft">Yanıtı kaybolan bir yazma</p><div class="seq" style="--n:3"><div class="lane">İstemci</div><div class="lane">Host</div><div class="lane">Arka uç<small>SQLite</small></div><div class="m r req" style="grid-column:1/3;--span:2"><b>APP_CALL</b><i>operation_id X · payload_hash</i></div><div class="m r req" style="grid-column:2/4;--span:2"><b>IPC_CALL</b></div><div class="m self" style="grid-column:2/4"><i style="color:inherit"><b>TEK işlem:</b> iş değişikliği + tekrar önleme kaydı (X, metot, özet) + sonuç</i></div><div class="m l resp" style="grid-column:2/4;--span:2"><b>IPC_RESULT</b></div><div class="note bad">✕ Yanıt istemciye ulaşmadan bağlantı kopar. İstemci uygulanıp uygulanmadığını BİLMEZ.</div><div class="m r req" style="grid-column:1/3;--span:2"><b>APP_CALL</b><i>yeni bağlantı · yeni request_id · AYNI operation_id X · AYNI gövde byte'ları</i></div><div class="m r req" style="grid-column:2/4;--span:2"><b>IPC_CALL</b></div><div class="m self" style="grid-column:2/4"><i style="color:inherit">X bulundu, metot ve özet aynı → <b>saklanan sonuç döner, ikinci yazma yok</b></i></div><div class="m l resp" style="grid-column:2/4;--span:2"><b>IPC_RESULT</b></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>APP_RESULT</b><i>özgün sonuç</i></div><div class="note ">Aynı X farklı metot veya gövdeyle → <code>OPERATION_CONFLICT</code>. Aynı X, ilki hâlâ sürerken → <code>OPERATION_PENDING</code>: tekrarlayın.</div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>İstemci belirsiz bir zaman aşımından sonra yeni işlem kimliği üretmez. Aynı çağrıyı tekrarlamak sonucu öğrenmenin güvenli yoludur.</figcaption></figure>
 
-  <h3>Olaylar</h3>
-  <p><code>cursor: null</code> ile <code>SUBSCRIBE</code> yeni bir sınırdan sonrasını başlatır; imleçle, ondan sonraki her şeyi yeniden gönderir. Sunucu konu başına en az son 10000 olayı tutar (daha eski imleç → <code>CURSOR_EXPIRED</code>, sessiz kayıp asla yok), en fazla <strong>16</strong> onaylanmamış olay gönderir ve onayları 30 sn duran aboneliği kapatır (<code>SLOW_CONSUMER</code>). Teslim en az bir kezdir; istemci imleci saklayıp sonra onaylar. Bir bağlantı en fazla 8 abonelik tutar.</p>
+  <h3 id="protocol-olaylar">Olaylar</h3>
+  <p><code>cursor: null</code> ile <code>SUBSCRIBE</code> yeni bir sınırdan sonrasını başlatır (ilk listeyi ayrı bir <code>APP_CALL</code> ile alın; önce abone olmak arada değişiklik kaçırmayı önler). İmleçle, ondan sonraki her şeyi yeniden gönderir. İmleç topluluğa, cihaza, uygulamaya ve konuya bağlıdır. Sunucu konu başına en az son 10000 olayı tutar, en fazla <strong>16</strong> onaylanmamış olay gönderir; bir bağlantı en fazla 8 abonelik tutar.</p>
+  <figure class="fig"><p class="ft">Olaylara abone olmak</p><div class="seq" style="--n:2"><div class="lane">İstemci</div><div class="lane">Host</div><div class="m r req" style="grid-column:1/3;--span:2"><b>SUBSCRIBE</b><i>konu · cursor: null (yeni) veya son kayıtlı imleç</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>SUBSCRIBED</b><i>subscription_id, pencere 16</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>EVENT 1, 2, 3 …</b><i>sequence, event_id, cursor · gövde JSON</i></div><div class="note ">İstemci işler, imleci yerelde saklar, sonra onaylar.</div><div class="m r req" style="grid-column:1/3;--span:2"><b>EVENT_ACK</b><i>son ardışık sequence + imleci</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>EVENT_ACKED</b><i>pencere açılır; host kalıcı günlüğünden daha fazla okur</i></div><div class="note bad">30 sn ACK ilerlemesi yok → <code>ERROR SLOW_CONSUMER</code>, yalnızca bu abonelik kapanır.</div><div class="note ">Bağlantı koptu → son imleçle yeniden abone olun. Son 10000 olaydan eskiyse → <code>CURSOR_EXPIRED</code>: yeni anlık görüntü alın. Teslim en az bir kezdir: aynı event_id tekrarlanabilir.</div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>Host onaylanmamış en fazla 16 olay gönderir; yavaş bir istemci hostun sınırsız arabellek tutmasına yol açamaz.</figcaption></figure>
 
-  <h3>Dosyalar</h3>
-  <p><code>bulk</code> bağlantıda <code>GET_ASSET</code> (uygulama, sürüm, manifest özeti, yol, dosya özeti, ofset) için <code>ASSET_INFO</code>, sıfır veya daha fazla <code>ASSET_CHUNK</code> (her biri en fazla 65536 byte, ardışık sıra ve ofset) ve <code>ASSET_END</code> döner. İndirme yeni bir bağlantıda doğrulanmış ofsetten sürdürülür. Dosya, ancak <em>tüm</em> dosyanın SHA-256'sı eşleşirse etkinleşir. <code>CANCEL</code> aktarımı durdurur; her zaman yalnızca bir son yanıt gönderilir.</p>
+  <h3 id="protocol-dosyalar">Dosyalar</h3>
+  <p>Dosyalar ayrı bir <code>bulk</code> bağlantıda gider; bağlantı başına tek etkin dosya, her biri en fazla 65536 byte olan, ardışık sıra numaralı ve ofsetli parçalar hâlinde. Kurulu bir sürümün dosyaları değişmezdir. İstemci tamamlanmamış dosyaları geçici alanda tutar ve dosya etkinleşmeden önce tüm dosyanın SHA-256'sını denetler.</p>
+  <figure class="fig"><p class="ft">Dosya indirmek ve sürdürmek</p><div class="seq" style="--n:2"><div class="lane">İstemci</div><div class="lane">Host<small>bulk bağlantı</small></div><div class="m r req" style="grid-column:1/3;--span:2"><b>HELLO</b><i>mode: bulk (bağlantı başına tek etkin dosya)</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>HELLO_ACK</b></div><div class="m r req" style="grid-column:1/3;--span:2"><b>GET_ASSET</b><i>uygulama, sürüm, manifest_hash, yol, asset_hash, offset 0</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>ASSET_INFO</b><i>total_size, chunk_size 65536</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>ASSET_CHUNK 0, 1, …</b><i>ardışık sequence ve offset, her biri ≤ 65536 B</i></div><div class="note bad">✕ Bağlantı kopar. İstemci doğrulanmış byte'ları geçici alanda tutar.</div><div class="m r req" style="grid-column:1/3;--span:2"><b>GET_ASSET</b><i>yeni bağlantı · yeni request_id · offset = eldeki byte sayısı</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>ASSET_INFO</b><i>offset yankılanır</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>ASSET_CHUNK …</b></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>ASSET_END</b><i>asset_hash, total_sent</i></div><div class="note good">END kanıt değildir. İstemci tüm dosyanın özetini kendisi hesaplar, sonra etkinleştirir. <code>CANCEL</code> aktarımı durdurur; yalnızca bir son yanıt gönderilir.</div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>Dosya, kesintiden önce alınan kısım dahil tüm dosyanın SHA-256'sı eşleştiğinde etkinleşir.</figcaption></figure>
 
-  <h3>Hatalar</h3>
-  <p><code>ERROR</code>, başarısız isteğin kimliğiyle birlikte <code>code</code>, <code>message</code>, <code>retryable</code>, <code>retry_after_ms</code> ve <code>details</code> taşır. Kodlar arasında <code>NOT_FOUND</code>, <code>FORBIDDEN</code>, <code>INVALID_MESSAGE</code>, <code>VERSION_CONFLICT</code>, <code>REVISION_CONFLICT</code>, <code>OPERATION_CONFLICT</code>, <code>OPERATION_PENDING</code>, <code>APP_UNAVAILABLE</code>, <code>RESOURCE_EXHAUSTED</code>, <code>RATE_LIMITED</code>, <code>CURSOR_EXPIRED</code>, <code>SLOW_CONSUMER</code>, <code>HASH_MISMATCH</code>, <code>TIMEOUT</code>, <code>SERVER_DRAINING</code> ve <code>INTERNAL</code> vardır; tam liste PROTOCOL.md §13'tedir. <code>retryable</code>, <em>yeni</em> bir işlem kimliğiyle yazma yapmaya asla izin vermez.</p>
+  <h3 id="protocol-host-lar-ve-kiralar">Host'lar ve kiralar</h3>
+  <p>Host kendini kaydeder ve 30 sn'de bir 90 sn'lik kirasını yeniler. Registry'nin kendi makinesindeki host <code>127.0.0.1</code> olarak kaydedilir; başka makinelerdeki istemciler ona registry'nin adresiyle ulaşır.</p>
+  <figure class="fig"><p class="ft">Bir host katılır ve kayıtlı kalır</p><div class="seq" style="--n:3"><div class="lane">Ek host<small>ilmek host start</small></div><div class="lane">Beacon<small>UDP</small></div><div class="lane">Registry<small>TCP</small></div><div class="m r req" style="grid-column:1/3;--span:2"><b>UDP probe</b></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>community, registry port</b></div><div class="m r req" style="grid-column:1/4;--span:3"><b>HELLO + HOST_REGISTER</b><i>endpoint 0.0.0.0:47402</i></div><div class="m self" style="grid-column:2/4"><i style="color:inherit">bağlantının <b>kaynak IP</b>'sini kaydeder</i></div><div class="m l resp" style="grid-column:1/4;--span:3"><b>HOST_REGISTERED</b><i>kira 90 sn, 30 sn'de bir heartbeat</i></div><div class="m r req" style="grid-column:1/4;--span:3"><b>HOST_HEARTBEAT</b><i>30 sn'de bir</i></div><div class="m l resp" style="grid-column:1/4;--span:3"><b>HEARTBEAT_ACK</b><i>kira yenilendi</i></div><div class="note bad">90 sn heartbeat yok → host'un uygulamaları <code>stale</code> erişilebilirlik gösterir.</div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>Host kendi adresini bilmek zorunda değildir: 0.0.0.0 gönderir, registry bağlantının geldiği adresi kaydeder.</figcaption></figure>
 
-  <h3>Paketler ve bütünlük</h3>
-  <p>Paket, <code>manifest.json</code> ve <code>assets/</code> klasörüdür. Manifest her dosyayı boyutu ve SHA-256'sıyla, yola göre sıralı listeler; ayrıca uygulamanın kimliğini, sürümünü, <code>entrypoint</code>'ini (bir <code>.html</code> dosyası) ve <code>permissions</code> değerlerini (<code>app.call</code>, <code>app.subscribe</code>, <code>storage.local</code>) içerir. Sınırlar: manifest 256 KiB, 1024 dosya, paket başına 100 MiB, yollar ASCII <code>[A-Za-z0-9._-]</code> parçalarından en fazla 240 byte, <code>..</code> yok, mutlak yol yok, Windows aygıt adı yok. İstemci önce registry kaydındaki manifest özetini, sonra her dosyanın boyut ve özetini denetler, ancak sonra paketi atomik olarak etkinleştirir. Bu, bozulmayı ve yarım indirmeyi yakalar; <strong>kötü niyetli bir host'u durdurmaz</strong>, çünkü bu sürümde paketler imzalı değildir.</p>
+  <h3 id="protocol-hatalar">Hatalar</h3>
+  <p><code>ERROR</code>, başarısız isteğin kimliğini taşır. <code>retryable</code>, <em>yeni</em> bir işlem kimliğiyle yazma yapmaya asla izin vermez. Varsayılan yeniden deneme, en fazla 0,5, 1, 2, 4 ve 8 sn üst sınırlı rastgele bekleyişlerle en fazla 5 otomatik denemedir; <code>RATE_LIMITED</code> süresine uyulur.</p>
+  <details class="more"><summary>Tüm hata kodları</summary><div class="body">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Kod</th><th>Anlamı</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Kod"><code>UNAUTHORIZED</code></td><td data-label="Anlamı">Bugün hiçbir yol üretmez; ileride kimlik eklenirse için ayrılmıştır</td></tr>
+    <tr><td data-label="Kod"><code>FORBIDDEN</code></td><td data-label="Anlamı">Ad alanı/uygulama başka cihaza ait, ya da adres izinli ağlar dışında</td></tr>
+    <tr><td data-label="Kod"><code>NOT_FOUND</code></td><td data-label="Anlamı">Hedef bulunamadı</td></tr>
+    <tr><td data-label="Kod"><code>NAME_CONFLICT</code></td><td data-label="Anlamı">İsim başka bir kayıtça kullanılıyor</td></tr>
+    <tr><td data-label="Kod"><code>REVISION_CONFLICT</code></td><td data-label="Anlamı">Registry/uygulama iyimser revizyon uyuşmazlığı</td></tr>
+    <tr><td data-label="Kod"><code>VERSION_CONFLICT</code></td><td data-label="Anlamı">İstenen sürüm/özet sunulan içerikle uyuşmuyor; ya da aynı sürüm farklı içerikle yayınlanmak isteniyor</td></tr>
+    <tr><td data-label="Kod"><code>APP_VERSION_UNSUPPORTED</code></td><td data-label="Anlamı">İstemci paket sürümü arka uçla uyumsuz</td></tr>
+    <tr><td data-label="Kod"><code>UNSUPPORTED_VERSION</code></td><td data-label="Anlamı">Protokol sürümü desteklenmiyor; bağlantı kapanır</td></tr>
+    <tr><td data-label="Kod"><code>UNSUPPORTED_MESSAGE</code></td><td data-label="Anlamı">Sözleşmede olmayan type</td></tr>
+    <tr><td data-label="Kod"><code>INVALID_MESSAGE</code></td><td data-label="Anlamı">Alan, biçim, kip veya sıra hatası</td></tr>
+    <tr><td data-label="Kod"><code>TOO_LARGE</code></td><td data-label="Anlamı">Geçerli bir istek içerik sınırını aşıyor</td></tr>
+    <tr><td data-label="Kod"><code>RATE_LIMITED</code></td><td data-label="Anlamı">İstek hızı sınırı; <code>retry_after_ms</code> 0…60000</td></tr>
+    <tr><td data-label="Kod"><code>RESOURCE_EXHAUSTED</code></td><td data-label="Anlamı">Kuyruk, bağlantı, iş yuvası veya disk kaynağı yok</td></tr>
+    <tr><td data-label="Kod"><code>APP_UNAVAILABLE</code></td><td data-label="Anlamı">Arka uç çalışmıyor veya hazır değil</td></tr>
+    <tr><td data-label="Kod"><code>OPERATION_CONFLICT</code></td><td data-label="Anlamı">Aynı işlem kimliği farklı içerikle kullanıldı</td></tr>
+    <tr><td data-label="Kod"><code>OPERATION_PENDING</code></td><td data-label="Anlamı">Aynı yazma hâlâ sonuçlanıyor; aynı kimlikle tekrarlayın</td></tr>
+    <tr><td data-label="Kod"><code>CURSOR_EXPIRED</code></td><td data-label="Anlamı">Yeni liste, anlık görüntü veya abonelik başlangıcı gerekli</td></tr>
+    <tr><td data-label="Kod"><code>SLOW_CONSUMER</code></td><td data-label="Anlamı">Olay alıcısı ACK'sini ilerletmiyor; abonelik kapatılır</td></tr>
+    <tr><td data-label="Kod"><code>HASH_MISMATCH</code></td><td data-label="Anlamı">İçerik veya istek özeti uyuşmuyor</td></tr>
+    <tr><td data-label="Kod"><code>CANCELLED</code></td><td data-label="Anlamı">Aktarım iptal edildi</td></tr>
+    <tr><td data-label="Kod"><code>CANNOT_CANCEL</code></td><td data-label="Anlamı">Hedef iptal edilebilir bir aktarım değil</td></tr>
+    <tr><td data-label="Kod"><code>TIMEOUT</code></td><td data-label="Anlamı">Sunucunun süre sınırı doldu; bu tek başına commit sonucunu kanıtlamaz</td></tr>
+    <tr><td data-label="Kod"><code>SERVER_DRAINING</code></td><td data-label="Anlamı">Yeni bağlantı açılmalı</td></tr>
+    <tr><td data-label="Kod"><code>INTERNAL</code></td><td data-label="Anlamı">Genel sunucu hatası; yığın izi dışarı verilmez</td></tr>
+    </tbody>
+  </table></div></div></details>
 
-  <h3>Keşif</h3>
-  <p>Probe, UDP üzerinden 16 ASCII byte olan <code>ILMEK-DISCOVER/1</code>'dir; node, JSON <code>{"ilmek":1,"community_id":…,"registry_id":…,"registry_port":…}</code> ile yanıtlar. Registry adresi, yanıtın kaynak IP'sidir.</p>
+  <h3 id="protocol-paketler-ve-butunluk">Paketler ve bütünlük</h3>
+  <p>Paket, <code>manifest.json</code> ve <code>assets/</code> klasörüdür. Manifest her dosyayı boyutu ve SHA-256'sıyla, yola göre sıralı listeler; ayrıca uygulamanın kimliğini, sürümünü, <code>entrypoint</code>'ini (bir <code>.html</code> dosyası) ve <code>permissions</code> değerlerini (<code>app.call</code>, <code>app.subscribe</code>, <code>storage.local</code>) içerir. Sınırlar: manifest 256 KiB, 1024 dosya, paket başına 100 MiB, yollar ASCII <code>[A-Za-z0-9._-]</code> parçalarından en fazla 240 byte, <code>..</code> yok, mutlak yol yok, Windows aygıt adı yok.</p>
+  <figure class="fig"><p class="ft">Paket nasıl doğrulanır?</p><ol class="flow h"><li class="blue" data-arrow="manifest_hash"><b>Registry kaydı</b><span>isim → sürüm, <code>manifest_hash</code>, host</span></li><li class="" data-arrow="SHA-256 eşit olmalı"><b>manifest.json</b><span>host'un sakladığı tam byte'lar; her dosyayı yol, boyut ve sha256 ile listeler</span></li><li class="" data-arrow="boyut + SHA-256 eşleşmeli"><b>Her dosya</b><span>istemcide geçici alana indirilir</span></li><li class="green"><b>Atomik etkinleştirme</b><span>yeni sürüm klasörü devreye girer; hata eskisini çalışır bırakır</span></li></ol>
+<figcaption>Bu, bozulmayı ve yarım indirmeyi yakalar. Kötü niyetli bir host’u durdurmaz; çünkü hem manifesti hem kaydı değiştirebilir: bu sürümde paketler imzalı değildir.</figcaption></figure>
 
-  <h3>Sınırlar bir bakışta</h3>
-  <table>
-    <tr><th>Sınır</th><th>Değer</th></tr>
-    <tr><td>Çerçeve</td><td>metadata 1–65536 B, gövde 0–262144 B</td></tr>
-    <tr><td>Süre sınırları</td><td>bağlantı 5 sn, HELLO 5 sn, çerçeve tamamlama 30 sn, control isteği 15 sn (istemci varsayılanı)</td></tr>
-    <tr><td>Canlı tutma</td><td>20 sn boşta PING, 10 sn içinde PONG, sunucu boşta 90 sn</td></tr>
-    <tr><td>Eşzamanlılık</td><td>1–16 istek, 8 abonelik, host varsayılanı 128 bağlantı, arka uç başına 16 eşzamanlı çağrı ve 64'lük kuyruk</td></tr>
-    <tr><td>Registry</td><td>host heartbeat 30 sn, kira 90 sn, isim önbelleği 60 sn (bayat kullanım 24 saate kadar)</td></tr>
-    <tr><td>Olaylar</td><td>pencere 16, konu başına ≥ 10000 saklama, ACK durması 30 sn</td></tr>
-  </table>
-  <p>Daha fazlası: <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/PROTOCOL.md">tam şartname</a> ve <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/docs/ARCHITECTURE.md">mimari notları</a> (İngilizce).</p>
+  <h3 id="protocol-yerel-arka-uc-ipc-si">Yerel arka uç IPC'si</h3>
+  <p>Host her arka uçla rastgele bir loopback portu üzerinden, aynı çerçeve biçimi ve <code>IPC_*</code> mesaj tipleriyle konuşur (ağ portunda reddedilir). Host arka ucun stdin'ine tek bir JSON nesnesi yazar (token, port, topluluk kimliği, uygulama kimliği, veri klasörü); arka uç bağlanır ve <code>IPC_HELLO {token, app_id}</code> gönderir, host <code>IPC_READY</code> yanıtlar. Ondan sonra istekleri <em>host</em> gönderir: <code>IPC_CALL</code> (bir <code>APP_CALL</code> artı host'un verdiği <code>principal_id</code>), <code>IPC_SUBSCRIBE</code> ve onaylar. İstek gövdesindeki bir <code>principal_id</code> host'un değerini asla ezemez.</p>
+
+  <h3 id="protocol-sinirlar-bir-bakista">Sınırlar bir bakışta</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Sınır</th><th>Değer</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Sınır">Çerçeve</td><td data-label="Değer">metadata 1–65536 B, gövde 0–262144 B</td></tr>
+    <tr><td data-label="Sınır">Süre sınırları</td><td data-label="Değer">bağlantı 5 sn, HELLO 5 sn, çerçeve tamamlama 30 sn, control isteği 15 sn (istemci varsayılanı)</td></tr>
+    <tr><td data-label="Sınır">Canlı tutma</td><td data-label="Değer">20 sn boşta PING, 10 sn içinde PONG, sunucu boşta 90 sn</td></tr>
+    <tr><td data-label="Sınır">Eşzamanlılık</td><td data-label="Değer">1–16 istek, 8 abonelik, host varsayılanı 128 bağlantı, arka uç başına 16 eşzamanlı çağrı ve 64'lük kuyruk</td></tr>
+    <tr><td data-label="Sınır">Registry</td><td data-label="Değer">host heartbeat 30 sn, kira 90 sn, isim önbelleği 60 sn (bayat kullanım 24 saate kadar)</td></tr>
+    <tr><td data-label="Sınır">Olaylar</td><td data-label="Değer">pencere 16, konu başına ≥ 10000 saklama, ACK durması 30 sn</td></tr>
+    </tbody>
+  </table></div>
+  <p>Tam şartname <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/PROTOCOL.md">PROTOCOL.md</a>; kodun düzeni <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/docs/ARCHITECTURE.md">ARCHITECTURE</a> belgesinde (ikisi de İngilizce).</p>
 </section>
 
 <section id="cli">
   <h2><code>ilmek</code> komutu</h2>
   <p><code>cargo build -p ilmek-cli</code> ile derleyin (ikili: <code>target/debug/ilmek</code>). Tüm seçenekler için <code>ilmek --help</code> ve <code>ilmek &lt;komut&gt; --help</code>. Cihaz gerektiren komutlar ilk kullanımda topluluğa kendiliğinden katılır.</p>
-  <table>
-    <tr><th>Komut</th><th>Ne yapar</th></tr>
-    <tr><td><code>ilmek node [--home DIR] [--registry-port N] [--host-port N] [--discovery-port N] [--local-only]</code></td><td>Tek süreçte registry + uygulama sunucusu + beacon. İlk çalıştırma topluluğu ve <code>registry.toml</code> / <code>host.toml</code> dosyalarını oluşturur. <code>--local-only</code> yalnızca 127.0.0.1'i dinler</td></tr>
-    <tr><td><code>ilmek host start [--registry IP:PORT] [--port N] [--home DIR]</code></td><td>Node'u bulup katılan ve kendini kaydeden ek bir uygulama sunucusu</td></tr>
-    <tr><td><code>ilmek registry serve --config FILE</code> / <code>ilmek host serve --config FILE</code></td><td>Yalnızca registry veya bir ayar dosyasından host çalıştırır (örnekler <code>configs/</code> içinde)</td></tr>
-    <tr><td><code>ilmek join [--registry IP:PORT]</code></td><td>Açıkça katıl</td></tr>
-    <tr><td><code>ilmek whoami</code></td><td>Bu cihazın kimliği ve registry'si</td></tr>
-    <tr><td><code>ilmek app init --namespace NS --slug NAME DIR</code></td><td>Proje iskeleti oluşturur (<code>app.toml</code>, <code>assets/index.html</code>)</td></tr>
-    <tr><td><code>ilmek app pack SOURCE --out DIR</code></td><td>Deterministik paket üretir; güvensiz yolları ve var olan çıktıyı reddeder</td></tr>
-    <tr><td><code>ilmek app install | update PACKAGE</code></td><td>Paketi doğrulayıp kurar ya da daha yeni sürüme günceller (aşamalı, atomik)</td></tr>
-    <tr><td><code>ilmek app set-backend NS/APP --exe PATH [--arg A]… [--accept-version V]…</code></td><td>Arka uç çalıştırılabilirini seçer (host üzerinde yönetici kararı)</td></tr>
-    <tr><td><code>ilmek app start | stop | restart NS/APP</code></td><td>Bir uygulamanın arka ucunu yönetir</td></tr>
-    <tr><td><code>ilmek app list</code></td><td>Uygulama başına durum, PID, yeniden başlatma, bellek, veri boyutu</td></tr>
-    <tr><td><code>ilmek app publish | unpublish NS/APP</code></td><td>Uygulamayı registry'ye kaydeder/günceller ya da katalogdan çeker</td></tr>
-    <tr><td><code>ilmek app rollback NS/APP --version V</code></td><td>Kurulu eski bir sürüme döner</td></tr>
-    <tr><td><code>ilmek app remove NS/APP [--purge-data]</code></td><td>Host'tan kaldırır; <code>--purge-data</code> verilmedikçe veri korunur</td></tr>
-    <tr><td><code>ilmek resolve ilmek://NS/APP</code></td><td>Registry'nin bir isim hakkında söylediği</td></tr>
-    <tr><td><code>ilmek fetch ilmek://NS/APP [--cache DIR] [--quota-mib N]</code></td><td>Paketi indirip doğrular, önbelleğe koyar</td></tr>
-    <tr><td><code>ilmek call ilmek://NS/APP METHOD [--body JSON] [--write]</code></td><td>Arka uç metodunu çağırır; <code>--write</code> yeniden denemelerde korunan işlem kimliği ekler</td></tr>
-    <tr><td><code>ilmek diagnose ilmek://NS/APP</code></td><td>Adım adım denetim: cihaz → registry → isim → host → paket</td></tr>
-    <tr><td><code>ilmek backup registry | host --out DIR</code><br><code>ilmek backup verify --dir DIR</code><br><code>ilmek backup restore-registry | restore-host --from DIR</code></td><td>Çalışırken yedek (SQLite backup API, dosya özetleri), doğrulama ve yeni ya da boş klasöre geri yükleme</td></tr>
-  </table>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Komut</th><th>Ne yapar</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Komut"><code>ilmek node [--home DIR] [--registry-port N] [--host-port N] [--discovery-port N] [--local-only]</code></td><td data-label="Ne yapar">Tek süreçte registry + uygulama sunucusu + beacon. İlk çalıştırma topluluğu ve <code>registry.toml</code> / <code>host.toml</code> dosyalarını oluşturur. <code>--local-only</code> yalnızca 127.0.0.1'i dinler</td></tr>
+    <tr><td data-label="Komut"><code>ilmek host start [--registry IP:PORT] [--port N] [--home DIR]</code></td><td data-label="Ne yapar">Node'u bulup katılan ve kendini kaydeden ek bir uygulama sunucusu</td></tr>
+    <tr><td data-label="Komut"><code>ilmek registry serve --config FILE</code> / <code>ilmek host serve --config FILE</code></td><td data-label="Ne yapar">Yalnızca registry veya bir ayar dosyasından host çalıştırır (örnekler <code>configs/</code> içinde)</td></tr>
+    <tr><td data-label="Komut"><code>ilmek join [--registry IP:PORT]</code></td><td data-label="Ne yapar">Açıkça katıl</td></tr>
+    <tr><td data-label="Komut"><code>ilmek whoami</code></td><td data-label="Ne yapar">Bu cihazın kimliği ve registry'si</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app init --namespace NS --slug NAME DIR</code></td><td data-label="Ne yapar">Proje iskeleti oluşturur (<code>app.toml</code>, <code>assets/index.html</code>)</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app pack SOURCE --out DIR</code></td><td data-label="Ne yapar">Deterministik paket üretir; güvensiz yolları ve var olan çıktıyı reddeder</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app install | update PACKAGE</code></td><td data-label="Ne yapar">Paketi doğrulayıp kurar ya da daha yeni sürüme günceller (aşamalı, atomik)</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app set-backend NS/APP --exe PATH [--arg A]… [--accept-version V]…</code></td><td data-label="Ne yapar">Arka uç çalıştırılabilirini seçer (host üzerinde yönetici kararı)</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app start | stop | restart NS/APP</code></td><td data-label="Ne yapar">Bir uygulamanın arka ucunu yönetir</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app list</code></td><td data-label="Ne yapar">Uygulama başına durum, PID, yeniden başlatma, bellek, veri boyutu</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app publish | unpublish NS/APP</code></td><td data-label="Ne yapar">Uygulamayı registry'ye kaydeder/günceller ya da katalogdan çeker</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app rollback NS/APP --version V</code></td><td data-label="Ne yapar">Kurulu eski bir sürüme döner</td></tr>
+    <tr><td data-label="Komut"><code>ilmek app remove NS/APP [--purge-data]</code></td><td data-label="Ne yapar">Host'tan kaldırır; <code>--purge-data</code> verilmedikçe veri korunur</td></tr>
+    <tr><td data-label="Komut"><code>ilmek resolve ilmek://NS/APP</code></td><td data-label="Ne yapar">Registry'nin bir isim hakkında söylediği</td></tr>
+    <tr><td data-label="Komut"><code>ilmek fetch ilmek://NS/APP [--cache DIR] [--quota-mib N]</code></td><td data-label="Ne yapar">Paketi indirip doğrular, önbelleğe koyar</td></tr>
+    <tr><td data-label="Komut"><code>ilmek call ilmek://NS/APP METHOD [--body JSON] [--write]</code></td><td data-label="Ne yapar">Arka uç metodunu çağırır; <code>--write</code> yeniden denemelerde korunan işlem kimliği ekler</td></tr>
+    <tr><td data-label="Komut"><code>ilmek diagnose ilmek://NS/APP</code></td><td data-label="Ne yapar">Adım adım denetim: cihaz → registry → isim → host → paket</td></tr>
+    <tr><td data-label="Komut"><code>ilmek backup registry | host --out DIR</code>, <code>ilmek backup verify --dir DIR</code>, <code>ilmek backup restore-registry | restore-host --from DIR</code></td><td data-label="Ne yapar">Çalışırken yedek (SQLite backup API, dosya özetleri), doğrulama ve yeni ya da boş klasöre geri yükleme</td></tr>
+    </tbody>
+  </table></div>
   <p>Ortam değişkenleri: <code>ILMEK_HOME</code> (veri klasörü), <code>ILMEK_DISCOVERY_PORT</code> ve <code>ILMEK_REGISTRY_PORT</code> (portları değiştirmiş bir ağdaki cihazlar için).</p>
 </section>
 
 <section id="apps">
   <h2>Uygulama yazın</h2>
   <p>Uygulama; statik dosyalardan (HTML, CSS, JavaScript, görseller, yazı tipleri) ve isteğe bağlı olarak host'un onun için çalıştırdığı bir arka uç programından oluşan bir pakettir. Sayfa arka ucuyla yalnızca <code>window.ilmek</code> üzerinden konuşur.</p>
+  <figure class="fig"><p class="ft">Kaynaktan çalışan uygulamaya</p><ol class="flow"><li class="" data-arrow="app pack"><b>Proje</b><span><code>app.toml</code> + <code>assets/</code></span></li><li class="" data-arrow="app install"><b>Paket</b><span><code>manifest.json</code> + dosyalar, her biri için SHA-256</span></li><li class="" data-arrow="set-backend · start"><b>Kurulu</b><span>host'ta doğrulandı ve etkinleştirildi, durdurulmuş</span></li><li class="" data-arrow="app publish"><b>Çalışıyor</b><span>arka uç ayakta (varsa)</span></li><li class="blue" data-arrow="istemciler RESOLVE eder"><b>Yayında</b><span>registry kaydı: isim → sürüm, manifest_hash, host</span></li><li class="green"><b>Açıldı</b><span><code>ilmek://namespace/slug</code></span></li></ol><figcaption>Güncelleme: <code>version</code>’ı artırın, pack, <code>app update</code>, <code>app publish</code>. Geri alma: <code>app rollback --version</code>.</figcaption></figure>
 
-  <h3>1. Statik uygulama</h3>
+  <h3 id="apps-1-statik-uygulama">1. Statik uygulama</h3>
 <pre><code>ilmek app init --namespace nuri --slug merhaba ./merhaba</code></pre>
   <p><code>merhaba/app.toml</code> ve <code>merhaba/assets/index.html</code> oluşturur:</p>
 <pre><code>app_id = "&lt;app init'in ürettiği UUIDv7; asla değiştirmeyin&gt;"
@@ -300,7 +444,7 @@ ilmek app publish nuri/merhaba
 # sonra bir istemcide ilmek://nuri/merhaba adresini açın</code></pre>
   <p>Bir ad alanına ilk yayınlayan cihaz sahip olur; başka bir cihaz <code>FORBIDDEN</code> ile reddedilir (kural kazaları önler, saldırıları değil — cihazlar doğrulanmaz).</p>
 
-  <h3>2. Sayfa tarafı: <code>IlmekAppSDK</code></h3>
+  <h3 id="apps-2-sayfa-tarafi-ilmekappsdk">2. Sayfa tarafı: IlmekAppSDK</h3>
   <p>İstemci SDK'yı betiğiniz çalışmadan önce <code>window.ilmek</code> olarak enjekte eder; paketlemezsiniz. <code>@ilmek/sdk</code> npm paketi (<code>packages/sdk-js</code>) TypeScript tiplerini ve bir test aktarımı sağlar.</p>
 <pre><code>interface IlmekAppSDK {
   app: { id: string; version: string; path: string }
@@ -317,7 +461,7 @@ ilmek app publish nuri/merhaba
     <li>Sınırlar: çağrı girdisi 200000 byte, zaman aşımı 1–60 sn, depolama değeri 256 KiB ve uygulama başına 5 MiB. Sayfa host, adres veya uygulama seçemez.</li>
   </ul>
 
-  <h3>3. Rust ile arka uç</h3>
+  <h3 id="apps-3-rust-ile-arka-uc">3. Rust ile arka uç</h3>
   <p>Arka uç, <code>ilmek_app_sdk::Backend</code>'i uygular: <code>(metot, Read | Write)</code> tablosu ve tam istek byte'larını ile host'un verdiği cihaz kimliğini alan bir <code>call</code> fonksiyonu. Listede olmayan metotlar <code>NOT_FOUND</code> döner. Bu iskelet derlenir ve gerçek bir node'a karşı çalıştırıldı (crate'ler crates.io'da yayınlı değil; yol veya git ile bağımlı olun; tam örnekler <code>examples/notes/backend</code> ve <code>examples/forum/backend</code>):</p>
 <pre><code>use ilmek_app_sdk::{AppError, Backend, CallContext, MethodKind, Runtime};
 use ilmek_store::Migration;
@@ -358,19 +502,21 @@ ilmek call ilmek://demo/hello hello.say
   <p><code>run</code>, ayarını stdin'den okur, ileriye dönük göçlerinizle <code>&lt;data_dir&gt;/app.db</code> (SQLite) dosyasını açar, loopback üzerinden host'a bağlanır ve çağrıları karşılar. Yazma işleyicisinde <code>runtime.operations.write(context, |tx, events| …)</code> kullanın: değişiklik, tekrar önleme kaydı ve olaylar tek işlemde işlenir; aynı işlem kimliğiyle yeniden deneme özgün sonucu döndürür. Yazarı istek gövdesinden değil <code>context.principal_id</code>'den alın; girdiyi doğrulayın (<code>deny_unknown_fields</code>, uzunluk sınırları). Ayrıntı: <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/docs/BACKEND_IPC.md">BACKEND_IPC</a> (İngilizce).</p>
   <p>Paket yalnızca sayfayı taşır. Arka uç çalıştırılabilirini host'ta <code>ilmek app set-backend</code> ile seçersiniz — yalnızca yayınlamak bir host'a yeni kod çalıştırtmaz.</p>
 
-  <h3>4. Java (Spring Boot) arka uç ve Angular ön yüz</h3>
+  <h3 id="apps-4-java-spring-boot-arka-uc-ve-angular-on-yuz">4. Java (Spring Boot) arka uç ve Angular ön yüz</h3>
   <p>Depo bir Spring Boot starter'ı ve bir Angular <code>HttpClient</code> interceptor'ı içerir. İki biçim gösterilir: <code>examples/tasks</code> (<code>@IlmekMethod</code> ile işaretli metotlar) ve <code>examples/rest-notes</code> (sıradan <code>@RestController</code> ve <code>HttpClient</code> kodunun bir web adaptörü üzerinden değişmeden çalışması). Desteklenen: Java 17, 21, 25; Spring Boot 3.5.x ve 4.1.x; Angular 22.2.4 (21.2 derlenir). Kılavuz, sürüm tablosu ve sınırlamalar: <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/docs/JAVA_ANGULAR.md">JAVA_ANGULAR</a> (İngilizce). İçerik politikasından gelen ön yüz kuralları: service worker yok, dış URL yok, satır içi stil veya betik yok.</p>
 </section>
 
 <section id="deploy">
   <h2>Yayına alın, güncelleyin, işletin</h2>
   <p>Bir uygulamayı “yayına almak”, paketini bir host'a kurmak ve adını yayınlamak demektir. Komutlar node'un host'u ve ek host için aynıdır; host'un verisini tutan makinede (aynı <code>ILMEK_HOME</code>) çalıştırılır.</p>
+  <figure class="fig"><p class="ft">Uygulama yayınlamak</p><div class="seq" style="--n:2"><div class="lane">Host makinesi<small>ilmek app …</small></div><div class="lane">Registry</div><div class="m self" style="grid-column:1/3"><i style="color:inherit"><b>app pack</b> → her dosya için boyut + SHA-256 içeren manifest.json</i></div><div class="m self" style="grid-column:1/3"><i style="color:inherit"><b>app install</b> → doğrula, sonra atomik etkinleştir (durdurulmuş)</i></div><div class="m self" style="grid-column:1/3"><i style="color:inherit"><b>app set-backend</b> + <b>app start</b> → arka uç çalışıyor</i></div><div class="m r req" style="grid-column:1/3;--span:2"><b>REGISTER_APP</b><i>operation_id, namespace, slug, app_id, version, manifest_hash, server_id</i></div><div class="m l resp" style="grid-column:1/3;--span:2"><b>APP_REGISTERED</b><i>istemcilerin RESOLVE edeceği kayıt</i></div><div class="note ">Bir ad alanını ilk kaydeden cihaz sahip olur; diğerleri <code>FORBIDDEN</code> alır. Sonraki sürüm <code>UPDATE_APP</code> kullanır; sürüm yalnızca ileri gider.</div></div><div class="legend"><span>istek</span><span class="d">yanıt / itme</span></div><figcaption>Install ve set-backend host makinesinde yerel yönetici işlemleridir, ağ mesajı değildir. Registry ile yalnızca son adım konuşur.</figcaption></figure>
 <pre><code>ilmek app pack ./app --out ./pkg
 ilmek app install ./pkg
 ilmek app set-backend ns/app --exe /opt/ilmek/bin/my-backend   # backend_required ise
 ilmek app start   ns/app
 ilmek app publish ns/app</code></pre>
-  <h3>Güncelleme, geri alma, kaldırma</h3>
+
+  <h3 id="deploy-guncelleme-geri-alma-kaldirma">Güncelleme, geri alma, kaldırma</h3>
 <pre><code>ilmek app pack ./app --out ./pkg-1.1.0      # önce app.toml'da version'ı artırın
 ilmek app update   ./pkg-1.1.0
 ilmek app publish  ns/app                    # registry kaydını tazeler
@@ -378,9 +524,16 @@ ilmek app rollback ns/app --version 1.0.0
 ilmek app remove   ns/app [--purge-data]
 ilmek app unpublish ns/app</code></pre>
   <p>Güncelleme sürümü artırmalı ve uygulama kimliğini korumalıdır. Aşamalı yapılır, doğrulanır ve atomik olarak değiştirilir; başarısız veya kurcalanmış güncelleme etkin sürümü bozmaz. Host, farklı sürümde bir arka ucu başlatmadan önce <code>app.db</code> yedeğini alır. Eski bir çalıştırılabilire dönmek otomatik olarak eski veritabanı şemasına dönmek <em>değildir</em> — uygulamanız daha yeni veriyi okuyup okuyamadığını belgelemelidir. Registry bir sürümü asla geriye almaz.</p>
-  <h3>Çok uygulama, çok host</h3>
+
+  <h3 id="deploy-cok-uygulama-cok-host">Çok uygulama, çok host</h3>
   <p>Her uygulamanın kendi <code>app_id</code>'si, veri klasörü, günlükleri, arka uç süreci ve istenen durumu vardır. Çöken arka uç artan beklemeyle yeniden başlatılır, tekrarlayan başarısızlıktan sonra siz <code>ilmek app restart</code> çalıştırana dek bırakılır; diğer uygulamalar çalışmaya devam eder. Sabit bir uygulama sınırı yoktur; kapasite makinenin kaldırabildiğidir. Uygulama başına eşzamanlılık ve kuyruk derinliği ayarlanabilir (<code>host.toml</code> içinde <code>app_max_inflight</code>, <code>app_queue_depth</code>). <code>ilmek host start</code> çalıştıran başka bir makine node'dan bağımsız olarak kendi uygulamalarını sunar.</p>
-  <h3>Servis olarak çalıştırma, yedek, yükseltme</h3>
+  <figure class="fig"><p class="ft">Bir arka ucun host üzerindeki yaşamı</p>
+<div class="chips"><span class="chip">kurulu, durdurulmuş</span><span class="ar">app start →</span><span class="chip ok">running</span><span class="ar">çökme →</span><span class="chip warn">gecikmeyle yeniden başlatma</span><span class="ar">çalışır →</span><span class="chip ok">running</span></div>
+<div class="chips"><span class="chip warn">gecikmeyle yeniden başlatma</span><span class="ar">başarısız kalır →</span><span class="chip bad">bırakıldı</span><span class="ar">app restart →</span><span class="chip ok">running</span></div>
+<div class="chips"><span class="chip ok">running</span><span class="ar">app stop →</span><span class="chip">durduruldu</span></div>
+<figcaption>Gecikme <code>restart_backoff_ms</code> ile başlar ve 30 sn’ye kadar ikiye katlanır. Bir arka uç kapalıyken ona yapılan çağrılar <code>APP_UNAVAILABLE</code> ile başarısız olur; diğer tüm uygulamalar çalışmaya devam eder.</figcaption></figure>
+
+  <h3 id="deploy-servis-olarak-calistirma-yedek-yukseltme">Servis olarak çalıştırma, yedek, yükseltme</h3>
   <ul>
     <li><strong>systemd:</strong> node ve ek host birimleri <code>deploy/systemd/</code> içindedir (kullanıcı <code>ilmek</code>, <code>ILMEK_HOME=/var/lib/ilmek</code>). Yazıldı ama hiç servis olarak başlatılmadı; önce bir deneme makinesinde sınayın. Arka uç çalıştırılabilirleri <code>ilmek</code> kullanıcısınca okunabilir olmalı ve <code>/home</code> dışında olmalı.</li>
     <li><strong>Yedek:</strong> <code>ilmek backup host --out /backup/host-TARIH</code> host çalışırken de çalışır; geri yükleme yalnızca yeni veya boş klasöre yapılır; güvenmeden önce bir yedeği en az bir kez geri yükleyin. Betikli deneme <code>scripts/smoke/backup-restore.sh</code> geçer.</li>
@@ -392,28 +545,36 @@ ilmek app unpublish ns/app</code></pre>
 
 <section id="status">
   <h2>Güvenlik ve proje durumu</h2>
-  <h3>Neyin korunduğu, neyin korunmadığı</h3>
-  <table>
-    <tr><th>Bu sürümde olmayan</th><th>Sonuç</th></tr>
-    <tr><td>Şifreleme</td><td>Ağ yolundaki herkes tüm trafiği okuyabilir ve değiştirebilir</td></tr>
-    <tr><td>Kimlik doğrulama</td><td>Cihaz kimliğini bildirir; herkes istediği kimliği iddia edebilir</td></tr>
-    <tr><td>Yetkilendirme</td><td>Node'a ulaşan her cihaz katılabilir, her uygulamayı çağırabilir, host kaydedebilir ve yayınlayabilir</td></tr>
-    <tr><td>Paket imzaları</td><td>SHA-256 bozulmayı yakalar, kötü niyetli host'u değil</td></tr>
-    <tr><td>Keşif doğrulaması</td><td>UDP probe'a ilk yanıt veren makine node sayılır</td></tr>
-  </table>
+  <h3 id="status-neyin-korundugu-neyin-korunmadigi">Neyin korunduğu, neyin korunmadığı</h3>
+  <figure class="fig"><p class="ft">Bir çağrının güven sınırları</p><ol class="flow h"><li class="acc" data-arrow="yalnızca postMessage"><b>Sayfa (HTML/JS)</b><span><b>Güvenilmez.</b> Sandbox'lı iframe, opak origin, kendi ağı yok</span></li><li class="" data-arrow="TCP üzerinden ILMEK/1"><b>İstemci kabuğu</b><span>Yalnızca kendi çerçevelerinin mesajlarını iletir; köprüde host, adres veya dosya yolu alanı yoktur</span></li><li class="" data-arrow="loopback + süreç başına token"><b>Host</b><span>Oturumu, uygulamayı, izni ve gövde özetini denetler; <code>principal_id</code> ekler</span></li><li class="green"><b>Arka uç</b><span>Yönetici tarafından seçilen <b>güvenilir</b> yerel süreç; SQLite verisinin sahibi. Ayrı süreç sandbox değildir</span></li></ol>
+<figcaption>Bu sürümde istemci ile host arasındaki ağ bağlantısı düz TCP’dir: yoldaki herkes okuyabilir veya değiştirebilir.</figcaption></figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Bu sürümde olmayan</th><th>Sonuç</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Bu sürümde olmayan">Şifreleme</td><td data-label="Sonuç">Ağ yolundaki herkes tüm trafiği okuyabilir ve değiştirebilir</td></tr>
+    <tr><td data-label="Bu sürümde olmayan">Kimlik doğrulama</td><td data-label="Sonuç">Cihaz kimliğini bildirir; herkes istediği kimliği iddia edebilir</td></tr>
+    <tr><td data-label="Bu sürümde olmayan">Yetkilendirme</td><td data-label="Sonuç">Node'a ulaşan her cihaz katılabilir, her uygulamayı çağırabilir, host kaydedebilir ve yayınlayabilir</td></tr>
+    <tr><td data-label="Bu sürümde olmayan">Paket imzaları</td><td data-label="Sonuç">SHA-256 bozulmayı yakalar, kötü niyetli host'u değil</td></tr>
+    <tr><td data-label="Bu sürümde olmayan">Keşif doğrulaması</td><td data-label="Sonuç">UDP probe'a ilk yanıt veren makine node sayılır</td></tr>
+    </tbody>
+  </table></div>
   <p>Yine de koruyanlar: her paket dosyası etkinleşmeden önce boyut ve SHA-256 ile denetlenir; güvensiz paket yolları reddedilir; paket kurmak ve arka uç çalıştırılabilirini seçmek ağ işlemi değil, yerel yönetici işlemidir; indirilen HTML/JS sıkı bir içerik politikasıyla yalıtılmış iframe'de çalışır (kendi ağı yok, yalnızca SDK köprüsü); çerçeve, kuyruk, bağlantı ve zaman aşımı sınırları geçerlidir. Uygulama arka uçları güvenilir yerel süreçlerdir — ayrı süreç sandbox değildir. Bir node'u açmadan önce <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/docs/SECURITY.md">SECURITY</a> (İngilizce) belgesini okuyun.</p>
-  <h3>Ne test edildi?</h3>
-  <table>
-    <tr><th>Alan</th><th>Durum</th></tr>
-    <tr><td>Rust çalışma alanı testleri (187), JS, Java ve Angular testleri</td><td><span class="status ok">geçti</span> Linux x86_64</td></tr>
-    <tr><td>Node, host, arka uçlar ve istemciler <code>127.0.0.1</code> üzerinde ayrı süreçler olarak; UDP keşif ve otomatik katılma dahil</td><td><span class="status ok">geçti</span></td></tr>
-    <tr><td>Canlı verinin yedeği ve geri yüklenmesi; çökme ve yeniden başlatmalı çok uygulamalı host</td><td><span class="status ok">geçti</span></td></tr>
-    <tr><td>İkinci gerçek bilgisayar, gerçek ağda UDP yayın keşfi</td><td><span class="status no">çalıştırılmadı</span></td></tr>
-    <tr><td>macOS, Windows, Android</td><td><span class="status no">çalıştırılmadı</span></td></tr>
-    <tr><td>systemd birimleri servis olarak; Java/Angular örneklerinin node'a kurulumu</td><td><span class="status no">çalıştırılmadı</span></td></tr>
-  </table>
+
+  <h3 id="status-ne-test-edildi">Ne test edildi?</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Alan</th><th>Durum</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Alan">Rust çalışma alanı testleri (187), JS, Java ve Angular testleri</td><td data-label="Durum"><span class="status ok">geçti</span> Linux x86_64</td></tr>
+    <tr><td data-label="Alan">Node, host, arka uçlar ve istemciler <code>127.0.0.1</code> üzerinde ayrı süreçler olarak; UDP keşif ve otomatik katılma dahil</td><td data-label="Durum"><span class="status ok">geçti</span></td></tr>
+    <tr><td data-label="Alan">Canlı verinin yedeği ve geri yüklenmesi; çökme ve yeniden başlatmalı çok uygulamalı host</td><td data-label="Durum"><span class="status ok">geçti</span></td></tr>
+    <tr><td data-label="Alan">İkinci gerçek bilgisayar, gerçek ağda UDP yayın keşfi</td><td data-label="Durum"><span class="status no">çalıştırılmadı</span></td></tr>
+    <tr><td data-label="Alan">macOS, Windows, Android</td><td data-label="Durum"><span class="status no">çalıştırılmadı</span></td></tr>
+    <tr><td data-label="Alan">systemd birimleri servis olarak; Java/Angular örneklerinin node'a kurulumu</td><td data-label="Durum"><span class="status no">çalıştırılmadı</span></td></tr>
+    </tbody>
+  </table></div>
   <p>Ayrıntı ve tam tablo: <a href="https://github.com/nuricanozturk/project-ilmek/blob/HEAD/docs/TEST_REPORT.md">TEST_REPORT</a> (İngilizce).</p>
-  <h3>Bilinen sınırlar</h3>
+
+  <h3 id="status-bilinen-sinirlar">Bilinen sınırlar</h3>
   <ul>
     <li>Yayınla keşif tek alt ağın içinde kalır; aksi hâlde node'un adresini verin.</li>
     <li>Yalnızca IPv4. Topluluk başına tek registry, yedeği yok.</li>
@@ -421,11 +582,28 @@ ilmek app unpublish ns/app</code></pre>
   </ul>
 </section>
 
-</main>
-<footer>
-  İlmek · MIT OR Apache-2.0 ·
-  <a href="https://github.com/nuricanozturk/project-ilmek">GitHub'da kaynak</a> ·
-  <a href="../">English</a>
-</footer>
+</div></main>
+</div>
+<footer>İlmek · MIT OR Apache-2.0 · <a href="https://github.com/nuricanozturk01/project-ilmek">GitHub'da kaynak</a> · <a href="../">English</a></footer>
+<script>
+(function(){
+  var q=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};
+  q('pre').forEach(function(p){var b=document.createElement('button');b.className='copy';b.type='button';b.textContent='copy';
+    b.addEventListener('click',function(){var t=p.querySelector('code').innerText;
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent='ok';setTimeout(function(){b.textContent='copy'},1200)},function(){});});
+    p.appendChild(b);});
+  var m=document.querySelector('.menu');
+  if(m){q('a',m).forEach(function(a){a.addEventListener('click',function(){m.removeAttribute('open')})});}
+  if(!('IntersectionObserver' in window))return;
+  var links={};q('.side a').forEach(function(a){links[a.getAttribute('href').slice(1)]=a});
+  var cur=null;
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){
+      if(cur)cur.classList.remove('on');cur=links[e.target.id]||null;if(cur){cur.classList.add('on');
+        var s=cur.closest('.side');if(s){var r=cur.getBoundingClientRect(),sr=s.getBoundingClientRect();
+          if(r.top<sr.top+40||r.bottom>sr.bottom-40)s.scrollTop+=r.top-sr.top-sr.height/2;}}}})},
+    {rootMargin:'-20% 0px -70% 0px'});
+  q('section[id], h3[id]').forEach(function(e){io.observe(e)});
+})();
+</script>
 </body>
 </html>
