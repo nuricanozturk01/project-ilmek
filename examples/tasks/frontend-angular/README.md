@@ -1,51 +1,45 @@
 # Tasks frontend (Angular)
 
-Angular frontend for the `examples/tasks` backend, a single `App` component. It shows a "Todo" list with a remaining count, adds tasks (trimmed, max 200 characters, empty input ignored), toggles completion, edits titles inline (Enter saves, Escape cancels), deletes tasks, clears completed tasks, and filters All / Active / Completed on the client. Every write reloads the list, and `tasks.events` also triggers a reload. It uses only two methods of `window.ilmek`: `call` (for `tasks.list`, `tasks.create`, `tasks.complete`, `tasks.update`, `tasks.delete`, `tasks.clear_completed`; writes pass `{ write: true }`) and `subscribe` (for `tasks.events`).
+Angular frontend of the `examples/tasks` todo example: a single `App` component with a remaining
+count, add (trimmed, at most 200 characters), toggle, inline edit (Enter saves, Escape cancels),
+delete, clear completed and an All / Active / Completed filter. Every write reloads the list and
+`tasks.events` also triggers a reload. It uses only `window.ilmek.call` (writes pass `{ write: true }`)
+and `window.ilmek.subscribe`. Overview and publishing steps: [JAVA_ANGULAR](../../../docs/JAVA_ANGULAR.md).
 
 ## Constraints
 
-- **No service worker.** `@angular/service-worker` and PWA schematics are not used. The app runs only inside the İlmek native runtime.
-- **No external URLs.** `index.html`, styles, and scripts reference only local files. No CDN fonts, remote scripts, or remote stylesheets.
-- **Inline CSS and scripts are off.** The İlmek shell CSP blocks inline `<style>` and inline `<script>`. The production build therefore sets `optimization.styles.inlineCritical` to `false` (and `fonts` to `false`), so `index.html` contains only external `<link>` and `<script src>` tags.
-- **Encapsulation risk (unverified).** The component uses Angular's default `ViewEncapsulation.Emulated`. Angular may still inject component styles as `<style>` elements at runtime, which the shell CSP could block. This is the one unverified risk; Task 13 tests it in the real client. If it fails, switch to `ViewEncapsulation.None` with the global `src/styles.css`.
+- **No service worker** and no PWA schematics.
+- **No external URLs:** no CDN fonts, remote scripts or stylesheets.
+- **No inline CSS or scripts:** the content policy blocks them, so the production build sets
+  `optimization.styles.inlineCritical` and `fonts` to `false`.
+- **Unverified:** the component uses the default `ViewEncapsulation.Emulated`; Angular may inject
+  component styles as `<style>` elements at runtime, which the content policy could block. If that
+  happens, switch to `ViewEncapsulation.None` with the global `src/styles.css`.
 
-## window.ilmek contract
+## `window.ilmek`
 
-The app uses only the contract declared in `src/types/ilmek-sdk.d.ts`, a type-only copy of `IlmekAppSDK` from `packages/sdk-js/src/types.ts`. The runtime object is injected by the shell. The app never imports or bundles the SDK.
+The app uses only the contract in `src/types/ilmek-sdk.d.ts`, a type-only copy of `IlmekAppSDK`
+from `packages/sdk-js/src/types.ts`. The runtime object is injected by the client; the app never
+imports or bundles the SDK. It does not use `connection`, `storage` or `app`.
 
-The app does not use `connection`, `storage`, or `app`.
-
-## Build
+## Build and test
 
 ```sh
 npm ci
-npm run build
+npm run build     # dist/frontend-angular/browser/, consumed by scripts/packaging/pack-angular-app.sh
+npm test          # 23 tests (Vitest with jsdom, no browser); window.ilmek is mocked
 ```
 
-The build writes `dist/frontend-angular/browser/`. That directory is consumed by the packaging script.
-
-## Test
-
-```sh
-npm test
-```
-
-Tests use Angular's default unit runner for Angular 22 (Vitest with jsdom). No browser is required. The tests mock `window.ilmek` and assert the list, add, complete, event refresh, empty state, and error line.
-
-## Versions
-
-Every `@angular/*` package is pinned to an exact version in `package.json`. `package-lock.json` is committed.
+Every `@angular/*` package is pinned to an exact version in `package.json`; `package-lock.json` is
+committed.
 
 ## Verification
 
-Environment: Linux x86_64, Angular 22.2.4 build, Tauri client built from `apps/client/src-tauri` (Linux, DISPLAY :0). The backend is the real `backend-java.jar` run by the real host (see `examples/tasks/backend-java/README.md`).
+Linux x86_64, Angular 22.2.4.
 
-| Check | Status | Command | Observed |
-| --- | --- | --- | --- |
-| Angular unit tests | PASS (HEAD 3f7ac2c) | `npm test` | `Tests 23 passed (23)` |
-| Angular production build | PASS (HEAD 3f7ac2c) | `npm run build` | exit 0; `index.html` has 0 `<style>` tags and 0 inline scripts (script tags carry `src` only) |
-| Tauri client build | PASS | `cargo build -p ilmek-client-app --manifest-path src-tauri/Cargo.toml` (from `apps/client`) | `Finished` with exit 0 |
-| Client window opens | PASS | `target/debug/ilmek-client "ilmek://nuri/tasks"` | window `İlmek` present, geometry 1100x760 |
-| Todo UI renders styled (list, add, complete, live update) | BLOCKED | screenshot via `gnome-screenshot -f` after launch | captures showed only the desktop wallpaper; the İlmek window did not appear in the captures, so rendering and styling were not observed |
-
-The ViewEncapsulation (Emulated) styling question is therefore unresolved. Do not treat the styling as verified. If the GUI check can be completed and the component styles are missing, the fix is `ViewEncapsulation.None` with the global `src/styles.css`, not a CSP change.
+| Check | Status |
+| --- | --- |
+| Unit tests (list, add, complete, event refresh, empty state, error line) | PASS (23) |
+| Production build: `index.html` has 0 `<style>` tags and 0 inline scripts | PASS |
+| Desktop client window opens `ilmek://nuri/tasks` | PASS (window present) |
+| Styled rendering (list, add, complete, live update) in the client | NOT OBSERVED: the screenshot did not show the window |

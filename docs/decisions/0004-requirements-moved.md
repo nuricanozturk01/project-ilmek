@@ -15,8 +15,8 @@ references updated and no conflicting copies.
   normative product document now say `docs/REQUIREMENTS.md`. No normative behavior changed.
 - `README.md` is a new, short, operational document. Where it and REQUIREMENTS differ about
   scope, REQUIREMENTS is authoritative.
-- `DOCUMENT_CHECKS.md` and ADR 0001 describe historical states ("README" at the time) and are left
-  as written.
+- ADR 0001 describes a historical state ("README" at the time) and is left as written. The
+  document-check log `DOCUMENT_CHECKS.md` it mentions was later removed from the repository.
 
 ## Consequences
 

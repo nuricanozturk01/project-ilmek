@@ -4,19 +4,21 @@ An application is a package of static files (HTML, CSS, JavaScript, images, font
 optionally, a backend executable that the host runs for it. Static applications need no backend.
 Dynamic applications keep their data in a SQLite database owned by their backend.
 
-All commands below exist in the `ilmek` binary (`cargo build -p ilmek-cli`). The ones used in the
+All commands below exist in the `ilmek` binary (`cargo build -p ilmek-cli`; `ilmek app --help`). The ones used in the
 examples were run by `scripts/smoke/*.sh` and `scripts/quickstart.sh`; anything else is marked.
 `--config host.toml` is optional everywhere: the default is `<home>/host.toml`, the file `ilmek node`
 (or `ilmek host start`) wrote on this machine. Examples in `examples/`: `hello-html` and `announcements` (static),
-`forum` and `notes` (with backends, SQLite persistence, writes with operation IDs, events).
+`forum` and `notes` (Rust backends, SQLite persistence, writes with operation IDs, events),
+`tasks` and `rest-notes` (Spring Boot + Angular, see [JAVA_ANGULAR](JAVA_ANGULAR.md)) and
+`isolation-probe` (a hostile page used to test the sandbox).
 
 ## Quick start: add a new application
 
-1. Start a node: `ilmek node` (see [RUN_NODES_AND_CLIENTS](RUN_NODES_AND_CLIENTS.md)).
+1. Start a node: `ilmek node` (see [GETTING_STARTED](GETTING_STARTED.md)).
 2. Scaffold: `ilmek app init --namespace <ns> --slug <name> ./<name>` (creates `app.toml` and `assets/index.html`).
 3. Write the page in `assets/` (HTML/CSS/JS, or a built Angular app). Talk to the backend only through `window.ilmek`.
 4. Need a backend? Pick one:
-   - Java (Spring Boot): [starter README](../java/ilmek-spring-boot-starter/README.md), example in [EXAMPLE_TODO_APP](EXAMPLE_TODO_APP.md).
+   - Java (Spring Boot) with an Angular frontend: [JAVA_ANGULAR](JAVA_ANGULAR.md).
    - Rust: section "A dynamic application (Rust backend)" below.
 5. Package and publish: `ilmek app pack <dir> --out <pkg>`, `ilmek app install <pkg>`, `ilmek app set-backend <ns>/<name> --exe <exe>`, `ilmek app start <ns>/<name>`, `ilmek app publish <ns>/<name>`.
 6. Open `ilmek://<ns>/<name>` in the desktop client.

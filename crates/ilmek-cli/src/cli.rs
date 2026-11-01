@@ -7,11 +7,11 @@ use clap::{Args, Parser, Subcommand};
 #[command(
     name = "ilmek",
     version,
-    about = "İlmek: kendi ağınızda uygulama yayınlayın ve açın",
-    long_about = "İlmek: kendi ağınızda uygulama yayınlayın ve açın.\n\n\
-        Bir makinede `ilmek node` çalıştırın (kayıt sunucusu + uygulama sunucusu). Aynı ağdaki \
-        diğer makineler kendiliğinden bulur ve katılır; ayrıca bir şey kurmanız gerekmez.\n\n\
-        Veriler `$ILMEK_HOME` (varsayılan `~/.ilmek`) altında tutulur."
+    about = "İlmek: publish and open applications on your own network",
+    long_about = "İlmek: publish and open applications on your own network.\n\n\
+        Run `ilmek node` on one machine (registry + application host). Other machines on the \
+        same network find it and join by themselves; nothing else has to be set up.\n\n\
+        Data is kept under `$ILMEK_HOME` (default `~/.ilmek`)."
 )]
 pub(crate) struct Cli {
     #[command(subcommand)]
@@ -200,16 +200,19 @@ pub(crate) enum App {
         #[arg(long)]
         publisher_id: Option<String>,
     },
+    /// Install a package into the host (verifies manifest, sizes and hashes first).
     Install {
         #[command(flatten)]
         host: HostConfig,
         package: PathBuf,
     },
+    /// Replace an installed application with a newer package version.
     Update {
         #[command(flatten)]
         host: HostConfig,
         package: PathBuf,
     },
+    /// Switch an application back to an installed older version.
     Rollback {
         #[command(flatten)]
         host: HostConfig,
@@ -217,6 +220,7 @@ pub(crate) enum App {
         #[arg(long)]
         version: String,
     },
+    /// Remove an application from the host (its data is kept unless `--purge-data`).
     Remove {
         #[command(flatten)]
         host: HostConfig,
@@ -225,21 +229,25 @@ pub(crate) enum App {
         #[arg(long)]
         purge_data: bool,
     },
+    /// Start an application's backend.
     Start {
         #[command(flatten)]
         host: HostConfig,
         app: String,
     },
+    /// Stop an application's backend.
     Stop {
         #[command(flatten)]
         host: HostConfig,
         app: String,
     },
+    /// Restart an application's backend.
     Restart {
         #[command(flatten)]
         host: HostConfig,
         app: String,
     },
+    /// List the applications on the host with their state.
     List {
         #[command(flatten)]
         host: HostConfig,
@@ -265,6 +273,7 @@ pub(crate) enum App {
         #[command(flatten)]
         device: DeviceOpt,
     },
+    /// Remove the application from the registry catalog (installed files stay on the host).
     Unpublish {
         #[command(flatten)]
         host: HostConfig,

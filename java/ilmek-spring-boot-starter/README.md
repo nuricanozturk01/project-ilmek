@@ -88,6 +88,6 @@ cd java/ilmek-spring-boot-starter
 
 The suite includes a real loopback `ServerSocket` acting as the host for handshake, link-close exit, once-only startup, and absent or invalid configuration.
 
-## Example
+## Examples and related docs
 
-`examples/tasks/backend-java` is a complete consumer: build and run instructions are in [examples/tasks/backend-java/README.md](../../examples/tasks/backend-java/README.md).
+`examples/tasks/backend-java` is a complete consumer ([README](../../examples/tasks/backend-java/README.md)). The [web adapter](web-adapter/README.md) runs ordinary Spring MVC controllers on İlmek (`examples/rest-notes`). Overview, versions and publishing steps: [JAVA_ANGULAR](../../docs/JAVA_ANGULAR.md).

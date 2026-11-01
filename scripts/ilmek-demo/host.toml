@@ -1,3 +1,0 @@
-data_dir = '/home/nuricanozturk/Desktop/project-ilmek/scripts/ilmek-demo/host'
-device_dir = '/home/nuricanozturk/Desktop/project-ilmek/scripts/ilmek-demo/host-device'
-listen = "0.0.0.0:47402"

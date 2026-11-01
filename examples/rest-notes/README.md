@@ -36,11 +36,11 @@ ilmek app start nuri/notes-rest
 ilmek app publish nuri/notes-rest
 ```
 
-These five commands were not run against a node in this pass (a user node was running and was left alone); only the `pack` step was run. The `nuri/notes-rest` name form is taken from the CLI source (`find` in `crates/ilmek-cli/src/commands/app.rs`).
+Only the `pack` step was run; the other four commands were not run against a node.
 
 ## Standalone use
 
-Without the İlmek host the jar starts normally (stdin at EOF: it logs `No ILMEK backend configuration on standard input; backend client not started` at once; the 10 s wait applies only when stdin stays open and was not run). It does NOT serve HTTP by default, because the adapter sets `server.port=-1` (observed: `Tomcat started on port -1`, `curl localhost:8080` refused). To serve HTTP, set a port explicitly:
+Without the İlmek host the jar starts normally (with stdin at EOF it logs `No ILMEK backend configuration on standard input; backend client not started` at once). It does NOT serve HTTP by default, because the adapter sets `server.port=-1` (observed: `Tomcat started on port -1`, `curl localhost:8080` refused). To serve HTTP, set a port explicitly:
 
 ```sh
 java -jar backend-java/build/libs/rest-notes-backend.jar --server.port=8080
@@ -50,20 +50,16 @@ Run that way, `GET /api/notes` answered 200 and an invalid POST answered 400 wit
 
 ## Verification
 
-Environment: Linux x86_64, OpenJDK 25.0.4.1.1, Gradle 9.4.1, Node v24.17.0, Angular 22.2.4, `ilmek` debug binary built earlier in this checkout. Loopback only, no Wi-Fi.
+Linux x86_64, OpenJDK 25.0.4.1.1, Gradle 9.4.1, Node 24.17.0, Angular 22.2.4; loopback only.
 
-| Check | Status | Command | Observed |
-| --- | --- | --- | --- |
-| Backend tests, Boot 4.1.2 | PASS | `cd backend-java && ./gradlew test` | 11 tests, 0 failures |
-| Backend tests, Boot 3.5.16 | PASS | `cd backend-java && ./gradlew -PbootVersion=3.5.16 test` | 11 tests, 0 failures |
-| Backend jar | PASS | `./gradlew bootJar` | `build/libs/rest-notes-backend.jar` |
-| Backend sources have no İlmek code | PASS | `grep -rn "Ilmek\|IlmekMethod\|import dev.ilmek" backend-java/src/main` | no match; the SDK package appears only as a string literal in the `@AutoConfigurationPackage` line |
-| Frontend tests | PASS | `cd frontend-angular && npm test` | 11 passed (8 component with `HttpTestingController`, 3 with the real `provideIlmekHttp` and a mocked `window.ilmek`) |
-| Interceptor path | PASS | same | `GET /api/notes` became `ilmek.call("http.read", {method:"GET", path:"/api/notes"})`; POST became `http.write` with `{write:true}` |
-| Frontend production build | PASS | `npm run build` | `index.html`: 0 `<style>`, 0 inline script bodies, 0 `<base>`, 0 `http(s)://` |
-| Pack | PASS | `scripts/packaging/pack-angular-app.sh examples/rest-notes/frontend-angular examples/rest-notes <dir>` | `Packed 4 files` |
-| Real host + real jar e2e | PASS | `cargo test -p ilmek-testing --test rest_notes_e2e` | `3 passed; 0 failed` (CRUD with 201/Location/400/404/204, same-operation-id retry gives one row, jar process holds no listening TCP socket) |
-| Standalone HTTP with `--server.port` | PASS | see above | 200 and 400 observed with `curl` |
-| `install`/`set-backend`/`start`/`publish` on a node | NOT RUN | commands above | |
-| Desktop client rendering (`ilmek://nuri/notes-rest`) | NOT RUN | | |
-| Android client, Wi-Fi, two-node | NOT RUN | | |
+| Check | Status | Command / observed |
+| --- | --- | --- |
+| Backend tests, Boot 4.1.2 and 3.5.16 | PASS | `cd backend-java && ./gradlew test` and `-PbootVersion=3.5.16`: 11 tests each |
+| Backend sources contain no İlmek code | PASS | `grep -rn "Ilmek\|IlmekMethod\|import dev.ilmek" backend-java/src/main`: the SDK package appears only as a string in the `@AutoConfigurationPackage` line |
+| Frontend tests | PASS | `cd frontend-angular && npm test`: 11 (8 component tests with `HttpTestingController`, 3 with the real `provideIlmekHttp` and a mocked `window.ilmek`); `GET /api/notes` became `ilmek.call("http.read", …)`, POST became `http.write` with `{write:true}` |
+| Frontend production build | PASS | `index.html`: 0 `<style>`, 0 inline script bodies, 0 `<base>`, 0 `http(s)://` |
+| Pack | PASS | `scripts/packaging/pack-angular-app.sh …`: `Packed 4 files` |
+| Real host + real jar | PASS | `cargo test -p ilmek-testing --test rest_notes_e2e`: 3 tests (CRUD with 201/Location/400/404/204, same-operation-id retry gives one row, the jar holds no listening TCP socket) |
+| Standalone HTTP with `--server.port=8080` | PASS | `GET /api/notes` 200; invalid POST 400 with the JSON error body |
+| `install`/`set-backend`/`start`/`publish` on a node | NOT RUN | |
+| Rendering in the desktop client | NOT RUN | |

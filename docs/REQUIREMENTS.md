@@ -42,10 +42,9 @@ Bunlar proje içi kesin tanımlayıcılardır; IANA tahsisi, paket deposunda ad 
 
 | Dosya | Görevi |
 | --- | --- |
-| [README.md](README.md) | Ürün, topoloji, donanım, platformlar, uygulama hosting ve teslimat sözleşmesi |
-| [PROTOCOL.md](PROTOCOL.md) | Normatif byte formatı, tam mesaj alanları, kimlik, durum makineleri ve hata davranışları |
-| [WIRE_EXAMPLES.json](WIRE_EXAMPLES.json) | Byte uzunlukları/hex ve hash preimage'leri hesaplanmış test fixture'ları; ZIP içinde |
-| [DOCUMENT_CHECKS.md](DOCUMENT_CHECKS.md) | Doküman ve fixture doğrulamasının kapsamı; ZIP içinde |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Ürün, topoloji, donanım, platformlar, uygulama hosting ve teslimat sözleşmesi |
+| [PROTOCOL.md](../PROTOCOL.md) | Normatif byte formatı, tam mesaj alanları, kimlik, durum makineleri ve hata davranışları |
+| [WIRE_EXAMPLES.json](../WIRE_EXAMPLES.json) | Byte uzunlukları/hex ve hash preimage'leri hesaplanmış test fixture'ları; ZIP içinde |
 
 Wire ayrıntılarında PROTOCOL.md, ürün ve kurulum kapsamındaysa README esas alınır. Çelişki bulunursa iki belge birlikte düzeltilir. Bu dosyalar uygulama geliştirme görevidir; tamamlanmış ürün veya donanım test raporu değildir.
 
@@ -346,7 +345,7 @@ Bu mekanizmalar bot veya AI içeriğini otomatik engellemez. Kullanıcı erişeb
 
 ## 14. ILMEK/1: Kesin protokol özeti
 
-Tam iletişim sözleşmesi [PROTOCOL.md](PROTOCOL.md) dosyasındadır. Codex iki belgeyi birlikte uygulamalıdır; wire alanlarını kendi yorumuyla değiştirmemelidir.
+Tam iletişim sözleşmesi [PROTOCOL.md](../PROTOCOL.md) dosyasındadır. Codex iki belgeyi birlikte uygulamalıdır; wire alanlarını kendi yorumuyla değiştirmemelidir.
 
 | Karar | V1 değeri |
 | --- | --- |

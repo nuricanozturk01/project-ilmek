@@ -31,30 +31,18 @@ flowchart LR
     X -- "probe, then TCP" --> N
 ```
 
-## The first demo
+## Firewall on the node
 
-1. **Linux machine (node).** Build and run `ilmek node` ([README](../README.md)). It prints
-   `node is running: registry 0.0.0.0:47401, application host 0.0.0.0:47402`.
-2. **Find its IP** (only needed if discovery does not work): `hostname -I` or `ip -4 addr`.
-3. **Firewall on the Linux machine.** If one is active, allow the ports (examples; adapt to your
-   system, not run here):
+If a firewall is active on the node's machine, allow the ports (examples; adapt to your system,
+not run here):
 
-   ```sh
-   sudo ufw allow 47400/udp && sudo ufw allow 47401:47402/tcp        # Ubuntu / Mint
-   sudo firewall-cmd --add-port=47400/udp --add-port=47401-47402/tcp # Fedora (add --permanent)
-   ```
+```sh
+sudo ufw allow 47400/udp && sudo ufw allow 47401:47402/tcp        # Ubuntu / Mint
+sudo firewall-cmd --add-port=47400/udp --add-port=47401-47402/tcp # Fedora (add --permanent)
+```
 
-4. **Mac (client).** Install the Rust toolchain, build the CLI, join:
-
-   ```sh
-   cargo build -p ilmek-cli
-   target/debug/ilmek join                         # UDP discovery
-   target/debug/ilmek join --registry 192.168.1.10:47401   # or give the node's address
-   target/debug/ilmek resolve ilmek://nuri/forum
-   ```
-
-   No other file or code has to be copied. macOS may ask whether the program may accept incoming
-   connections only for a *node or host* running on the Mac; a client does not need that.
+A client needs no incoming ports. macOS may ask whether the program may accept incoming
+connections only for a node or host running on the Mac. First steps: [GETTING_STARTED](GETTING_STARTED.md).
 
 ## How a device finds the node, and when it cannot
 
@@ -111,5 +99,5 @@ machine its address (typically `10.42.0.1`).
 ## Not covered
 
 Several nodes that route between separate networks, mesh, and any connection to the public
-internet are not implemented. The original two-node Wi-Fi design is documented in
-[REQUIREMENTS](REQUIREMENTS.md) and implemented on `main`.
+internet are not implemented. The original two-node Wi-Fi design is specified in
+[REQUIREMENTS](REQUIREMENTS.md) (archived, Turkish) and implemented on `main`.

@@ -8,3 +8,13 @@ packages/*/dist
 apps/*/dist
 .claude/
 graphify-out/
+
+# runtime data of scripts/quickstart.sh
+ilmek-demo/
+scripts/ilmek-demo/
+
+# IDE and build output
+.idea/
+.gradle/
+build/
+.angular/

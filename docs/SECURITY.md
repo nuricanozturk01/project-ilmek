@@ -17,9 +17,11 @@ community CA and certificates, enrollment tokens, signed packages, revocation) i
 | Discovery authentication | Whoever answers the UDP probe first is taken as the node. A rogue machine on the network can impersonate it |
 | Rate limiting of joins | A device can register unlimited hosts and apps |
 
-Treat the node's machine like any machine on an open network: install nothing there that you would
-not run for a stranger, because anybody can publish an application whose backend you then run
-(`app set-backend` is an *administrator* action on the host, which limits this, see below).
+Treat the node's machine like any machine on an open network. Anyone can register an application
+in the catalog (pointing at their own host) and call any application's methods; clients run
+downloaded pages only inside the sandbox described below. Installing a package and choosing its
+backend executable are local administrator actions on the host (`ilmek app install`,
+`app set-backend`), not network operations ([Backends](#backends)).
 
 ## What does still protect you
 
@@ -33,16 +35,18 @@ not run for a stranger, because anybody can publish an application whose backend
   the manifest *and* the record.
 - **Path safety.** Package paths reject `..`, absolute paths, separators, control characters,
   Windows device names and case collisions; symlinks are refused.
-- **Backends need an administrator.** A package never carries an executable. A backend is chosen
-  on the host with `ilmek app set-backend`, so publishing alone does not make the host run new
-  code. A backend is started with its configuration on **stdin** and connects to loopback only. It
-  is a *trusted* local process running with the host's operating-system privileges: a separate
-  process is not a sandbox.
 - **Namespace ownership.** The first `client_id` to register a namespace owns it; other ids are
   refused (`FORBIDDEN`). Because `client_id` is unauthenticated this prevents mix-ups, not attacks.
 - **Bounded resources.** Frame limits, bounded queues, per-session in-flight and event windows,
   connection limits and timeouts remain (PROTOCOL.md §19).
 - **Application pages stay isolated** (below).
+
+## Backends
+
+A package never carries an executable. A backend is chosen on the host with
+`ilmek app set-backend`, so publishing alone does not make the host run new code. A backend is
+started with its configuration on **stdin** and connects to loopback only. It is a *trusted* local
+process running with the host's operating-system privileges: a separate process is not a sandbox.
 
 ## Application pages (untrusted HTML/JS)
 
@@ -52,8 +56,11 @@ no web storage, no access to the shell's DOM or commands) and is served from a c
 
 ```
 Content-Security-Policy: default-src 'none'; script-src ilmekapp: http://ilmekapp.localhost;
-  style-src …; img-src … data: blob:; font-src …; media-src …; connect-src 'none';
-  frame-src 'none'; child-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none';
+  style-src ilmekapp: http://ilmekapp.localhost;
+  img-src ilmekapp: http://ilmekapp.localhost data: blob:;
+  font-src ilmekapp: http://ilmekapp.localhost; media-src ilmekapp: http://ilmekapp.localhost;
+  connect-src 'none'; frame-src 'none'; child-src 'none'; object-src 'none';
+  form-action 'none'; base-uri 'none';
   frame-ancestors tauri://localhost http://tauri.localhost http://localhost:1420;
   sandbox allow-scripts allow-forms
 X-Content-Type-Options: nosniff   Cache-Control: no-store   Referrer-Policy: no-referrer
@@ -76,13 +83,12 @@ arbitrary destination. A package only gets the capabilities its manifest declare
 `app.subscribe`, `storage.local`. Limits: 200 000 bytes per call input, 1–60 s call timeout,
 storage values up to 256 KiB and 5 MiB per application, scoped by community, device and application.
 
-Verified in earlier work on `main` with `scripts/e2e/isolation-probe.sh` (Linux / WebKitGTK only,
-29 checks per hostile probe) for the **old one-window-per-app model**. **That script was not re-run
-and no longer matches the iframe model**; hostile-page behaviour in the iframe is covered only by
-SDK unit tests (forged replies from other sources are ignored) and a UI test (only the frame's own
-messages are relayed). The CSP/SDK route are unit-tested (`crates/ilmek-runtime/tests`, 15 tests); the unit tests of the
-bridge and content policy (`crates/ilmek-runtime/tests`, 14 tests) pass. Not verified at all:
-Windows (WebView2), macOS (WKWebView), Android WebView.
+**Verification status.** The content policy and the bridge are covered by unit tests
+(`crates/ilmek-runtime/tests`, 15 tests) and by SDK/UI tests (forged replies from other sources are
+ignored; only the frame's own messages are relayed). A hostile-page probe (`scripts/e2e/isolation-probe.sh`,
+Linux/WebKitGTK) passed on `main` for the earlier one-window-per-app model; it was **not re-run** for
+the iframe model and no longer matches it. Not verified at all: Windows (WebView2), macOS
+(WKWebView), Android WebView.
 
 ## Secrets
 
