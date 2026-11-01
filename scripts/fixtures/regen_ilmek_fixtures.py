@@ -11,10 +11,10 @@ seed are kept. Output is deterministic (Ed25519 signatures are deterministic).
 
 Usage: python3 -I scripts/fixtures/regen_ilmek_fixtures.py LEGACY.json OUT.json
 
-NOT USABLE ON feat/simple-no-security: that branch changed the message schema (HELLO client_id,
+NOT USABLE ON the simple edition (the `main` branch): it changed the message schema (HELLO client_id,
 no signature or publisher_key_id) and edited tests/protocol/fixtures/wire_examples.ilmek.json by
 hand-scripted patch (docs/decisions/0005-simple-no-security.md). Running this script would
-produce the `main` schema and break the protocol tests, so it refuses to run on this branch.
+produce the `security` branch schema and break the protocol tests, so it refuses to run on this branch.
 """
 import hashlib
 import json

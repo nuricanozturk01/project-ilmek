@@ -2,7 +2,7 @@
 
 Normative reference for the wire format: [PROTOCOL.md](../PROTOCOL.md). This file describes how the
 code is organized. It does not restate the protocol. Everything here describes the
-`feat/simple-no-security` branch; the secure design is on `main`
+`main` branch; the secure design is on the `security` branch
 ([decision 0005](decisions/0005-simple-no-security.md)).
 
 ## Roles

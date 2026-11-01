@@ -1,12 +1,12 @@
 # İlmek — Türkçe özet
 
-Bu özet `feat/simple-no-security` dalının gerçek davranışını anlatır. Ayrıntılar İngilizce belgelerdedir:
+Bu özet `main` dalının gerçek davranışını anlatır. Ayrıntılar İngilizce belgelerdedir:
 [README](../README.md), [GETTING_STARTED](GETTING_STARTED.md), [ARCHITECTURE](ARCHITECTURE.md),
 [PROTOCOL](../PROTOCOL.md).
 
 > **Bu dalda güvenlik yoktur.** Trafik şifrelenmez, kimse kimliğini kanıtlamaz, paketler imzalanmaz
 > (yalnızca SHA-256 ile bozulma denetlenir). Ağa bağlanan herkes katılıp uygulama yayınlayabilir.
-> Yalnızca güvendiğiniz, kapalı bir ağda kullanın. Güvenli tasarım `main` dalındadır.
+> Yalnızca güvendiğiniz, kapalı bir ağda kullanın. Güvenli tasarım `security` dalındadır.
 
 ## Ne işe yarar?
 

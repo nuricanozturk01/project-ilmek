@@ -1,8 +1,8 @@
 # ILMEK/1 — Application Protocol (simple edition)
 
 **Contract version:** 1.0-simple — no identity proof, plain TCP, automatic joining
-**Branch:** `feat/simple-no-security`
-**Status:** Describes the actual behavior of this branch. It is not a published internet standard. It is a deliberate simplification of the TLS 1.3 / certificate / signature contract on `main`; see [decision 0005](docs/decisions/0005-simple-no-security.md).
+**Branch:** `main` (the secure design is on the `security` branch)
+**Status:** Describes the actual behavior of this edition. It is not a published internet standard. It is a deliberate simplification of the TLS 1.3 / certificate / signature contract on the `security` branch; see [decision 0005](docs/decisions/0005-simple-no-security.md).
 **Product and setup:** [README.md](README.md)
 **Naming:** The project is **İlmek**, the English protocol name is **Ilmek Protocol**, the version is `ILMEK/1`, the application URI scheme is `ilmek://`. Technical identifiers are ASCII.
 
@@ -530,7 +530,7 @@ sequenceDiagram
 
 - The protocol notation `ILMEK/1`, the 4-byte frame magic `ILM1` and HELLO version=1 are the identifiers of this version, used together. ALPN is not used in this version.
 - The RPC hash domain prefix `ILMEK-CALL-V1` is fixed and followed by a single NUL byte; the preimage is defined in section 12. There is no manifest signature prefix in this version.
-- **This version is not wire-compatible with ILMEK/1 on `main`:** `client_id` is required in HELLO; there is no ENROLL/GET_TRUST; `AppRecord`, `REGISTER_APP`, `UPDATE_APP` and `MANIFEST` carry no signature/key fields. Because of the strict schema the two versions reject each other.
+- **This version is not wire-compatible with ILMEK/1 on the `security` branch:** `client_id` is required in HELLO; there is no ENROLL/GET_TRUST; `AppRecord`, `REGISTER_APP`, `UPDATE_APP` and `MANIFEST` carry no signature/key fields. Because of the strict schema the two versions reject each other.
 - 1.0 is a strict schema: unknown messages/fields are not accepted automatically and their meaning is not guessed.
 - Manifest schema_version and application version are separate from the wire version.
 
@@ -572,7 +572,7 @@ The checks below are covered by this branch's automated tests; the mapping is in
 
 P06 (TLS/ALPN/IP SAN), P11 (enrollment), P12 (identity-based access), P17/P18 (trust snapshot) and P22 (revocation) do **not exist** in this version: the corresponding features were removed.
 
-`tests/protocol/fixtures/wire_examples.ilmek.json` holds small deterministic byte examples for this version's schema (HELLO `client_id`, unsigned manifest). The root `WIRE_EXAMPLES.json` belongs to the `main` contract and is not used by this branch's tests.
+`tests/protocol/fixtures/wire_examples.ilmek.json` holds small deterministic byte examples for this version's schema (HELLO `client_id`, unsigned manifest). The root `WIRE_EXAMPLES.json` belongs to the `security` branch's contract and is not used by this branch's tests.
 
 ## 21. Open limits
 

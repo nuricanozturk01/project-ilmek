@@ -1,9 +1,9 @@
 # Security
 
-**This branch (`feat/simple-no-security`) has no security.** That was a deliberate decision to get
+**This edition (`main`) has no security.** That was a deliberate decision to get
 the whole system working first ([decision 0005](decisions/0005-simple-no-security.md)). Use it only
 on a network where you trust everyone who can reach the machines. The secure design (TLS 1.3,
-community CA and certificates, enrollment tokens, signed packages, revocation) is on `main`.
+community CA and certificates, enrollment tokens, signed packages, revocation) is on the `security` branch.
 
 ## What is not there
 
@@ -86,7 +86,7 @@ storage values up to 256 KiB and 5 MiB per application, scoped by community, dev
 **Verification status.** The content policy and the bridge are covered by unit tests
 (`crates/ilmek-runtime/tests`, 15 tests) and by SDK/UI tests (forged replies from other sources are
 ignored; only the frame's own messages are relayed). A hostile-page probe (`scripts/e2e/isolation-probe.sh`,
-Linux/WebKitGTK) passed on `main` for the earlier one-window-per-app model; it was **not re-run** for
+Linux/WebKitGTK) passed on the `security` branch for the earlier one-window-per-app model; it was **not re-run** for
 the iframe model and no longer matches it. Not verified at all: Windows (WebView2), macOS
 (WKWebView), Android WebView.
 
@@ -98,6 +98,6 @@ plain files. Logs carry request IDs, error classes, durations and sizes, not bod
 ## How security would be added
 
 The protocol is strict about unknown fields, so adding identity is a new protocol version, not a
-patch. The intended order, from `main`'s design: TLS 1.3 between all endpoints; a community CA and
+patch. The intended order, from the `security` branch's design: TLS 1.3 between all endpoints; a community CA and
 certificates in place of `client_id`; an enrollment step replacing "anyone can join"; signed
 manifests; revocation. Each step needs its own decision record.

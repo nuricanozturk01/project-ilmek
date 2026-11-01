@@ -2,7 +2,7 @@
 
 ## Context
 
-`main` implements the product as specified: ILMEK/1 over TLS 1.3 with a community CA, enrollment
+The `main` branch before this change implemented the product as specified: ILMEK/1 over TLS 1.3 with a community CA, enrollment
 tokens, signed packages, revocation, and a two-node Wi-Fi routing setup that needs two Wi-Fi
 adapters per routing node. In practice this made a first demo hard: nothing could be tried without
 creating a CA, issuing tokens, exchanging fingerprints and files, setting up publishers and keys,
@@ -12,7 +12,7 @@ every machine joining by itself and everything starting without ceremony.
 
 ## Decision
 
-Created on branch `feat/simple-no-security` (approved by the project owner):
+Created on the branch `feat/simple-no-security` (approved by the project owner); it is now `main`, and the previous design is kept on the `security` branch:
 
 - **No security in this branch.** Removed: TLS and ALPN, the community CA and certificates,
   enrollment tokens, revocation/trust snapshots, publisher keys and manifest signatures, roles.
@@ -44,9 +44,9 @@ Created on branch `feat/simple-no-security` (approved by the project owner):
 
 ## Consequences
 
-- The wire format is **incompatible** with `main` (HELLO field, removed messages, removed record
+- The wire format is **incompatible** with the `security` branch (HELLO field, removed messages, removed record
   fields). A node and a client from different branches cannot talk. `PROTOCOL.md` describes this branch.
-- `PROTOCOL.md`, `docs/REQUIREMENTS.md` (product specification of `main`) and the fixtures diverge
+- `PROTOCOL.md`, `docs/REQUIREMENTS.md` (product specification of the `security` branch) and the fixtures diverge
   on purpose; `tests/protocol/fixtures/wire_examples.ilmek.json` was regenerated for the new schema,
   the root `WIRE_EXAMPLES.json` was not touched.
 - Anyone on the network can read, join, publish and impersonate. See [SECURITY](../SECURITY.md).

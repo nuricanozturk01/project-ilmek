@@ -21,11 +21,11 @@ flowchart LR
     L2["more machines running<br/><code>ilmek host start</code>"] -. "join and register by themselves" .-> R
 ```
 
-> **This branch (`feat/simple-no-security`) has no security.** Nothing is encrypted, nothing proves
+> **This edition (the `main` branch) has no security.** Nothing is encrypted, nothing proves
 > who a device is, packages are checked for corruption (SHA-256) but not signed, and anyone on the
 > network can join and publish. Use it on a closed network you trust ([SECURITY](docs/SECURITY.md),
 > [decision 0005](docs/decisions/0005-simple-no-security.md)). The secure design (TLS 1.3,
-> certificates, signed packages, two-node Wi-Fi routing) lives on `main`.
+> certificates, signed packages, two-node Wi-Fi routing) lives on the `security` branch.
 
 > **What has been tested.** Everything runs on one Linux x86_64 machine, with registry, host,
 > backends and clients as separate processes over `127.0.0.1`, including UDP discovery and
@@ -114,7 +114,7 @@ Data lives in `$ILMEK_HOME` (default `~/.ilmek`). Ports: 47400/udp discovery, 47
 | [decisions](docs/decisions) | design decision records |
 | [OVERVIEW_TR](docs/OVERVIEW_TR.md) | Turkish summary |
 | [site/](site) | the project web page (English and Turkish) published with GitHub Pages: what İlmek is, the protocol with diagrams, the CLI, building and deploying apps. Edit `site/src/{en,tr}.html` and run `python3 scripts/build-site.py` |
-| [REQUIREMENTS](docs/REQUIREMENTS.md) | original product specification of the secure design on `main` (archived, Turkish) |
+| [REQUIREMENTS](docs/REQUIREMENTS.md) | original product specification of the secure design on the `security` branch (archived, Turkish) |
 
 ## Build and test
 

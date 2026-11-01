@@ -1,6 +1,6 @@
 # Test report
 
-**Branch:** `feat/simple-no-security`. **Revision:** `6f63019` plus the documentation, `.gitignore`
+**Branch:** `main`. **Revision:** `6f63019` plus the documentation, `.gitignore`
 and CLI help-text changes of the working tree. **Date:** 2026-11-01.
 **Environment E1:** one Linux x86_64 development PC (Linux 7.0, rustc 1.96.0, Bun 1.3.14, Node
 24.17.0, OpenJDK 25.0.4.1.1, Gradle 9.4.1), loopback networking only. **No other environment was

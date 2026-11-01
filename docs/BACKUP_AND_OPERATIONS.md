@@ -98,7 +98,7 @@ Restore a backup at least once before you depend on it.
 Take a backup first. Databases migrate forward only at start-up, and a database written by a newer
 build is refused by an older one. Going back to an old binary after a migration means restoring the
 pre-upgrade backup. Replace the binary and restart. This branch's registry/host schemas and wire
-format are **not compatible with `main`**: do not point it at data created there.
+format are **not compatible with the `security` branch**: do not point it at data created there.
 
 ## Diagnosing
 

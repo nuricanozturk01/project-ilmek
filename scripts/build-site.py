@@ -201,7 +201,10 @@ SEQ["publish"] = dict(
 def render_seq(name, lang):
     d = SEQ[name]
     lanes = d["lanes"][lang]
-    out = [f'<div class="seq" style="--n:{len(lanes)}">']
+    names = [n for n, _ in lanes]
+    actors_label = T("Participants", "Katılımcılar")[lang]
+    out = [f'<div class="seq-actors"><span>{actors_label}:</span>' + "".join(f"<b>{n}</b>" for n in names) + "</div>",
+           f'<div class="seq" style="--n:{len(lanes)}">']
     for nm, sub in lanes:
         out.append(f'<div class="lane">{nm}' + (f"<small>{sub}</small>" if sub else "") + "</div>")
     for row in d["rows"]:
@@ -211,7 +214,7 @@ def render_seq(name, lang):
             direction = "r" if a < b else "l"
             sub_txt = sub[lang] if isinstance(sub, dict) else (sub or "")
             out.append(
-                f'<div class="m {direction} {kind}" style="grid-column:{lo + 1}/{hi + 2};--span:{hi - lo + 1}">'
+                f'<div class="m {direction} {kind}" data-route="{html.escape(names[a])} → {html.escape(names[b])}" style="grid-column:{lo + 1}/{hi + 2};--span:{hi - lo + 1}">'
                 f"<b>{html.escape(label)}</b>" + (f"<i>{sub_txt}</i>" if sub_txt else "") + "</div>")
         elif row[0] == "self":
             _, a, b, text = row
@@ -259,7 +262,7 @@ def fig_layers(t):
   <div class="me">HTTP<small>{t('text requests and status codes', 'metin istekleri ve durum kodları')}</small></div>
   <div>TCP</div><div>IP</div><div class="os">{t('Wi-Fi / Ethernet / mobile data', 'Wi-Fi / Ethernet / mobil veri')}</div></div>
 </div>
-<figcaption>{t('ILMEK/1 replaces what HTTP does, not TCP or IP. This version has no TLS layer (the secure design on <code>main</code> puts TLS 1.3 between TCP and ILMEK/1).', 'ILMEK/1, HTTP’nin yaptığı işin yerini alır; TCP veya IP’nin değil. Bu sürümde TLS katmanı yoktur (<code>main</code> daki güvenli tasarım TLS 1.3’ü TCP ile ILMEK/1 arasına koyar).')}</figcaption></figure>"""
+<figcaption>{t('ILMEK/1 replaces what HTTP does, not TCP or IP. This version has no TLS layer (the secure design on the <code>security</code> branch puts TLS 1.3 between TCP and ILMEK/1).', 'ILMEK/1, HTTP’nin yaptığı işin yerini alır; TCP veya IP’nin değil. Bu sürümde TLS katmanı yoktur (<code>main</code> daki güvenli tasarım TLS 1.3’ü TCP ile ILMEK/1 arasına koyar).')}</figcaption></figure>"""
 
 
 def fig_frame(t):

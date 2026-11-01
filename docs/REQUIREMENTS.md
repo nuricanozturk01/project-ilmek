@@ -1,8 +1,8 @@
 > **Arşiv / archive.** This is the product specification of the secure two-node design that lives on
-> `main`. The branch `feat/simple-no-security` deliberately differs from it (no TLS, certificates or
-> signatures; no two-Wi-Fi-adapter requirement; automatic joining). For what this branch does see
+> the `security` branch. The `main` branch deliberately differs from it (no TLS, certificates or
+> signatures; no two-Wi-Fi-adapter requirement; automatic joining). For what `main` does, see
 > [README](../README.md) and [decision 0005](decisions/0005-simple-no-security.md). Nothing below
-> was updated for this branch.
+> was updated for `main`.
 
 # İlmek — İnternetten Bağımsız Kablosuz Uygulama Ağı
 

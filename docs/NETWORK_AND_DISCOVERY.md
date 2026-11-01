@@ -2,7 +2,7 @@
 
 İlmek needs **two or more computers that can reach each other over IP**. That is all. It does not
 configure Wi-Fi adapters, routes, DHCP or firewalls, and it does not need two Wi-Fi cards or an
-access-point-capable adapter. (The two-radio routing-node tooling of `main`, `ilmek network`, is
+access-point-capable adapter. (The two-radio routing-node tooling of the `security` branch, `ilmek network`, is
 not part of this branch.)
 
 > **Status.** Everything in this file about *other machines* is **not tested**: this work was done
@@ -100,4 +100,4 @@ machine its address (typically `10.42.0.1`).
 
 Several nodes that route between separate networks, mesh, and any connection to the public
 internet are not implemented. The original two-node Wi-Fi design is specified in
-[REQUIREMENTS](REQUIREMENTS.md) (archived, Turkish) and implemented on `main`.
+[REQUIREMENTS](REQUIREMENTS.md) (archived, Turkish) and implemented on the `security` branch.
