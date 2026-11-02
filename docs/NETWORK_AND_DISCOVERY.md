@@ -96,6 +96,68 @@ supports AP mode is hardware- and driver-dependent (`iw list`, look for `AP` und
 interface modes); this was not checked on any real hardware. The hotspot's DHCP gives the Linux
 machine its address (typically `10.42.0.1`).
 
+## Extending the network with ordinary home routers (Ethernet bridge)
+
+İlmek only needs one IP network, so several consumer routers ("modems") joined by **Ethernet cables**
+can serve as one network: the first is the real router, the others act as access points. Nothing in
+İlmek knows or cares how many routers are in between.
+
+> **Status: not tested.** No physical multi-router network was built. This section follows from how
+> İlmek uses TCP/UDP (the sections above) and from standard router behavior. Router menus differ per
+> model; the setting names below are generic.
+
+**Setup**
+
+1. **Main router (M1):** stays a router. It provides DHCP (and the internet link, if any).
+2. **Every other router (M2, M3, …): switch it to access-point / bridge mode**, or at least:
+   - turn **DHCP off**;
+   - give it a fixed LAN address inside M1's subnet that is not used by anything else
+     (for example `192.168.1.2`, `192.168.1.3`);
+   - connect the cable to its **LAN port**, not its WAN/Internet port. A cable in the WAN port makes
+     it a router with its own subnet (double NAT): devices behind it cannot be reached by devices on
+     M1, and İlmek's UDP discovery does not cross it.
+3. Use different Wi-Fi channels on neighbouring routers (1 / 6 / 11 on 2.4 GHz). The same SSID and
+   password on all of them lets phones roam; separate SSIDs also work.
+4. Give the node's machine a **fixed address** (DHCP reservation on M1 or a static IP), so the address
+   that devices store does not change.
+
+**Topologies**
+
+```mermaid
+flowchart LR
+    subgraph STAR["Star: M1 → M2, M1 → M3"]
+        S1["M1 router + DHCP"] --- S2["M2 AP"]
+        S1 --- S3["M3 AP"]
+    end
+    subgraph CHAIN["Chain: M1 → M2 → M3"]
+        C1["M1 router + DHCP"] --- C2["M2 AP"] --- C3["M3 AP"]
+    end
+```
+
+- **Both work.** A device on M3 reaches a node on M1 through M2 exactly as it would on one switch:
+  it is the same subnet, so İlmek's UDP broadcast and TCP connections need no routing.
+- **No loops.** Do not cable routers into a ring (M1–M2–M3–M1) unless they run spanning tree;
+  a loop floods the network with broadcasts.
+- **Chain trade-offs:** if M2 is off, M3 and everything behind it is cut off; M3's traffic shares the
+  M1–M2 cable; each cable segment is limited to 100 m (twisted pair). Prefer a star, and cable the
+  node's machine close to M1. Keep chains short (2–3 hops).
+- **Between buildings:** a cable across a street needs outdoor-rated cable, grounding/surge
+  protection and the permission of whoever owns the route; fibre media converters remove the 100 m
+  limit. A directional Wi-Fi link is the alternative for that one segment.
+
+**Checks (from a device behind the last router; not run here)**
+
+```sh
+ip -4 addr                                # same subnet as the node? (e.g. 192.168.1.x/24)
+ping NODE_IP                              # reachable across the bridge?
+nc -vz NODE_IP 47401                      # registry port open?
+ilmek join                                # UDP discovery; or: ilmek join --registry NODE_IP:47401
+```
+
+If `ip -4 addr` shows a different subnet than the node, a router in between is still routing (WAN
+port used or AP mode off). `ilmek join --registry NODE_IP:47401` may still work if the node's address
+is routable and TCP is allowed, but UDP discovery will not.
+
 ## Not covered
 
 Several nodes that route between separate networks, mesh, and any connection to the public
